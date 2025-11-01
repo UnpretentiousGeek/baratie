@@ -89,7 +89,7 @@ try {
       // Get Baratie path from storage
       chrome.storage.sync.get(['baratiePath'], (result) => {
         const DEFAULT_LOCAL = 'file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html';
-        const DEFAULT_VERCEL = 'https://baratie.vercel.app'; // Update with your Vercel URL
+        const DEFAULT_VERCEL = 'https://baratie-piece.vercel.app';
         const BARATIE_PATH = result.baratiePath || DEFAULT_VERCEL || DEFAULT_LOCAL;
 
         // Decide transfer method based on size

@@ -11,7 +11,8 @@
     "notifications"
   ],
   "host_permissions": [
-    "file:///*"
+    "file:///*",
+    "https://baratie-piece.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -28,6 +29,9 @@
     "service_worker": "background.js"
   },
   "externally_connectable": {
-    "matches": ["file:///*"]
+    "matches": [
+      "file:///*",
+      "https://baratie-piece.vercel.app/*"
+    ]
   }
 }

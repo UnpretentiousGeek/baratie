@@ -5,9 +5,9 @@
 
 // Configuration - Default paths (user can customize in settings)
 // For local development: file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html
-// For Vercel deployment: https://your-app-name.vercel.app
+// For Vercel deployment: https://baratie-piece.vercel.app
 const DEFAULT_LOCAL_PATH = 'file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html';
-const DEFAULT_VERCEL_PATH = 'https://baratie.vercel.app'; // Update with your Vercel URL after deployment
+const DEFAULT_VERCEL_PATH = 'https://baratie-piece.vercel.app';
 
 // DOM Elements
 let captureBtn;
