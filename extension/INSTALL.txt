@@ -1,0 +1,64 @@
+=====================================================
+BARATIE RECIPE CAPTURE EXTENSION - QUICK INSTALL
+=====================================================
+
+STEP 1: Open Chrome Extensions Page
+------------------------------------
+1. Open Google Chrome or Microsoft Edge
+2. Type in address bar: chrome://extensions/
+3. Press Enter
+
+STEP 2: Enable Developer Mode
+------------------------------
+1. Look for "Developer mode" toggle in top-right corner
+2. Click to turn it ON (should be blue)
+
+STEP 3: Load Extension
+----------------------
+1. Click "Load unpacked" button (top-left)
+2. Navigate to this folder:
+   d:\Vibe Coding Projects\Baratie\extension\
+3. Click "Select Folder"
+4. Extension should appear with title "Baratie Recipe Capture"
+
+STEP 4: Enable File Access (REQUIRED!)
+---------------------------------------
+1. Find "Baratie Recipe Capture" in the extensions list
+2. Click "Details" button
+3. Scroll down to find "Allow access to file URLs"
+4. Toggle it ON
+
+STEP 5: Pin to Toolbar (Optional but Recommended)
+-------------------------------------------------
+1. Click the puzzle piece icon in Chrome toolbar
+2. Find "Baratie Recipe Capture"
+3. Click the pin icon to pin it to toolbar
+
+STEP 6: Test It!
+----------------
+1. Go to any recipe website (try allrecipes.com)
+2. Highlight some recipe text
+3. Click the Baratie extension icon
+4. Click "Capture Recipe" button
+5. Baratie should open and process the recipe!
+
+TROUBLESHOOTING
+===============
+
+Extension doesn't show up?
+-> Make sure you selected the correct folder (the one with manifest.json)
+-> Try reloading: chrome://extensions/ → Click reload button
+
+Baratie doesn't open?
+-> Enable "Allow access to file URLs" (Step 4)
+-> Check Baratie path in extension settings (⚙️ icon in popup)
+
+No recipe detected?
+-> Select more text (at least 50 characters)
+-> Make sure you select both ingredients AND instructions
+
+MORE HELP
+=========
+See docs/README_EXTENSION.md for complete documentation.
+
+=====================================================

@@ -1,0 +1,2174 @@
+// ==========================================
+// Baratie - AI Recipe Manager
+// ==========================================
+
+class RecipeManager {
+    constructor() {
+        this.currentRecipe = null;
+        this.originalServings = 4;
+        this.currentServings = 4;
+        this.completedSteps = new Set();
+        this.chatHistory = [];
+        this.currentMacros = null; // Store calculated macros
+
+        // Gemini API configuration
+        this.geminiApiKey = CONFIG.GEMINI_API_KEY;
+        this.geminiModel = CONFIG.GEMINI_MODEL;
+        this.geminiApiUrl = CONFIG.GEMINI_API_URL;
+
+        // YouTube API configuration
+        this.youtubeApiKey = CONFIG.YOUTUBE_API_KEY;
+        this.youtubeApiUrl = CONFIG.YOUTUBE_API_URL;
+
+        this.init();
+    }
+
+    init() {
+        // Try to restore session
+        this.restoreSession();
+
+        // Bind event listeners
+        this.bindEventListeners();
+
+        // Initialize chat
+        this.initializeChat();
+
+        // Check for browser extension data
+        this.checkExtensionData();
+    }
+
+    bindEventListeners() {
+        // Stage 1: URL Processing
+        document.getElementById('process-btn').addEventListener('click', () => this.processRecipeURL());
+        document.getElementById('recipe-url').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.processRecipeURL();
+        });
+
+        // Stage 2: Preview Navigation
+        document.getElementById('back-to-capture').addEventListener('click', () => this.goToStage('capture'));
+        document.getElementById('start-cooking-btn').addEventListener('click', () => this.startCooking());
+
+        // Stage 3: Cooking Interface
+        document.getElementById('back-to-start').addEventListener('click', () => this.resetAndGoToStart());
+        document.getElementById('download-pdf').addEventListener('click', () => this.downloadPDF());
+
+        // Serving Adjustments
+        document.getElementById('decrease-servings').addEventListener('click', () => this.adjustServings(-1));
+        document.getElementById('increase-servings').addEventListener('click', () => this.adjustServings(1));
+        document.getElementById('servings-input').addEventListener('change', (e) => {
+            const value = parseInt(e.target.value);
+            if (value > 0) this.setServings(value);
+        });
+
+        // Chat
+        document.getElementById('toggle-chat').addEventListener('click', () => this.toggleChat());
+        document.getElementById('send-chat').addEventListener('click', () => this.sendChatMessage());
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendChatMessage();
+        });
+
+        // Tabs
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+        });
+
+        // Macros recalculation
+        document.getElementById('recalculate-macros')?.addEventListener('click', () => this.calculateMacros());
+    }
+
+    // ==========================================
+    // Stage Management
+    // ==========================================
+
+    goToStage(stageName) {
+        document.querySelectorAll('.stage').forEach(stage => {
+            stage.classList.remove('active');
+        });
+        document.getElementById(`stage-${stageName}`).classList.add('active');
+    }
+
+    // ==========================================
+    // Stage 1: URL Processing & AI Extraction
+    // ==========================================
+
+    async processRecipeURL() {
+        const urlInput = document.getElementById('recipe-url');
+        const url = urlInput.value.trim();
+
+        if (!url) {
+            this.showStatus('Please enter a valid URL', 'error');
+            return;
+        }
+
+        if (!this.isValidURL(url)) {
+            this.showStatus('Please enter a valid URL format', 'error');
+            return;
+        }
+
+        try {
+            this.showStatus('Processing recipe... This may take a moment.', 'loading');
+            document.getElementById('process-btn').disabled = true;
+
+            // Simulate AI extraction (in production, this would call your AI API)
+            const recipe = await this.extractRecipeFromURL(url);
+
+            if (!recipe.isValid) {
+                // Show sarcastic error message for non-recipe content
+                const sarcasticMessage = this.getSarcasticErrorMessage(url);
+                this.showStatus(sarcasticMessage, 'error');
+                document.getElementById('process-btn').disabled = false;
+                return;
+            }
+
+            this.currentRecipe = recipe;
+            this.originalServings = recipe.servings;
+            this.currentServings = recipe.servings;
+
+            this.showStatus('Recipe extracted successfully!', 'success');
+
+            setTimeout(() => {
+                this.displayRecipePreview();
+                this.goToStage('preview');
+                document.getElementById('process-btn').disabled = false;
+            }, 1000);
+
+        } catch (error) {
+            console.error('Error processing recipe:', error);
+            this.showStatus('An error occurred while processing the recipe. Please try again.', 'error');
+            document.getElementById('process-btn').disabled = false;
+        }
+    }
+
+    isValidURL(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    // AI Recipe Extraction using Gemini API
+    async extractRecipeFromURL(url) {
+        try {
+            // Check if this is a YouTube URL
+            if (this.isYouTubeURL(url)) {
+                return await this.extractRecipeFromYouTube(url);
+            }
+
+            // Step 1: Fetch the content from the URL (html + text)
+            const { html, text } = await this.fetchURLContent(url);
+
+            // Step 1a: Try structured extraction from JSON-LD if present
+            const structured = this.extractStructuredRecipeFromHtml(html, url);
+            if (structured) {
+                return this.normalizeExtractedRecipe(structured);
+            }
+
+            // Step 2: Build focused content (prioritize likely recipe sections)
+            const focused = this.extractLikelyRecipeSections(html, text);
+
+            // Step 3: Send to Gemini API for extraction with an enhanced, strict JSON-only prompt
+            const prompt = `You are a recipe extraction expert. Given HTML-derived text below, extract a recipe as strictly-typed JSON.
+
+Rules:
+- Respond with ONLY JSON (no markdown, no comments, no code fences).
+- If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
+- If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
+- For each ingredient:
+  - text: original line text
+  - amount: numeric value if present, else null
+  - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
+  - name: ingredient name
+
+Response shape (exact keys):
+{
+  "isValid": true,
+  "title": "",
+  "servings": 4,
+  "ingredients": [
+    { "text": "", "amount": 0, "unit": "", "name": "" }
+  ],
+  "instructions": ["..."]
+}
+
+If this is NOT a recipe, return {"isValid": false}.
+
+URL: ${url}
+
+CONTENT:
+${focused}`;
+
+            const recipe = await this.callGeminiAPI(prompt);
+            recipe.source = url;
+            return this.normalizeExtractedRecipe(recipe);
+
+        } catch (error) {
+            console.error('Error extracting recipe:', error);
+            return {
+                isValid: false,
+                error: error.message
+            };
+        }
+    }
+
+    // ==========================================
+    // Browser Extension Integration
+    // ==========================================
+
+    // Check for extension-passed data and auto-process
+    async checkExtensionData() {
+        if (!window.extensionData) return;
+
+        const { text, storageId, url, sourceUrl } = window.extensionData;
+
+        // MODE 1: URL-only capture (no text selection)
+        if (url && !text && !storageId) {
+            // Auto-fill the URL input and trigger normal extraction
+            document.getElementById('recipe-url').value = url;
+            this.showStatus('Extension captured URL. Processing...', 'loading');
+
+            // Trigger normal URL processing after a short delay
+            setTimeout(() => {
+                this.processRecipeURL();
+                // Clear URL params after processing
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 500);
+            return;
+        }
+
+        // MODE 2: Text capture (with selection or storage)
+        let recipeText = text;
+
+        // If storage ID provided, fetch from extension storage
+        if (storageId && !text) {
+            this.showStatus('Retrieving recipe from extension...', 'loading');
+            recipeText = await this.fetchFromExtension(storageId);
+        }
+
+        if (!recipeText) {
+            this.showStatus('No recipe data received from extension.', 'error');
+            return;
+        }
+
+        try {
+            // Show loading status
+            this.showStatus('Processing captured recipe text...', 'loading');
+            document.getElementById('process-btn').disabled = true;
+
+            // Extract recipe from captured text
+            const recipe = await this.extractRecipeFromText(recipeText, sourceUrl);
+
+            if (!recipe.isValid) {
+                this.showStatus('Could not extract a valid recipe from captured text.', 'error');
+                document.getElementById('process-btn').disabled = false;
+                return;
+            }
+
+            // Store recipe and navigate to preview
+            this.currentRecipe = recipe;
+            this.originalServings = recipe.servings;
+            this.currentServings = recipe.servings;
+
+            this.showStatus('Recipe extracted successfully!', 'success');
+
+            setTimeout(() => {
+                this.displayRecipePreview();
+                this.goToStage('preview');
+                document.getElementById('process-btn').disabled = false;
+
+                // Clear URL params after processing (clean up browser history)
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 1000);
+
+        } catch (error) {
+            console.error('Error processing extension data:', error);
+            this.showStatus('An error occurred while processing the captured recipe.', 'error');
+            document.getElementById('process-btn').disabled = false;
+        }
+    }
+
+    // Extract recipe from plain text (not URL)
+    async extractRecipeFromText(text, sourceUrl = 'User Selection') {
+        try {
+            const prompt = `You are a recipe extraction expert. Extract the recipe from the following text content.
+
+Rules:
+- Respond with ONLY JSON (no markdown, no comments, no code fences).
+- If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
+- If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
+- For each ingredient:
+  - text: original line text
+  - amount: numeric value if present, else null
+  - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
+  - name: ingredient name
+
+Response shape (exact keys):
+{
+  "isValid": true,
+  "title": "",
+  "servings": 4,
+  "ingredients": [
+    { "text": "", "amount": 0, "unit": "", "name": "" }
+  ],
+  "instructions": ["..."]
+}
+
+If this is NOT a recipe, return {"isValid": false}.
+
+SOURCE: ${sourceUrl}
+
+CONTENT:
+${text.substring(0, 15000)}`;
+
+            const recipe = await this.callGeminiAPI(prompt);
+            recipe.source = sourceUrl;
+            return this.normalizeExtractedRecipe(recipe);
+
+        } catch (error) {
+            console.error('Error extracting recipe from text:', error);
+            return {
+                isValid: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Fetch recipe text from extension storage (for large content)
+    async fetchFromExtension(storageId) {
+        return new Promise((resolve) => {
+            try {
+                // Try to get extension ID from storage or use wildcard
+                chrome.runtime.sendMessage(
+                    { action: 'getRecipeText', storageId: storageId },
+                    (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('Could not fetch from extension:', chrome.runtime.lastError);
+                            resolve(null);
+                        } else {
+                            resolve(response?.text || null);
+                        }
+                    }
+                );
+            } catch (error) {
+                console.error('Error fetching from extension:', error);
+                resolve(null);
+            }
+        });
+    }
+
+    // ==========================================
+    // URL Content Fetching
+    // ==========================================
+
+    // Fetch URL content (using a CORS proxy for browser-based fetching)
+    async fetchURLContent(url) {
+        const proxies = [
+            (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+            (u) => `https://thingproxy.freeboard.io/fetch/${u}`,
+            (u) => `https://r.jina.ai/http://$${'{'}}HOSTPLACEHOLDER${'}'}` // placeholder to keep array shape; replaced below
+        ];
+
+        // Build clean variants for proxies (including jina.ai universal fetcher)
+        const jinaVariant = (u) => {
+            try {
+                const parsed = new URL(u);
+                return `https://r.jina.ai/http://${parsed.host}${parsed.pathname}${parsed.search}`;
+            } catch {
+                return null;
+            }
+        };
+
+        const proxyUrls = [
+            proxies[0](url),
+            proxies[1](url),
+            jinaVariant(url)
+        ].filter(Boolean);
+
+        let lastError = null;
+        for (const proxyUrl of proxyUrls) {
+            try {
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`Proxy fetch failed: ${response.status}`);
+                const html = await response.text();
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Remove noisy elements
+                const noisy = doc.querySelectorAll('script, style, nav, footer, header');
+                noisy.forEach(el => el.remove());
+
+                let textContent = doc.body ? (doc.body.textContent || '') : '';
+                textContent = textContent.replace(/\s+/g, ' ').trim();
+
+                return {
+                    html,
+                    text: textContent.substring(0, 20000)
+                };
+            } catch (e) {
+                lastError = e;
+                continue;
+            }
+        }
+
+        console.error('All proxy fetch attempts failed:', lastError);
+        throw new Error('Could not fetch recipe content from URL');
+    }
+
+    // ==========================================
+    // YouTube Recipe Extraction
+    // ==========================================
+
+    // Check if URL is a YouTube video
+    isYouTubeURL(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            return hostname.includes('youtube.com') || hostname.includes('youtu.be');
+        } catch {
+            return false;
+        }
+    }
+
+    // Extract video ID from YouTube URL
+    extractYouTubeVideoId(url) {
+        try {
+            const urlObj = new URL(url);
+
+            // Handle youtu.be short links
+            if (urlObj.hostname.includes('youtu.be')) {
+                return urlObj.pathname.slice(1).split('?')[0];
+            }
+
+            // Handle youtube.com links
+            if (urlObj.hostname.includes('youtube.com')) {
+                // Standard watch URL
+                const vParam = urlObj.searchParams.get('v');
+                if (vParam) return vParam;
+
+                // Shorts URL
+                if (urlObj.pathname.includes('/shorts/')) {
+                    return urlObj.pathname.split('/shorts/')[1].split('?')[0];
+                }
+
+                // Embed URL
+                if (urlObj.pathname.includes('/embed/')) {
+                    return urlObj.pathname.split('/embed/')[1].split('?')[0];
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Error extracting YouTube video ID:', error);
+            return null;
+        }
+    }
+
+    // Extract recipe from YouTube video (description + pinned comment)
+    async extractRecipeFromYouTube(url) {
+        try {
+            const videoId = this.extractYouTubeVideoId(url);
+            if (!videoId) {
+                throw new Error('Could not extract video ID from YouTube URL');
+            }
+
+            // Detect if this is a Short
+            const isShort = url.includes('/shorts/');
+
+            // Fetch video details and comments in parallel
+            const [videoData, commentsData] = await Promise.all([
+                this.fetchYouTubeVideoDetails(videoId),
+                this.fetchYouTubePinnedComment(videoId)
+            ]);
+
+            // Check if Short has sparse description (likely a remix)
+            if (isShort && this.isDescriptionSparse(videoData.description)) {
+                // Try to find source video link in description
+                const sourceVideoId = this.extractSourceVideoId(videoData.description);
+
+                if (sourceVideoId && sourceVideoId !== videoId) {
+                    console.log(`Short has sparse content, attempting fallback to source video: ${sourceVideoId}`);
+
+                    // Show status to user
+                    this.showStatus('Short has limited recipe content. Fetching from original video...', 'loading');
+
+                    try {
+                        // Fetch source video details and comments
+                        const [sourceVideoData, sourceCommentsData] = await Promise.all([
+                            this.fetchYouTubeVideoDetails(sourceVideoId),
+                            this.fetchYouTubePinnedComment(sourceVideoId)
+                        ]);
+
+                        // Extract recipe from source video
+                        const sourceRecipe = await this.extractRecipeFromYouTubeData(
+                            sourceVideoData,
+                            sourceCommentsData,
+                            sourceVideoId
+                        );
+
+                        // Keep original Short URL as source, but note it's from the full video
+                        sourceRecipe.source = url;
+                        sourceRecipe.title = `${sourceRecipe.title} (from full video)`;
+
+                        console.log('Successfully extracted recipe from source video');
+                        return sourceRecipe;
+
+                    } catch (sourceError) {
+                        console.warn('Failed to extract from source video, falling back to Short content:', sourceError);
+                        // Fall through to try Short content anyway
+                    }
+                }
+            }
+
+            // Extract recipe from current video (Short or regular video)
+            const recipe = await this.extractRecipeFromYouTubeData(videoData, commentsData, videoId);
+            recipe.source = url;
+
+            return recipe;
+
+        } catch (error) {
+            console.error('Error extracting recipe from YouTube:', error);
+            return {
+                isValid: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Fetch YouTube video details using YouTube Data API
+    async fetchYouTubeVideoDetails(videoId) {
+        if (!this.youtubeApiKey || this.youtubeApiKey === 'YOUR_YOUTUBE_API_KEY_HERE') {
+            throw new Error('Please set your YouTube API key in config.js');
+        }
+
+        const endpoint = `${this.youtubeApiUrl}/videos?part=snippet&id=${videoId}&key=${this.youtubeApiKey}`;
+
+        try {
+            const response = await fetch(endpoint);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`YouTube API error: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.items || data.items.length === 0) {
+                throw new Error('Video not found or is private/unavailable');
+            }
+
+            const video = data.items[0];
+            return {
+                title: video.snippet.title,
+                description: video.snippet.description,
+                channelTitle: video.snippet.channelTitle
+            };
+
+        } catch (error) {
+            console.error('YouTube API call failed:', error);
+            throw error;
+        }
+    }
+
+    // Fetch YouTube pinned comment using YouTube Data API
+    async fetchYouTubePinnedComment(videoId) {
+        if (!this.youtubeApiKey || this.youtubeApiKey === 'YOUR_YOUTUBE_API_KEY_HERE') {
+            throw new Error('Please set your YouTube API key in config.js');
+        }
+
+        const endpoint = `${this.youtubeApiUrl}/commentThreads?part=snippet&videoId=${videoId}&maxResults=10&order=relevance&key=${this.youtubeApiKey}`;
+
+        try {
+            const response = await fetch(endpoint);
+
+            if (!response.ok) {
+                // Comments might be disabled
+                console.warn('Could not fetch comments (may be disabled)');
+                return { pinnedComment: null };
+            }
+
+            const data = await response.json();
+
+            if (!data.items || data.items.length === 0) {
+                return { pinnedComment: null };
+            }
+
+            // Look for pinned comment (first comment by channel owner or with most likes)
+            let pinnedComment = null;
+
+            // First, try to find a comment that's explicitly from the channel
+            const channelComment = data.items.find(item =>
+                item.snippet.topLevelComment.snippet.authorChannelId?.value ===
+                item.snippet.channelId
+            );
+
+            if (channelComment) {
+                pinnedComment = channelComment.snippet.topLevelComment.snippet.textDisplay;
+            } else {
+                // Fallback: Use the most liked comment
+                const mostLiked = data.items.reduce((prev, current) => {
+                    const prevLikes = prev.snippet.topLevelComment.snippet.likeCount || 0;
+                    const currentLikes = current.snippet.topLevelComment.snippet.likeCount || 0;
+                    return currentLikes > prevLikes ? current : prev;
+                });
+
+                pinnedComment = mostLiked.snippet.topLevelComment.snippet.textDisplay;
+            }
+
+            // Clean HTML entities from comment
+            if (pinnedComment) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(pinnedComment, 'text/html');
+                pinnedComment = doc.body.textContent || pinnedComment;
+            }
+
+            return { pinnedComment };
+
+        } catch (error) {
+            console.warn('Error fetching YouTube comments:', error);
+            return { pinnedComment: null };
+        }
+    }
+
+    // Fetch YouTube video captions/transcript
+    async fetchYouTubeCaptions(videoId) {
+        try {
+            // Use a third-party service to fetch captions since YouTube Data API doesn't provide transcripts
+            // We'll try to fetch from YouTube's timedtext endpoint
+            const captionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en`;
+
+            const response = await fetch(captionUrl);
+
+            if (!response.ok) {
+                console.warn('Captions not available for this video');
+                return null;
+            }
+
+            const xmlText = await response.text();
+
+            // Parse XML captions
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+            const textElements = xmlDoc.getElementsByTagName('text');
+
+            if (textElements.length === 0) {
+                return null;
+            }
+
+            // Extract and combine caption text
+            let captionText = '';
+            for (let i = 0; i < textElements.length; i++) {
+                const text = textElements[i].textContent.trim();
+                if (text) {
+                    captionText += text + ' ';
+                }
+            }
+
+            return captionText.trim();
+
+        } catch (error) {
+            console.warn('Error fetching YouTube captions:', error);
+            return null;
+        }
+    }
+
+    // Extract source video ID from YouTube Short description
+    extractSourceVideoId(description) {
+        if (!description) return null;
+
+        // Pattern to match YouTube video URLs in description
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/g,
+            /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/g,
+            /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/g
+        ];
+
+        for (const pattern of patterns) {
+            const matches = [...description.matchAll(pattern)];
+            if (matches.length > 0) {
+                // Return first video ID found (likely the source)
+                return matches[0][1];
+            }
+        }
+
+        return null;
+    }
+
+    // Check if description appears sparse/incomplete (likely a remix)
+    isDescriptionSparse(description) {
+        if (!description) return true;
+
+        const cleanDesc = description.trim();
+
+        // Very short descriptions are likely sparse
+        if (cleanDesc.length < 100) return true;
+
+        // Check for recipe-related keywords
+        const recipeKeywords = [
+            'ingredient', 'recipe', 'cup', 'tablespoon', 'teaspoon',
+            'tbsp', 'tsp', 'oz', 'grams', 'ml', 'instructions',
+            'step', 'cook', 'bake', 'mix', 'add', 'servings'
+        ];
+
+        const lowerDesc = cleanDesc.toLowerCase();
+        const keywordCount = recipeKeywords.filter(keyword =>
+            lowerDesc.includes(keyword)
+        ).length;
+
+        // If less than 3 recipe keywords, probably sparse
+        return keywordCount < 3;
+    }
+
+    // Extract recipe from YouTube video data (reusable for Shorts and source videos)
+    async extractRecipeFromYouTubeData(videoData, commentsData, videoId) {
+        // Combine description and pinned comment
+        let content = '';
+
+        if (videoData.description) {
+            content += `VIDEO DESCRIPTION:\n${videoData.description}\n\n`;
+        }
+
+        if (commentsData.pinnedComment) {
+            content += `PINNED COMMENT:\n${commentsData.pinnedComment}\n\n`;
+        }
+
+        if (!content.trim()) {
+            throw new Error('No recipe content found in video description or pinned comment');
+        }
+
+        // Use Gemini to extract recipe from the combined content
+        const prompt = `You are a recipe extraction expert. Extract the recipe from the following YouTube video content.
+
+Rules:
+- Respond with ONLY JSON (no markdown, no comments, no code fences).
+- If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
+- If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
+- For each ingredient:
+  - text: original line text
+  - amount: numeric value if present, else null
+  - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
+  - name: ingredient name
+
+Response shape (exact keys):
+{
+  "isValid": true,
+  "title": "${videoData.title}",
+  "servings": 4,
+  "ingredients": [
+    { "text": "", "amount": 0, "unit": "", "name": "" }
+  ],
+  "instructions": ["..."]
+}
+
+If this is NOT a recipe, return {"isValid": false}.
+
+YouTube Video ID: ${videoId}
+Video Title: ${videoData.title}
+
+CONTENT:
+${content}`;
+
+        const recipe = await this.callGeminiAPI(prompt);
+        recipe.title = recipe.title || videoData.title;
+
+        // Check if recipe has ingredients but NO instructions (edge case #2)
+        const hasIngredients = recipe.ingredients && recipe.ingredients.length >= 3;
+        const hasInstructions = recipe.instructions && recipe.instructions.length >= 2;
+
+        if (hasIngredients && !hasInstructions && recipe.isValid) {
+            console.warn('YouTube video has ingredients but no instructions. Trying captions...');
+
+            // STEP 1: Try to fetch video captions/transcript
+            const captions = await this.fetchYouTubeCaptions(videoId);
+
+            if (captions && captions.length > 200) {
+                console.log('Captions found! Extracting instructions from captions.');
+
+                // Use Gemini to extract instructions from captions
+                const captionPrompt = `You are a recipe instruction expert. Extract ONLY the cooking instructions from the following video transcript/captions.
+
+Rules:
+- Extract step-by-step cooking instructions ONLY
+- Ignore non-cooking dialogue, introductions, outros
+- Format as clear, actionable steps
+- Return as JSON array of instruction strings
+- Minimum 2 instructions required
+
+Response format:
+{
+  "instructions": ["Step 1 text", "Step 2 text", ...]
+}
+
+Video Title: ${videoData.title}
+
+CAPTIONS/TRANSCRIPT:
+${captions.substring(0, 10000)}`;
+
+                try {
+                    const captionResult = await this.callGeminiAPI(captionPrompt);
+
+                    if (captionResult.instructions && captionResult.instructions.length >= 2) {
+                        // Successfully extracted instructions from captions!
+                        recipe.instructions = captionResult.instructions;
+                        console.log('Successfully extracted instructions from video captions.');
+                        return this.normalizeExtractedRecipe(recipe);
+                    }
+                } catch (error) {
+                    console.warn('Failed to extract instructions from captions:', error);
+                }
+            }
+
+            // STEP 2: Last resort - embed video in instructions section
+            console.warn('No captions available. Embedding video as last resort.');
+
+            // Mark recipe as needing video embed (in instructions, not ingredients)
+            recipe.embedVideoId = videoId;
+            recipe.embedVideoTitle = videoData.title;
+            recipe.embedInInstructions = true; // NEW: flag to embed in instructions
+
+            // Don't add placeholder instructions - video will be embedded directly
+            recipe.instructions = [];
+        }
+
+        return this.normalizeExtractedRecipe(recipe);
+    }
+
+    // Attempt to extract Recipe via JSON-LD (@type: Recipe)
+    extractStructuredRecipeFromHtml(html, url) {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const scripts = Array.from(doc.querySelectorAll('script[type="application/ld+json"]'));
+            for (const script of scripts) {
+                let json;
+                try {
+                    json = JSON.parse(script.textContent || '{}');
+                } catch {
+                    continue;
+                }
+
+                const nodes = Array.isArray(json) ? json : (json['@graph'] || [json]);
+                for (const node of nodes) {
+                    if (!node) continue;
+                    const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
+                    if (types && types.includes('Recipe')) {
+                        const title = node.name || node.headline || doc.querySelector('title')?.textContent || 'Recipe';
+                        const servings = parseInt(
+                            (node.recipeYield && (Array.isArray(node.recipeYield) ? node.recipeYield[0] : node.recipeYield))
+                                ?.toString()
+                                .match(/\d+/)?.[0] || '4',
+                            10
+                        );
+                        const ingredients = (node.recipeIngredient || []).map(line => {
+                            const parsed = this.parseIngredientLine(line);
+                            return {
+                                text: line,
+                                amount: parsed.amount,
+                                unit: parsed.unit,
+                                name: parsed.name || line
+                            };
+                        });
+                        const instructions = [];
+                        if (Array.isArray(node.recipeInstructions)) {
+                            for (const inst of node.recipeInstructions) {
+                                if (typeof inst === 'string') instructions.push(inst);
+                                else if (inst && typeof inst.text === 'string') instructions.push(inst.text);
+                                else if (inst && Array.isArray(inst.itemListElement)) {
+                                    inst.itemListElement.forEach(it => {
+                                        if (typeof it === 'string') instructions.push(it);
+                                        else if (it && typeof it.text === 'string') instructions.push(it.text);
+                                    });
+                                }
+                            }
+                        }
+
+                        if (ingredients.length >= 3 && instructions.length >= 2) {
+                            return {
+                                isValid: true,
+                                title,
+                                servings: Number.isFinite(servings) ? servings : 4,
+                                ingredients,
+                                instructions,
+                                source: url
+                            };
+                        }
+                    }
+                }
+            }
+            return null;
+        } catch (e) {
+            console.warn('JSON-LD extraction failed:', e);
+            return null;
+        }
+    }
+
+    // Extract likely recipe sections to improve LLM reliability
+    extractLikelyRecipeSections(html, text) {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const title = doc.querySelector('h1, title')?.textContent?.trim() || '';
+
+            // Collect text from elements that likely contain ingredients/instructions
+            const selectors = [
+                'h1, h2, h3',
+                'ul, ol',
+                '[class*="ingredient" i]',
+                '[class*="instruction" i], [class*="direction" i]',
+                'article',
+            ].join(',');
+            const nodes = Array.from(doc.querySelectorAll(selectors));
+
+            const sections = [];
+            nodes.forEach(n => {
+                const t = n.textContent ? n.textContent.replace(/\s+/g, ' ').trim() : '';
+                if (!t) return;
+                const lower = t.toLowerCase();
+                const score = (
+                    (lower.includes('ingredient') ? 2 : 0) +
+                    (lower.includes('instruction') || lower.includes('direction') || lower.includes('method') ? 2 : 0) +
+                    (n.tagName === 'UL' || n.tagName === 'OL' ? 1 : 0)
+                );
+                if (score > 0) sections.push({ score, text: t.substring(0, 1000) });
+            });
+
+            sections.sort((a, b) => b.score - a.score);
+            const top = sections.slice(0, 12).map(s => s.text).join('\n');
+
+            const focused = [
+                title ? `TITLE: ${title}` : '',
+                top || text.substring(0, 4000)
+            ].filter(Boolean).join('\n\n');
+
+            return focused;
+        } catch {
+            // Fallback to raw text if parsing fails
+            return text.substring(0, 6000);
+        }
+    }
+
+    // Heuristic extraction from free-form text (YouTube descriptions/comments)
+    extractRecipeHeuristicallyFromText(text, title, url) {
+        const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return { isValid: false };
+
+        const ingredients = [];
+        const instructions = [];
+
+        // Simple state machine for sections
+        let inIngredients = false;
+        let inInstructions = false;
+
+        const looksLikeIngredient = (l) => {
+            const lower = l.toLowerCase();
+            const unitPattern = /(cup|cups|tbsp|tablespoon|tsp|teaspoon|g|kg|ml|l|pound|lb|oz|grams|liters|slice|clove|can|package|stick|pieces?)\b/;
+            const qtyPattern = /(^|\s)(\d+[\d\/\s\.]*)(?=\s|\b)/; // numbers or fractions
+            return unitPattern.test(lower) || qtyPattern.test(lower);
+        };
+
+        const looksLikeInstruction = (l) => {
+            if (/^\d+[:\.-]/.test(l)) return true; // numbered or timestamped
+            if (/^(step\s*\d+)/i.test(l)) return true;
+            if (/^(mix|stir|cook|bake|heat|combine|add|whisk|saute|sauté|boil|simmer|preheat|fold|season)\b/i.test(l)) return true;
+            return false;
+        };
+
+        for (const l of lines) {
+            const lower = l.toLowerCase();
+            if (/^ingredients?/i.test(l) || lower.includes('ingredients:')) {
+                inIngredients = true; inInstructions = false; continue;
+            }
+            if (/^(instructions|method|directions)/i.test(l) || lower.includes('instructions:')) {
+                inIngredients = false; inInstructions = true; continue;
+            }
+
+            if (inIngredients) {
+                if (looksLikeIngredient(l)) ingredients.push(l);
+                continue;
+            }
+            if (inInstructions) {
+                if (looksLikeInstruction(l)) instructions.push(l.replace(/^\d+[\.)-]\s*/, ''));
+                continue;
+            }
+
+            // Outside explicit sections: collect probable lines
+            if (looksLikeIngredient(l)) ingredients.push(l);
+            else if (looksLikeInstruction(l)) instructions.push(l);
+        }
+
+        const parsedIngredients = ingredients.map(line => {
+            const parsed = this.parseIngredientLine(line);
+            return { text: line, amount: parsed.amount, unit: parsed.unit, name: parsed.name };
+        });
+
+        const cleanInstructions = instructions
+            .map(s => s.replace(/^(\d+[:\.-]\s*)/, '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+
+        const valid = (parsedIngredients.length >= 2 || cleanInstructions.length >= 2);
+        if (!valid) return { isValid: false };
+
+        return {
+            isValid: true,
+            title: title || 'YouTube Recipe',
+            servings: 4,
+            ingredients: parsedIngredients,
+            instructions: cleanInstructions,
+            source: url
+        };
+    }
+
+    // Call Gemini API
+    async callGeminiAPI(prompt) {
+        if (!this.geminiApiKey || this.geminiApiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+            throw new Error('Please set your Gemini API key in config.js');
+        }
+
+        const endpoint = `${this.geminiApiUrl}${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+
+        const requestBody = {
+            contents: [{
+                parts: [{
+                    text: prompt
+                }]
+            }],
+            generationConfig: {
+                temperature: 0.2,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 2048,
+            }
+        };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Extract the text from Gemini's response
+            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!generatedText) {
+                throw new Error('No response from Gemini API');
+            }
+
+            // Clean up the response and robustly parse JSON
+            let cleanedText = generatedText.trim();
+            cleanedText = cleanedText
+                .replace(/^```\s*json\s*/i, '')
+                .replace(/^```/i, '')
+                .replace(/```\s*$/i, '')
+                .trim();
+
+            // Try direct parse; if it fails, try to extract the first top-level JSON object
+            let parsedResponse;
+            try {
+                parsedResponse = JSON.parse(cleanedText);
+            } catch (e) {
+                const match = cleanedText.match(/\{[\s\S]*\}/);
+                if (match) {
+                    parsedResponse = JSON.parse(match[0]);
+                } else {
+                    throw e;
+                }
+            }
+            return parsedResponse;
+
+        } catch (error) {
+            console.error('Gemini API call failed:', error);
+            throw error;
+        }
+    }
+
+    // ==========================================
+    // Stage 2: Recipe Preview
+    // ==========================================
+
+    displayRecipePreview() {
+        const recipe = this.currentRecipe;
+
+        document.getElementById('preview-title').textContent = recipe.title;
+        document.getElementById('preview-source').textContent = recipe.source;
+        document.getElementById('preview-servings').textContent = `Servings: ${recipe.servings}`;
+        document.getElementById('preview-ingredient-count').textContent =
+            `${recipe.ingredients.length} ingredient${recipe.ingredients.length !== 1 ? 's' : ''}`;
+
+        const ingredientList = document.getElementById('preview-ingredient-list');
+        ingredientList.innerHTML = '';
+        recipe.ingredients.forEach(ing => {
+            const li = document.createElement('li');
+            li.textContent = ing.text;
+            ingredientList.appendChild(li);
+        });
+    }
+
+    // ==========================================
+    // Stage 3: Cooking Interface
+    // ==========================================
+
+    startCooking() {
+        this.displayCookingInterface();
+        this.goToStage('cooking');
+        this.saveSession();
+    }
+
+    displayCookingInterface() {
+        const recipe = this.currentRecipe;
+
+        // Recipe Header
+        document.getElementById('cooking-title').textContent = recipe.title;
+        document.getElementById('cooking-source').textContent = recipe.source;
+
+        // Servings
+        document.getElementById('servings-input').value = this.currentServings;
+        document.getElementById('original-servings').textContent = `Original: ${this.originalServings} servings`;
+
+        // Ingredients
+        this.updateIngredientsList();
+
+        // Instructions
+        this.displayInstructions();
+
+        // Progress
+        this.updateProgress();
+    }
+
+    updateIngredientsList() {
+        const recipe = this.currentRecipe;
+        const ingredientList = document.getElementById('cooking-ingredient-list');
+        ingredientList.innerHTML = '';
+
+        // Just show ingredients - video embed now goes in instructions section
+        recipe.ingredients.forEach(ing => {
+            const li = document.createElement('li');
+            li.textContent = this.scaleIngredient(ing);
+            ingredientList.appendChild(li);
+        });
+    }
+
+    displayInstructions() {
+        const recipe = this.currentRecipe;
+        const instructionsList = document.getElementById('cooking-instructions-list');
+        instructionsList.innerHTML = '';
+
+        // Check if video should be embedded in instructions (edge case #2 - last resort)
+        if (recipe.embedVideoId && recipe.embedInInstructions) {
+            // Embed video WITHOUT checkboxes or other instructions
+            const videoContainer = document.createElement('div');
+            videoContainer.className = 'embedded-video-instructions';
+            
+            // Build YouTube embed URL with proper parameters to avoid Error 153
+            const videoId = recipe.embedVideoId;
+            const isFileProtocol = window.location.protocol === 'file:';
+            const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+            
+            // For file:// protocol, YouTube blocks embeds with Error 153, so use clickable thumbnail instead
+            if (isFileProtocol) {
+                videoContainer.innerHTML = `
+                    <div class="video-instructions-warning">
+                        <p><strong>⚠️ Video Instructions Only</strong></p>
+                        <p>This recipe provided ingredients but no written instructions. Click the video thumbnail below to watch on YouTube:</p>
+                    </div>
+                    <div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; border-radius: 8px; cursor: pointer;">
+                        <a href="${watchUrl}" target="_blank" rel="noopener noreferrer" style="display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-decoration: none;">
+                            <img 
+                                src="${thumbnailUrl}" 
+                                alt="${recipe.embedVideoTitle || 'Recipe Video'}"
+                                style="width: 100%; height: 100%; object-fit: cover;"
+                                onerror="this.src='https://img.youtube.com/vi/${videoId}/hqdefault.jpg'"
+                            />
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 0, 0, 0.9); border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                                <svg style="width: 40px; height: 40px; fill: white; margin-left: 4px;" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </div>
+                            <div style="position: absolute; bottom: 10px; right: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                Click to watch on YouTube
+                            </div>
+                        </a>
+                    </div>
+                `;
+            } else {
+                // For http/https, try iframe embed with proper parameters
+                const embedParams = new URLSearchParams({
+                    'enablejsapi': '1',
+                    'origin': window.location.origin,
+                    'rel': '0',
+                    'modestbranding': '1',
+                    'autoplay': '0'
+                });
+                const embedUrl = `https://www.youtube.com/embed/${videoId}?${embedParams.toString()}`;
+                
+                videoContainer.innerHTML = `
+                    <div class="video-instructions-warning">
+                        <p><strong>⚠️ Video Instructions Only</strong></p>
+                        <p>This recipe provided ingredients but no written instructions. Follow the video below:</p>
+                    </div>
+                    <div class="video-wrapper">
+                        <iframe
+                            src="${embedUrl}"
+                            title="${recipe.embedVideoTitle || 'Recipe Video'}"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen
+                            loading="lazy"
+                        ></iframe>
+                        <div class="video-fallback" style="display: none; margin-top: 10px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                            <p style="margin: 0 0 8px 0; color: #856404; font-weight: 500;">Video embedding failed. Click below to watch on YouTube:</p>
+                            <a href="${watchUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 8px 16px; background: #ff0000; color: white; text-decoration: none; border-radius: 4px; font-weight: 500;">
+                                ▶ Watch on YouTube
+                            </a>
+                        </div>
+                    </div>
+                `;
+                
+                // Detect embed failure after load
+                setTimeout(() => {
+                    const iframe = videoContainer.querySelector('iframe');
+                    const fallback = videoContainer.querySelector('.video-fallback');
+                    if (iframe && fallback) {
+                        // Check for error message in iframe (limited by CORS, but we can try)
+                        const checkError = () => {
+                            try {
+                                // If iframe content is accessible and contains error, show fallback
+                                // Note: This won't work due to CORS, but we set a timeout as backup
+                                setTimeout(() => {
+                                    // If we reach here and no error was caught, assume it's working
+                                    // Otherwise, error detection will happen via message events
+                                }, 2000);
+                            } catch (e) {
+                                // Cross-origin error is expected and means iframe is loading
+                            }
+                        };
+                        iframe.onerror = () => {
+                            fallback.style.display = 'block';
+                        };
+                        // Alternative: Listen for postMessage from YouTube iframe
+                        window.addEventListener('message', (e) => {
+                            if (e.data && typeof e.data === 'string' && e.data.includes('error')) {
+                                fallback.style.display = 'block';
+                            }
+                        });
+                        checkError();
+                    }
+                }, 3000);
+            }
+            instructionsList.appendChild(videoContainer);
+            return; // Don't show any other instructions
+        }
+
+        // Normal instructions with checkboxes
+        recipe.instructions.forEach((instruction, index) => {
+            const div = document.createElement('div');
+            div.className = 'instruction-item';
+            if (this.completedSteps.has(index)) {
+                div.classList.add('completed');
+            }
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'instruction-checkbox';
+            checkbox.checked = this.completedSteps.has(index);
+            checkbox.addEventListener('change', () => this.toggleStep(index));
+
+            const content = document.createElement('div');
+            content.className = 'instruction-content';
+
+            const number = document.createElement('div');
+            number.className = 'instruction-number';
+            number.textContent = `Step ${index + 1}`;
+
+            const text = document.createElement('div');
+            text.className = 'instruction-text';
+            text.textContent = instruction;
+
+            content.appendChild(number);
+            content.appendChild(text);
+            div.appendChild(checkbox);
+            div.appendChild(content);
+            instructionsList.appendChild(div);
+        });
+    }
+
+    toggleStep(stepIndex) {
+        if (this.completedSteps.has(stepIndex)) {
+            this.completedSteps.delete(stepIndex);
+        } else {
+            this.completedSteps.add(stepIndex);
+        }
+
+        this.displayInstructions();
+        this.updateProgress();
+        this.saveSession();
+    }
+
+    updateProgress() {
+        const totalSteps = this.currentRecipe.instructions.length;
+        const completedSteps = this.completedSteps.size;
+        const percentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+        document.getElementById('progress-text').textContent = `${completedSteps}/${totalSteps}`;
+        document.getElementById('progress-percentage').textContent = `${percentage}%`;
+        document.getElementById('progress-fill').style.width = `${percentage}%`;
+    }
+
+    // ==========================================
+    // Tab Management
+    // ==========================================
+
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`${tabName}-tab`).classList.add('active');
+
+        // If switching to macros tab and macros not calculated, calculate them
+        if (tabName === 'macros' && !this.currentMacros) {
+            this.calculateMacros();
+        }
+    }
+
+    // ==========================================
+    // Nutrition & Macros Calculation
+    // ==========================================
+
+    async calculateMacros() {
+        if (!this.currentRecipe) return;
+
+        // Show loading state
+        document.getElementById('macros-loading').style.display = 'flex';
+        document.getElementById('macros-content').style.display = 'none';
+        document.getElementById('macros-error').style.display = 'none';
+
+        try {
+            // Build recipe context for Gemini
+            const ingredientsList = this.currentRecipe.ingredients
+                .map(ing => this.scaleIngredient(ing))
+                .join('\n');
+
+            const prompt = `You are a nutrition expert. Calculate the approximate nutritional information for this recipe.
+
+Recipe: ${this.currentRecipe.title}
+Servings: ${this.currentServings}
+
+Ingredients:
+${ingredientsList}
+
+Instructions:
+${this.currentRecipe.instructions.join('\n')}
+
+Please provide nutritional information PER SERVING as JSON (no markdown, no code fences).
+
+Response format (exact keys):
+{
+  "calories": 0,
+  "protein_grams": 0,
+  "carbs_grams": 0,
+  "fats_grams": 0,
+  "fiber_grams": 0,
+  "sodium_mg": 0,
+  "sugar_grams": 0,
+  "cholesterol_mg": 0
+}
+
+Base your estimates on standard nutritional databases. Be realistic and conservative.`;
+
+            const macrosData = await this.callGeminiAPI(prompt);
+
+            // Calculate percentages for macronutrients
+            const totalMacroCalories =
+                (macrosData.protein_grams * 4) +
+                (macrosData.carbs_grams * 4) +
+                (macrosData.fats_grams * 9);
+
+            const macros = {
+                calories: Math.round(macrosData.calories),
+                protein: {
+                    grams: Math.round(macrosData.protein_grams),
+                    percentage: totalMacroCalories > 0
+                        ? Math.round((macrosData.protein_grams * 4 / totalMacroCalories) * 100)
+                        : 0
+                },
+                carbs: {
+                    grams: Math.round(macrosData.carbs_grams),
+                    percentage: totalMacroCalories > 0
+                        ? Math.round((macrosData.carbs_grams * 4 / totalMacroCalories) * 100)
+                        : 0
+                },
+                fats: {
+                    grams: Math.round(macrosData.fats_grams),
+                    percentage: totalMacroCalories > 0
+                        ? Math.round((macrosData.fats_grams * 9 / totalMacroCalories) * 100)
+                        : 0
+                },
+                fiber: Math.round(macrosData.fiber_grams),
+                sodium: Math.round(macrosData.sodium_mg),
+                sugar: Math.round(macrosData.sugar_grams),
+                cholesterol: Math.round(macrosData.cholesterol_mg)
+            };
+
+            this.currentMacros = macros;
+            this.displayMacros(macros);
+            this.saveSession();
+
+        } catch (error) {
+            console.error('Macros calculation error:', error);
+            document.getElementById('macros-loading').style.display = 'none';
+            document.getElementById('macros-error').style.display = 'block';
+        }
+    }
+
+    displayMacros(macros) {
+        // Hide loading, show content
+        document.getElementById('macros-loading').style.display = 'none';
+        document.getElementById('macros-content').style.display = 'block';
+        document.getElementById('macros-error').style.display = 'none';
+
+        // Update servings label
+        document.getElementById('macros-servings').textContent = this.currentServings;
+
+        // Update calories
+        document.getElementById('total-calories').textContent = macros.calories;
+
+        // Update macronutrients
+        document.getElementById('protein-grams').textContent = macros.protein.grams;
+        document.getElementById('protein-percentage').textContent = macros.protein.percentage;
+
+        document.getElementById('carbs-grams').textContent = macros.carbs.grams;
+        document.getElementById('carbs-percentage').textContent = macros.carbs.percentage;
+
+        document.getElementById('fats-grams').textContent = macros.fats.grams;
+        document.getElementById('fats-percentage').textContent = macros.fats.percentage;
+
+        document.getElementById('fiber-grams').textContent = macros.fiber;
+
+        // Update additional nutrients
+        document.getElementById('sodium-mg').textContent = `${macros.sodium}mg`;
+        document.getElementById('sugar-grams').textContent = `${macros.sugar}g`;
+        document.getElementById('cholesterol-mg').textContent = `${macros.cholesterol}mg`;
+    }
+
+    // ==========================================
+    // Dynamic Scaling
+    // ==========================================
+
+    adjustServings(delta) {
+        const newServings = this.currentServings + delta;
+        if (newServings > 0 && newServings <= 50) {
+            this.setServings(newServings);
+        }
+    }
+
+    setServings(servings) {
+        this.currentServings = servings;
+        document.getElementById('servings-input').value = servings;
+        this.updateIngredientsList();
+
+        // Recalculate macros if they were already calculated
+        if (this.currentMacros) {
+            this.calculateMacros();
+        }
+
+        this.saveSession();
+    }
+
+    scaleIngredient(ingredient) {
+        if (ingredient.amount == null || ingredient.amount === undefined) {
+            return ingredient.text;
+        }
+
+        const scaleFactor = this.currentServings / this.originalServings;
+        const scaledAmount = ingredient.amount * scaleFactor;
+        const formattedAmount = this.formatAmount(scaledAmount);
+        const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
+        const name = ingredient.name ? ` ${ingredient.name}` : '';
+        return `${formattedAmount}${unit}${name}`.trim();
+    }
+
+    formatAmount(amount) {
+        // Handle fractions nicely
+        if (amount % 1 === 0) return amount;
+
+        const fractions = {
+            0.25: '¼',
+            0.33: '⅓',
+            0.5: '½',
+            0.66: '⅔',
+            0.75: '¾'
+        };
+
+        const whole = Math.floor(amount);
+        const decimal = amount - whole;
+
+        for (const [dec, frac] of Object.entries(fractions)) {
+            if (Math.abs(decimal - parseFloat(dec)) < 0.05) {
+                return whole > 0 ? `${whole}${frac}` : frac;
+            }
+        }
+
+        return amount.toFixed(1);
+    }
+
+    // ==========================================
+    // Ingredient Parsing & Normalization
+    // ==========================================
+
+    parseIngredientLine(line) {
+        const cleaned = (line || '').trim();
+        // Basic patterns: "1 1/2 cups flour", "400 g spaghetti", "2 tbsp olive oil"
+        // Capture amount (supports mixed numbers and fractions), unit, and the rest as name
+        const fractionMap = { '½': '1/2', '¼': '1/4', '¾': '3/4', '⅓': '1/3', '⅔': '2/3' };
+        let normalized = cleaned.replace(/[½¼¾⅓⅔]/g, m => fractionMap[m] || m);
+
+        // Convert unicode fractions in mixed numbers like "1½" => "1 1/2"
+        normalized = normalized.replace(/(\d)(?=\s*[1/][23463])/g, '$1 ');
+
+        // Match amount (e.g., 1, 1 1/2, 0.5), optional unit, and name
+        const amountUnitRegex = /^(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?)\s*([a-zA-Zµ]+)?\b\s*(.*)$/;
+        const match = normalized.match(amountUnitRegex);
+
+        if (!match) {
+            return { amount: null, unit: '', name: cleaned };
+        }
+
+        const rawAmount = match[1];
+        const unit = (match[2] || '').toLowerCase();
+        const name = (match[3] || '').trim();
+
+        // Convert mixed number like "1 1/2" to decimal
+        let amount = 0;
+        const parts = rawAmount.split(' ');
+        for (const p of parts) {
+            if (/^\d+\/\d+$/.test(p)) {
+                const [a, b] = p.split('/').map(Number);
+                if (b) amount += a / b;
+            } else {
+                amount += parseFloat(p);
+            }
+        }
+
+        if (!isFinite(amount)) amount = null;
+        return { amount, unit, name };
+    }
+
+    normalizeExtractedRecipe(recipe) {
+        const safe = { ...recipe };
+        // Default/clean servings
+        if (!Number.isFinite(safe.servings) || safe.servings <= 0) {
+            safe.servings = 4;
+        } else {
+            safe.servings = Math.max(1, Math.round(safe.servings));
+        }
+
+        // Normalize ingredients
+        if (Array.isArray(safe.ingredients)) {
+            safe.ingredients = safe.ingredients.map(ing => {
+                if (ing && typeof ing === 'object') {
+                    const text = ing.text || [ing.amount, ing.unit, ing.name].filter(Boolean).join(' ').trim();
+                    if (ing.amount == null || ing.name == null) {
+                        const parsed = this.parseIngredientLine(text);
+                        return {
+                            text: text || '',
+                            amount: parsed.amount,
+                            unit: parsed.unit,
+                            name: parsed.name
+                        };
+                    }
+                    return {
+                        text: text || '',
+                        amount: ing.amount,
+                        unit: ing.unit || '',
+                        name: ing.name || ''
+                    };
+                } else if (typeof ing === 'string') {
+                    const parsed = this.parseIngredientLine(ing);
+                    return {
+                        text: ing,
+                        amount: parsed.amount,
+                        unit: parsed.unit,
+                        name: parsed.name
+                    };
+                }
+                return { text: '', amount: null, unit: '', name: '' };
+            });
+        } else {
+            safe.ingredients = [];
+        }
+
+        // Ensure instructions is an array of strings
+        if (!Array.isArray(safe.instructions)) {
+            safe.instructions = [];
+        } else {
+            safe.instructions = safe.instructions.map(x =>
+                typeof x === 'string' ? x : (x && x.text) ? x.text : String(x)
+            );
+        }
+
+        return safe;
+    }
+
+    // ==========================================
+    // Chat Assistant
+    // ==========================================
+
+    initializeChat() {
+        this.addChatMessage('assistant',
+            "Hi! I'm your cooking assistant. Ask me anything about the recipe - substitutions, techniques, timing, or any other cooking questions!");
+    }
+
+    toggleChat() {
+        const chat = document.querySelector('.chat-assistant');
+        const button = document.getElementById('toggle-chat');
+
+        if (chat.classList.contains('minimized')) {
+            chat.classList.remove('minimized');
+            button.textContent = '−';
+        } else {
+            chat.classList.add('minimized');
+            button.textContent = '+';
+        }
+    }
+
+    async sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        // Add user message
+        this.addChatMessage('user', message);
+        input.value = '';
+
+        // Get AI response
+        const response = await this.getChatResponse(message);
+        this.addChatMessage('assistant', response);
+    }
+
+    addChatMessage(role, content) {
+        const messagesContainer = document.getElementById('chat-messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${role}`;
+        messageDiv.textContent = content;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        this.chatHistory.push({ role, content });
+    }
+
+    async getChatResponse(userMessage) {
+        // Check if recipe is loaded
+        if (!this.currentRecipe) {
+            return "Please load a recipe first, and I'll be happy to help you with it!";
+        }
+
+        try {
+            // Build context-aware prompt for Gemini
+            const recipeContext = `
+Recipe Title: ${this.currentRecipe.title}
+Servings: ${this.currentServings} (original: ${this.originalServings})
+
+Ingredients:
+${this.currentRecipe.ingredients.map((ing, i) => `[${i}] ${this.scaleIngredient(ing)}`).join('\n')}
+
+Instructions:
+${this.currentRecipe.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}
+`;
+
+            const prompt = `You are an interactive cooking assistant with the ability to modify recipes. You can help the user adjust their recipe in real-time.
+
+IMPORTANT CAPABILITIES:
+1. You can change the serving size by responding with: ACTION:SET_SERVINGS:X (where X is the new number)
+2. You can substitute ingredients by responding with: ACTION:SUBSTITUTE_INGREDIENT:INDEX:NEW_TEXT (where INDEX is the ingredient number in brackets, and NEW_TEXT is the replacement)
+3. Only use these actions when the user explicitly requests changes
+
+IMPORTANT: Only answer cooking-related questions. If the user asks about non-cooking topics, politely redirect them to cooking questions.
+
+When responding with actions:
+- For serving adjustments: If user says "change to 6 servings" or "make it for 6", respond with "ACTION:SET_SERVINGS:6" followed by a friendly message
+- For substitutions: If user says "replace the eggs with flax eggs", find the egg ingredient index and respond with "ACTION:SUBSTITUTE_INGREDIENT:2:2 flax eggs" (example) followed by an explanation
+
+You can include MULTIPLE actions in one response by putting them on separate lines.
+
+Current Recipe Context:
+${recipeContext}
+
+Conversation History:
+${this.chatHistory.slice(-6).map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+
+User Question: ${userMessage}
+
+Provide a helpful response. If the user wants to modify the recipe, include the appropriate ACTION commands, then explain what you changed.`;
+
+            const response = await this.callGeminiAPIForChat(prompt);
+
+            // Process any actions in the response
+            const processedResponse = await this.processRecipeActions(response);
+
+            return processedResponse;
+
+        } catch (error) {
+            console.error('Chat error:', error);
+            return `Chat error: ${error.message}`;
+        }
+    }
+
+    // Process and execute recipe modification actions from chat
+    async processRecipeActions(aiResponse) {
+        const lines = aiResponse.split('\n');
+        const actions = [];
+        const messageLines = [];
+
+        for (const line of lines) {
+            if (line.startsWith('ACTION:')) {
+                actions.push(line);
+            } else {
+                messageLines.push(line);
+            }
+        }
+
+        // Execute actions
+        for (const action of actions) {
+            const parts = action.split(':');
+            const actionType = parts[1];
+
+            if (actionType === 'SET_SERVINGS') {
+                const newServings = parseInt(parts[2]);
+                if (newServings > 0 && newServings <= 50) {
+                    this.setServings(newServings);
+                    this.addSystemMessage(`✓ Servings adjusted to ${newServings}`);
+                }
+            } else if (actionType === 'SUBSTITUTE_INGREDIENT') {
+                const ingredientIndex = parseInt(parts[2]);
+                const newIngredientText = parts.slice(3).join(':');
+
+                if (ingredientIndex >= 0 && ingredientIndex < this.currentRecipe.ingredients.length) {
+                    // Parse the new ingredient (basic parsing)
+                    const oldIngredient = this.currentRecipe.ingredients[ingredientIndex];
+                    const newIngredient = this.parseIngredientText(newIngredientText, oldIngredient);
+
+                    this.currentRecipe.ingredients[ingredientIndex] = newIngredient;
+                    this.updateIngredientsList();
+
+                    // Recalculate macros if they were already calculated
+                    if (this.currentMacros) {
+                        this.calculateMacros();
+                    }
+
+                    this.saveSession();
+                    this.addSystemMessage(`✓ Substituted: ${newIngredient.text}`);
+                }
+            }
+        }
+
+        // Return the message without action commands
+        return messageLines.join('\n').trim();
+    }
+
+    // Parse ingredient text into structured format
+    parseIngredientText(text, templateIngredient = null) {
+        // Try to extract amount and unit
+        const amountMatch = text.match(/^(\d+(?:\.\d+)?|\d+\/\d+)\s*([a-zA-Z]*)\s*(.+)$/);
+
+        if (amountMatch) {
+            let amount = amountMatch[1];
+            // Handle fractions like 1/2
+            if (amount.includes('/')) {
+                const [num, den] = amount.split('/').map(Number);
+                amount = num / den;
+            } else {
+                amount = parseFloat(amount);
+            }
+
+            return {
+                text: text,
+                amount: amount,
+                unit: amountMatch[2] || (templateIngredient?.unit || ''),
+                name: amountMatch[3].trim()
+            };
+        }
+
+        // If no amount found, treat as "to taste" style
+        return {
+            text: text,
+            amount: templateIngredient?.amount || null,
+            unit: templateIngredient?.unit || 'to taste',
+            name: text
+        };
+    }
+
+    // Add a system message to chat (for action confirmations)
+    addSystemMessage(message) {
+        const messagesContainer = document.getElementById('chat-messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message system';
+        messageDiv.textContent = message;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Call Gemini API for chat (simpler, text-only response)
+    async callGeminiAPIForChat(prompt) {
+        if (!this.geminiApiKey || this.geminiApiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+            throw new Error('Please set your Gemini API key in config.js');
+        }
+
+        const endpoint = `${this.geminiApiUrl}${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+
+        const requestBody = {
+            contents: [{
+                parts: [{
+                    text: prompt
+                }]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 512,
+            }
+        };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Extract the text from Gemini's response
+            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!generatedText) {
+                throw new Error('No response from Gemini API');
+            }
+
+            return generatedText.trim();
+
+        } catch (error) {
+            console.error('Gemini API chat call failed:', error);
+            throw error;
+        }
+    }
+
+    // ==========================================
+    // PDF Download
+    // ==========================================
+
+    downloadPDF() {
+        if (!this.currentRecipe) return;
+
+        try {
+            // Access jsPDF from window object
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Set up colors
+            const primaryColor = [255, 107, 53]; // #ff6b35
+            const darkColor = [44, 62, 80]; // #2c3e50
+            const lightColor = [127, 140, 141]; // #7f8c8d
+
+            let yPosition = 20;
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const marginLeft = 20;
+            const marginRight = 20;
+            const maxWidth = pageWidth - marginLeft - marginRight;
+
+            // Title
+            doc.setFontSize(22);
+            doc.setTextColor(...primaryColor);
+            doc.setFont(undefined, 'bold');
+            const titleLines = doc.splitTextToSize(this.currentRecipe.title, maxWidth);
+            doc.text(titleLines, marginLeft, yPosition);
+            yPosition += titleLines.length * 8 + 5;
+
+            // Source and Servings
+            doc.setFontSize(10);
+            doc.setTextColor(...lightColor);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Source: ${this.currentRecipe.source}`, marginLeft, yPosition);
+            yPosition += 6;
+            doc.text(`Servings: ${this.currentServings}`, marginLeft, yPosition);
+            yPosition += 10;
+
+            // Ingredients Section
+            doc.setFontSize(16);
+            doc.setTextColor(...darkColor);
+            doc.setFont(undefined, 'bold');
+            doc.text('Ingredients', marginLeft, yPosition);
+            yPosition += 8;
+
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'normal');
+            this.currentRecipe.ingredients.forEach(ing => {
+                const ingredientText = `• ${this.scaleIngredient(ing)}`;
+                const lines = doc.splitTextToSize(ingredientText, maxWidth - 5);
+
+                // Check if we need a new page
+                if (yPosition + (lines.length * 6) > 280) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+
+                doc.text(lines, marginLeft + 5, yPosition);
+                yPosition += lines.length * 6 + 2;
+            });
+
+            yPosition += 8;
+
+            // Instructions Section
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...darkColor);
+
+            // Check if we need a new page for instructions header
+            if (yPosition > 260) {
+                doc.addPage();
+                yPosition = 20;
+            }
+
+            doc.text('Instructions', marginLeft, yPosition);
+            yPosition += 8;
+
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'normal');
+            this.currentRecipe.instructions.forEach((instruction, i) => {
+                const stepNumber = `${i + 1}. `;
+                const stepText = doc.splitTextToSize(instruction, maxWidth - 10);
+
+                // Check if we need a new page
+                if (yPosition + (stepText.length * 6) + 5 > 280) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+
+                // Step number in bold
+                doc.setFont(undefined, 'bold');
+                doc.text(stepNumber, marginLeft, yPosition);
+
+                // Step text
+                doc.setFont(undefined, 'normal');
+                doc.text(stepText, marginLeft + 10, yPosition);
+                yPosition += stepText.length * 6 + 5;
+            });
+
+            // Footer
+            const totalPages = doc.internal.pages.length - 1;
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(...lightColor);
+                doc.text(
+                    'Generated by Baratie - Your AI Recipe Assistant',
+                    pageWidth / 2,
+                    doc.internal.pageSize.getHeight() - 10,
+                    { align: 'center' }
+                );
+            }
+
+            // Save the PDF
+            const filename = `${this.currentRecipe.title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+            doc.save(filename);
+
+            // Show confirmation in chat
+            this.addSystemMessage('✓ Recipe PDF downloaded successfully!');
+
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            // Fallback to text file if PDF fails
+            this.downloadAsText();
+        }
+    }
+
+    // Fallback method to download as text file
+    downloadAsText() {
+        if (!this.currentRecipe) return;
+
+        let content = `${this.currentRecipe.title}\n`;
+        content += `${'='.repeat(this.currentRecipe.title.length)}\n\n`;
+        content += `Source: ${this.currentRecipe.source}\n`;
+        content += `Servings: ${this.currentServings}\n\n`;
+
+        content += `INGREDIENTS:\n`;
+        content += `${'-'.repeat(50)}\n`;
+        this.currentRecipe.ingredients.forEach(ing => {
+            content += `• ${this.scaleIngredient(ing)}\n`;
+        });
+
+        content += `\nINSTRUCTIONS:\n`;
+        content += `${'-'.repeat(50)}\n`;
+        this.currentRecipe.instructions.forEach((instruction, i) => {
+            content += `${i + 1}. ${instruction}\n\n`;
+        });
+
+        content += `\n${'='.repeat(50)}\n`;
+        content += `Generated by Baratie - Your AI Recipe Assistant\n`;
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${this.currentRecipe.title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.addSystemMessage('✓ Recipe downloaded as text file');
+    }
+
+    // ==========================================
+    // Session Management
+    // ==========================================
+
+    saveSession() {
+        if (!this.currentRecipe) return;
+
+        const sessionData = {
+            recipe: this.currentRecipe,
+            currentServings: this.currentServings,
+            originalServings: this.originalServings,
+            completedSteps: Array.from(this.completedSteps),
+            macros: this.currentMacros,
+            timestamp: Date.now()
+        };
+
+        try {
+            sessionStorage.setItem('baratie_session', JSON.stringify(sessionData));
+        } catch (e) {
+            console.error('Failed to save session:', e);
+        }
+    }
+
+    restoreSession() {
+        try {
+            const sessionData = sessionStorage.getItem('baratie_session');
+            if (!sessionData) return;
+
+            const data = JSON.parse(sessionData);
+
+            // Check if session is recent (within 24 hours)
+            const age = Date.now() - data.timestamp;
+            if (age > 24 * 60 * 60 * 1000) {
+                sessionStorage.removeItem('baratie_session');
+                return;
+            }
+
+            this.currentRecipe = data.recipe;
+            this.currentServings = data.currentServings;
+            this.originalServings = data.originalServings;
+            this.completedSteps = new Set(data.completedSteps);
+            this.currentMacros = data.macros || null;
+
+            // Restore to cooking stage
+            this.displayCookingInterface();
+            this.goToStage('cooking');
+
+            // Restore macros if they exist
+            if (this.currentMacros) {
+                this.displayMacros(this.currentMacros);
+            }
+
+        } catch (e) {
+            console.error('Failed to restore session:', e);
+            sessionStorage.removeItem('baratie_session');
+        }
+    }
+
+    resetAndGoToStart() {
+        this.currentRecipe = null;
+        this.completedSteps.clear();
+        this.chatHistory = [];
+        this.currentMacros = null;
+        sessionStorage.removeItem('baratie_session');
+
+        document.getElementById('recipe-url').value = '';
+        document.getElementById('chat-messages').innerHTML = '';
+        this.initializeChat();
+
+        this.goToStage('capture');
+    }
+
+    // ==========================================
+    // Utility Functions
+    // ==========================================
+
+    getSarcasticErrorMessage(url) {
+        // Array of sarcastic messages for non-recipe content
+        const messages = [
+            "🤔 That's not a recipe, that's... actually, I have no idea what that is. But it's definitely not food.",
+            "😬 I'm a recipe manager, not a miracle worker. That URL has zero cooking vibes.",
+            "🙄 Nice try, but I'm pretty sure that's not a recipe. Unless you're planning to eat your screen?",
+            "🤨 I searched that entire page for ingredients and instructions. Found nothing. Are you pranking me?",
+            "😅 That's about as much a recipe as I am a Michelin-star chef. (Spoiler: I'm not.)",
+            "🍕 I was expecting ingredients like 'flour' and 'eggs', not... whatever this is. Try again with actual food?",
+            "👨‍🍳 Chef's note: This is not food content. Please feed me recipes, not random web pages.",
+            "🥘 I'm designed to extract recipes, not existential crises. That URL gave me both confusion and hunger for real recipes.",
+            "📖 I read that entire page twice. Still no recipe. Maybe try a food blog next time?",
+            "🍝 I can extract recipes from the messiest food blogs, but I can't extract food from non-food content. Physics, you know?",
+            "🧑‍🍳 Error 404: Recipe Not Found. Did you mean to send me to a cooking website?",
+            "🍳 I'm having an identity crisis. That URL told me I'm NOT a recipe manager. Please validate me with actual recipes.",
+            "🥗 That's not a recipe. That's not even food-adjacent. I'm starting to question your definition of 'cooking'.",
+            "👀 I scanned every pixel of that page. No ingredients, no instructions, no hope. Send help (in the form of recipes).",
+            "🤷 I mean, technically you CAN'T cook what you just sent me. Because it's not food. Just saying."
+        ];
+
+        // Pick a random sarcastic message
+        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+
+        // Add a helpful tip
+        return `${randomMessage}\n\nTip: Try recipe blogs like AllRecipes, Food Network, or YouTube cooking videos!`;
+    }
+
+    showStatus(message, type) {
+        const statusDiv = document.getElementById('status-message');
+        statusDiv.textContent = message;
+        statusDiv.className = `status-message ${type} show`;
+
+        if (type !== 'loading') {
+            setTimeout(() => {
+                statusDiv.classList.remove('show');
+            }, 5000);
+        }
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+}
+
+// ==========================================
+// Initialize Application
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.recipeManager = new RecipeManager();
+});

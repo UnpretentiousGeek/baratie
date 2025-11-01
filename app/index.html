@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baratie - AI Recipe Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1><s Baratie</h1>
+            <p class="tagline">Your AI-Powered Recipe Assistant</p>
+        </header>
+
+        <!-- Stage 1: URL Capture -->
+        <div id="stage-capture" class="stage active">
+            <div class="capture-container">
+                <h2>Start Your Cooking Journey</h2>
+                <p class="subtitle">Paste any recipe URL from blogs, YouTube, Instagram, or other sources</p>
+
+                <div class="input-group">
+                    <input
+                        type="url"
+                        id="recipe-url"
+                        placeholder="https://www.example.com/best-pasta-recipe"
+                        aria-label="Recipe URL"
+                    >
+                    <button id="process-btn" class="btn-primary">Process Recipe</button>
+                </div>
+
+                <div id="status-message" class="status-message"></div>
+
+                <div class="examples">
+                    <p class="examples-title">Supported sources:</p>
+                    <ul>
+                        <li>Recipe blogs and websites</li>
+                        <li>YouTube cooking videos</li>
+                        <li>Instagram Reels</li>
+                        <li>TikTok recipe videos</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage 2: Recipe Preview & Confirmation -->
+        <div id="stage-preview" class="stage">
+            <div class="preview-container">
+                <button id="back-to-capture" class="btn-back">� Back</button>
+
+                <div class="recipe-preview">
+                    <h2 id="preview-title">Recipe Title</h2>
+                    <p class="recipe-source">Source: <span id="preview-source"></span></p>
+
+                    <div class="preview-meta">
+                        <span id="preview-servings" class="meta-item">Servings: 4</span>
+                        <span id="preview-ingredient-count" class="meta-item">15 ingredients</span>
+                    </div>
+
+                    <div class="preview-ingredients">
+                        <h3>Ingredients Preview</h3>
+                        <ul id="preview-ingredient-list"></ul>
+                    </div>
+
+                    <button id="start-cooking-btn" class="btn-primary btn-large">Start Cooking</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage 3: Interactive Cooking Interface -->
+        <div id="stage-cooking" class="stage">
+            <div class="cooking-container">
+                <!-- Utility Panel -->
+                <div class="utility-panel">
+                    <button id="back-to-start" class="btn-secondary">� New Recipe</button>
+                    <button id="download-pdf" class="btn-secondary">=� Download PDF</button>
+                </div>
+
+                <!-- Recipe Header -->
+                <div class="recipe-header">
+                    <h2 id="cooking-title">Recipe Title</h2>
+                    <p class="recipe-source">Source: <span id="cooking-source"></span></p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Progress: <span id="progress-text">0/0</span></span>
+                        <span id="progress-percentage">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Serving Adjuster -->
+                <div class="serving-adjuster">
+                    <label for="servings-input">Servings:</label>
+                    <div class="adjuster-controls">
+                        <button id="decrease-servings" class="btn-adjuster"></button>
+                        <input
+                            type="number"
+                            id="servings-input"
+                            value="4"
+                            min="1"
+                            max="50"
+                            aria-label="Number of servings"
+                        >
+                        <button id="increase-servings" class="btn-adjuster">+</button>
+                    </div>
+                    <span id="original-servings" class="serving-note">Original: 4 servings</span>
+                </div>
+
+                <!-- Recipe/Macros Tabs -->
+                <div class="recipe-tabs">
+                    <button class="tab-button active" data-tab="recipe">Recipe</button>
+                    <button class="tab-button" data-tab="macros">Nutrition</button>
+                </div>
+
+                <!-- Recipe Tab Content -->
+                <div id="recipe-tab" class="tab-content active">
+                    <!-- Ingredients Section -->
+                    <div class="ingredients-section">
+                        <h3>Ingredients</h3>
+                        <ul id="cooking-ingredient-list"></ul>
+                    </div>
+
+                    <!-- Instructions Section -->
+                    <div class="instructions-section">
+                        <h3>Instructions</h3>
+                        <div id="cooking-instructions-list"></div>
+                    </div>
+                </div>
+
+                <!-- Macros Tab Content -->
+                <div id="macros-tab" class="tab-content">
+                    <div class="macros-section">
+                        <div class="macros-header">
+                            <h3>Nutrition Information</h3>
+                            <p class="macros-serving-info">Per serving (based on <span id="macros-servings">4</span> servings)</p>
+                        </div>
+
+                        <div id="macros-loading" class="macros-loading">
+                            <div class="spinner"></div>
+                            <p>Calculating nutrition information...</p>
+                        </div>
+
+                        <div id="macros-content" class="macros-content" style="display: none;">
+                            <!-- Calorie Summary -->
+                            <div class="macro-calories">
+                                <div class="calories-circle">
+                                    <span id="total-calories" class="calories-number">0</span>
+                                    <span class="calories-label">calories</span>
+                                </div>
+                            </div>
+
+                            <!-- Macronutrients -->
+                            <div class="macros-grid">
+                                <div class="macro-card protein">
+                                    <div class="macro-icon">🥩</div>
+                                    <div class="macro-info">
+                                        <span class="macro-label">Protein</span>
+                                        <span class="macro-value"><span id="protein-grams">0</span>g</span>
+                                        <span class="macro-percentage"><span id="protein-percentage">0</span>%</span>
+                                    </div>
+                                </div>
+
+                                <div class="macro-card carbs">
+                                    <div class="macro-icon">🍞</div>
+                                    <div class="macro-info">
+                                        <span class="macro-label">Carbs</span>
+                                        <span class="macro-value"><span id="carbs-grams">0</span>g</span>
+                                        <span class="macro-percentage"><span id="carbs-percentage">0</span>%</span>
+                                    </div>
+                                </div>
+
+                                <div class="macro-card fats">
+                                    <div class="macro-icon">🥑</div>
+                                    <div class="macro-info">
+                                        <span class="macro-label">Fats</span>
+                                        <span class="macro-value"><span id="fats-grams">0</span>g</span>
+                                        <span class="macro-percentage"><span id="fats-percentage">0</span>%</span>
+                                    </div>
+                                </div>
+
+                                <div class="macro-card fiber">
+                                    <div class="macro-icon">🌾</div>
+                                    <div class="macro-info">
+                                        <span class="macro-label">Fiber</span>
+                                        <span class="macro-value"><span id="fiber-grams">0</span>g</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Nutrients -->
+                            <div class="nutrients-list">
+                                <h4>Additional Nutrients</h4>
+                                <div class="nutrient-row">
+                                    <span>Sodium</span>
+                                    <span id="sodium-mg">0</span>
+                                </div>
+                                <div class="nutrient-row">
+                                    <span>Sugar</span>
+                                    <span id="sugar-grams">0</span>
+                                </div>
+                                <div class="nutrient-row">
+                                    <span>Cholesterol</span>
+                                    <span id="cholesterol-mg">0</span>
+                                </div>
+                            </div>
+
+                            <div class="macros-disclaimer">
+                                <small>* Nutritional values are estimates calculated by AI and may vary based on specific ingredients and preparation methods.</small>
+                            </div>
+                        </div>
+
+                        <div id="macros-error" class="macros-error" style="display: none;">
+                            <p>Unable to calculate nutrition information. Please try again.</p>
+                            <button id="recalculate-macros" class="btn-secondary">Recalculate</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Assistant -->
+                <div class="chat-assistant">
+                    <div class="chat-header">
+                        <span>=� Ask Me Anything</span>
+                        <button id="toggle-chat" class="btn-icon"></button>
+                    </div>
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <div class="chat-input-container">
+                        <input
+                            type="text"
+                            id="chat-input"
+                            placeholder="Ask about substitutions, techniques, or timing..."
+                            aria-label="Chat input"
+                        >
+                        <button id="send-chat" class="btn-primary">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Extension Data Detection -->
+    <script>
+        // Check for browser extension-passed data on page load
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+
+            if (urlParams.has('recipe_text') || urlParams.has('recipe_storage_id') || urlParams.has('recipe_url')) {
+                // Store extension data globally for app.js to access
+                window.extensionData = {
+                    text: urlParams.get('recipe_text') ? decodeURIComponent(urlParams.get('recipe_text')) : null,
+                    storageId: urlParams.get('recipe_storage_id'),
+                    url: urlParams.get('recipe_url') ? decodeURIComponent(urlParams.get('recipe_url')) : null,
+                    sourceUrl: urlParams.get('source_url') ? decodeURIComponent(urlParams.get('source_url')) : 'Browser Extension Capture'
+                };
+
+                console.log('Extension data detected:', {
+                    hasText: !!window.extensionData.text,
+                    hasStorageId: !!window.extensionData.storageId,
+                    hasUrl: !!window.extensionData.url,
+                    sourceUrl: window.extensionData.sourceUrl
+                });
+            }
+        })();
+    </script>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

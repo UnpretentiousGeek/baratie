@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Baratie Recipe Capture",
+  "version": "1.0.0",
+  "description": "Capture recipe text from any webpage and send to Baratie Recipe Manager for AI-powered cooking guidance",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "contextMenus",
+    "notifications"
+  ],
+  "host_permissions": [
+    "file:///*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Capture Recipe with Baratie"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": ["file:///*"]
+  }
+}

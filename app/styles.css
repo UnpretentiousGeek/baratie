@@ -1,0 +1,984 @@
+/* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+*:not(.instruction-item.completed .instruction-text) {
+    text-decoration: none;
+}
+
+:root {
+    --primary-color: #ff6b35;
+    --secondary-color: #004e89;
+    --accent-color: #f7b801;
+    --success-color: #2ecc71;
+    --error-color: #e74c3c;
+    --text-dark: #2c3e50;
+    --text-light: #7f8c8d;
+    --bg-light: #f8f9fa;
+    --bg-white: #ffffff;
+    --border-color: #e0e0e0;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 1rem;
+    color: var(--text-dark);
+}
+
+.app-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Header */
+.app-header {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: white;
+}
+
+.app-header h1 {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tagline {
+    font-size: 1.1rem;
+    opacity: 0.95;
+}
+
+/* Stage Management */
+.stage {
+    display: none;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.stage.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Stage 1: Capture */
+.capture-container {
+    background: var(--bg-white);
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    box-shadow: var(--shadow-lg);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.capture-container h2 {
+    font-size: 2rem;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.subtitle {
+    text-align: center;
+    color: var(--text-light);
+    margin-bottom: 2rem;
+}
+
+.input-group {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+#recipe-url {
+    flex: 1;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+#recipe-url:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.status-message {
+    min-height: 2.5rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 500;
+    display: none;
+}
+
+.status-message.show {
+    display: block;
+}
+
+.status-message.loading {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-message.success {
+    background: #e8f5e9;
+    color: var(--success-color);
+}
+
+.status-message.error {
+    background: #ffebee;
+    color: var(--error-color);
+    white-space: pre-line; /* Allow line breaks in error messages */
+    text-align: left;
+}
+
+.examples {
+    background: var(--bg-light);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-top: 2rem;
+}
+
+.examples-title {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+}
+
+.examples ul {
+    list-style-position: inside;
+    color: var(--text-light);
+}
+
+.examples li {
+    margin-bottom: 0.5rem;
+}
+
+/* Stage 2: Preview */
+.preview-container {
+    background: var(--bg-white);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: var(--shadow-lg);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.btn-back {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    transition: color 0.3s;
+}
+
+.btn-back:hover {
+    color: var(--text-dark);
+}
+
+.recipe-preview h2 {
+    font-size: 2rem;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+}
+
+.recipe-source {
+    color: var(--text-light);
+    margin-bottom: 1.5rem;
+}
+
+.preview-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: 8px;
+}
+
+.meta-item {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.preview-ingredients {
+    margin-bottom: 2rem;
+}
+
+.preview-ingredients h3 {
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.preview-ingredients ul {
+    list-style-position: inside;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.preview-ingredients li {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Stage 3: Cooking */
+.cooking-container {
+    background: var(--bg-white);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: var(--shadow-lg);
+    max-width: 900px;
+    margin: 0 auto;
+    margin-bottom: 1rem;
+}
+
+.utility-panel {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.recipe-header {
+    margin-bottom: 1.5rem;
+}
+
+.recipe-header h2 {
+    font-size: 2rem;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+}
+
+/* Progress Bar */
+.progress-container {
+    margin-bottom: 2rem;
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.progress-bar {
+    height: 12px;
+    background: var(--bg-light);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Serving Adjuster */
+.serving-adjuster {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.serving-adjuster label {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.adjuster-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-adjuster {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--primary-color);
+    background: white;
+    color: var(--primary-color);
+    border-radius: 8px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-adjuster:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+#servings-input {
+    width: 60px;
+    text-align: center;
+    padding: 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.serving-note {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-left: auto;
+}
+
+/* Ingredients Section */
+.ingredients-section {
+    margin-bottom: 2rem;
+}
+
+.ingredients-section h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+#cooking-ingredient-list {
+    list-style: none;
+}
+
+#cooking-ingredient-list li {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#cooking-ingredient-list li::before {
+    content: '•';
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    line-height: 0;
+}
+
+/* Embedded Video for YouTube recipes with only ingredients */
+.embedded-video-container {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #fff5e6 0%, #ffe6cc 100%);
+    border: 2px solid var(--primary-color);
+    border-radius: 12px;
+}
+
+.video-warning {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.video-warning p:first-child {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.video-warning p:last-child {
+    font-size: 0.95rem;
+    color: var(--text-medium);
+}
+
+.video-wrapper {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+}
+
+/* Embedded Video in Instructions Section (Last Resort) */
+.embedded-video-instructions {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #ffebee 0%, #fce4ec 100%);
+    border: 2px solid var(--error-color);
+    border-radius: 12px;
+}
+
+.video-instructions-warning {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.video-instructions-warning p:first-child {
+    font-size: 1.1rem;
+    color: var(--error-color);
+    margin-bottom: 0.5rem;
+}
+
+.video-instructions-warning p:last-child {
+    font-size: 0.95rem;
+    color: var(--text-dark);
+}
+
+/* Recipe/Macros Tabs */
+.recipe-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+    position: relative;
+    bottom: -2px;
+}
+
+.tab-button:hover {
+    color: var(--primary-color);
+}
+
+.tab-button.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Instructions Section */
+.instructions-section {
+    margin-bottom: 2rem;
+}
+
+.instructions-section h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.instruction-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    background: var(--bg-light);
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.instruction-item.completed {
+    opacity: 0.6;
+    background: #e8f5e9;
+}
+
+.instruction-checkbox {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+}
+
+.instruction-content {
+    flex: 1;
+}
+
+.instruction-number {
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.instruction-text {
+    line-height: 1.6;
+}
+
+.instruction-item.completed .instruction-text {
+    text-decoration: line-through;
+}
+
+/* Chat Assistant */
+.chat-assistant {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    width: 400px;
+    max-width: calc(100vw - 2rem);
+    background: var(--bg-white);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    transition: all 0.3s;
+    z-index: 1000;
+}
+
+.chat-assistant.minimized {
+    height: 60px;
+}
+
+.chat-assistant.minimized .chat-messages,
+.chat-assistant.minimized .chat-input-container {
+    display: none;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--secondary-color);
+    color: white;
+    font-weight: 600;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-messages {
+    height: 300px;
+    overflow-y: auto;
+    padding: 1rem;
+    background: var(--bg-light);
+}
+
+.chat-message {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    max-width: 85%;
+}
+
+.chat-message.user {
+    background: var(--primary-color);
+    color: white;
+    margin-left: auto;
+}
+
+.chat-message.assistant {
+    background: white;
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+}
+
+.chat-message.system {
+    background: var(--success-color);
+    color: white;
+    margin: 0 auto;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    max-width: 90%;
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+#chat-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+
+#chat-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary:hover {
+    background: #e55a2a;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-primary:disabled {
+    background: var(--text-light);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-large {
+    width: 100%;
+    padding: 1.25rem;
+    font-size: 1.1rem;
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--text-dark);
+    border: 2px solid var(--border-color);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Macros Section */
+.macros-section {
+    padding: 1rem 0;
+}
+
+.macros-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.macros-header h3 {
+    font-size: 1.5rem;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+}
+
+.macros-serving-info {
+    color: var(--text-light);
+    font-size: 0.95rem;
+}
+
+.macros-loading {
+    text-align: center;
+    padding: 3rem;
+}
+
+.macros-loading .spinner {
+    margin: 0 auto 1rem;
+}
+
+.macro-calories {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.calories-circle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: white;
+    box-shadow: var(--shadow-lg);
+}
+
+.calories-number {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.calories-label {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.5rem;
+}
+
+.macros-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.macro-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-light);
+    border-radius: 12px;
+    border-left: 4px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+.macro-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.macro-card.protein {
+    border-left-color: #e74c3c;
+}
+
+.macro-card.carbs {
+    border-left-color: #f39c12;
+}
+
+.macro-card.fats {
+    border-left-color: #3498db;
+}
+
+.macro-card.fiber {
+    border-left-color: #2ecc71;
+}
+
+.macro-icon {
+    font-size: 2rem;
+}
+
+.macro-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.macro-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.macro-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.macro-percentage {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.nutrients-list {
+    background: var(--bg-light);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.nutrients-list h4 {
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.nutrient-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.nutrient-row:last-child {
+    border-bottom: none;
+}
+
+.nutrient-row span:first-child {
+    color: var(--text-dark);
+    font-weight: 500;
+}
+
+.nutrient-row span:last-child {
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.macros-disclaimer {
+    text-align: center;
+    color: var(--text-light);
+    padding: 1rem;
+    background: #fff3cd;
+    border-radius: 8px;
+}
+
+.macros-error {
+    text-align: center;
+    padding: 2rem;
+    background: #ffebee;
+    border-radius: 12px;
+}
+
+.macros-error p {
+    color: var(--error-color);
+    margin-bottom: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 0.5rem;
+    }
+
+    .app-header h1 {
+        font-size: 2rem;
+    }
+
+    .capture-container,
+    .preview-container,
+    .cooking-container {
+        padding: 1.5rem;
+    }
+
+    .input-group {
+        flex-direction: column;
+    }
+
+    .utility-panel {
+        flex-direction: column;
+    }
+
+    .preview-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .serving-adjuster {
+        flex-wrap: wrap;
+    }
+
+    .serving-note {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+
+    .chat-assistant {
+        width: calc(100vw - 2rem);
+        left: 1rem;
+        right: 1rem;
+    }
+
+    .instruction-item {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .tagline {
+        font-size: 0.9rem;
+    }
+
+    .capture-container h2,
+    .recipe-preview h2,
+    .recipe-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-light);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--text-light);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-dark);
+}
+
+/* Loading Spinner */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

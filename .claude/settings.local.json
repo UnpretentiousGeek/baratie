@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(move SETUP_GUIDE.md docs )",
+      "Bash(move CHANGES.md docs )",
+      "Bash(move NEW_FEATURES.md docs )",
+      "Bash(move YOUTUBE_SETUP.md docs )",
+      "Bash(move YOUTUBE_FEATURE.md docs )",
+      "Bash(move SHORTS_REMIX_FEATURE.md docs )",
+      "Bash(move MACROS_FEATURE.md docs )",
+      "Bash(move README_EXTENSION.md docs )",
+      "Bash(move EXTENSION_SUMMARY.md docs )",
+      "Bash(move:*)",
+      "Bash(cmd /c:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
