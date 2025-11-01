@@ -1,0 +1,24 @@
+{
+  "name": "baratie-recipe-manager",
+  "version": "2.0.0",
+  "description": "AI-powered recipe manager with Gemini integration - Serverless architecture",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required for static site'",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "recipe",
+    "cooking",
+    "ai",
+    "gemini",
+    "vercel",
+    "serverless"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.x"
+  }
+}

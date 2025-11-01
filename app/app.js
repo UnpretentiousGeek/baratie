@@ -11,14 +11,12 @@ class RecipeManager {
         this.chatHistory = [];
         this.currentMacros = null; // Store calculated macros
 
-        // Gemini API configuration
-        this.geminiApiKey = CONFIG.GEMINI_API_KEY;
+        // Gemini API configuration (Serverless)
+        this.geminiApiEndpoint = CONFIG.GEMINI_API_ENDPOINT || '/api/gemini';
         this.geminiModel = CONFIG.GEMINI_MODEL;
-        this.geminiApiUrl = CONFIG.GEMINI_API_URL;
 
-        // YouTube API configuration
-        this.youtubeApiKey = CONFIG.YOUTUBE_API_KEY;
-        this.youtubeApiUrl = CONFIG.YOUTUBE_API_URL;
+        // YouTube API configuration (Serverless)
+        this.youtubeApiEndpoint = CONFIG.YOUTUBE_API_ENDPOINT || '/api/youtube';
 
         this.init();
     }
@@ -538,14 +536,23 @@ ${text.substring(0, 15000)}`;
 
     // Fetch YouTube video details using YouTube Data API
     async fetchYouTubeVideoDetails(videoId) {
-        if (!this.youtubeApiKey || this.youtubeApiKey === 'YOUR_YOUTUBE_API_KEY_HERE') {
-            throw new Error('Please set your YouTube API key in config.js');
-        }
-
-        const endpoint = `${this.youtubeApiUrl}/videos?part=snippet&id=${videoId}&key=${this.youtubeApiKey}`;
+        // Call serverless proxy endpoint
+        const requestBody = {
+            endpoint: 'videos',
+            params: {
+                part: 'snippet',
+                id: videoId
+            }
+        };
 
         try {
-            const response = await fetch(endpoint);
+            const response = await fetch(this.youtubeApiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -573,14 +580,25 @@ ${text.substring(0, 15000)}`;
 
     // Fetch YouTube pinned comment using YouTube Data API
     async fetchYouTubePinnedComment(videoId) {
-        if (!this.youtubeApiKey || this.youtubeApiKey === 'YOUR_YOUTUBE_API_KEY_HERE') {
-            throw new Error('Please set your YouTube API key in config.js');
-        }
-
-        const endpoint = `${this.youtubeApiUrl}/commentThreads?part=snippet&videoId=${videoId}&maxResults=10&order=relevance&key=${this.youtubeApiKey}`;
+        // Call serverless proxy endpoint
+        const requestBody = {
+            endpoint: 'commentThreads',
+            params: {
+                part: 'snippet',
+                videoId: videoId,
+                maxResults: '10',
+                order: 'relevance'
+            }
+        };
 
         try {
-            const response = await fetch(endpoint);
+            const response = await fetch(this.youtubeApiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
 
             if (!response.ok) {
                 // Comments might be disabled
@@ -1021,28 +1039,15 @@ ${captions.substring(0, 10000)}`;
 
     // Call Gemini API
     async callGeminiAPI(prompt) {
-        if (!this.geminiApiKey || this.geminiApiKey === 'YOUR_GEMINI_API_KEY_HERE') {
-            throw new Error('Please set your Gemini API key in config.js');
-        }
-
-        const endpoint = `${this.geminiApiUrl}${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
-
+        // Call serverless proxy endpoint instead of Gemini directly
         const requestBody = {
-            contents: [{
-                parts: [{
-                    text: prompt
-                }]
-            }],
-            generationConfig: {
-                temperature: 0.2,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 2048,
-            }
+            prompt: prompt,
+            method: 'generateContent',
+            model: this.geminiModel
         };
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch(this.geminiApiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1052,7 +1057,7 @@ ${captions.substring(0, 10000)}`;
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+                throw new Error(`API error: ${errorData.error || response.statusText}`);
             }
 
             const data = await response.json();
@@ -1828,28 +1833,15 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
 
     // Call Gemini API for chat (simpler, text-only response)
     async callGeminiAPIForChat(prompt) {
-        if (!this.geminiApiKey || this.geminiApiKey === 'YOUR_GEMINI_API_KEY_HERE') {
-            throw new Error('Please set your Gemini API key in config.js');
-        }
-
-        const endpoint = `${this.geminiApiUrl}${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
-
+        // Call serverless proxy endpoint instead of Gemini directly
         const requestBody = {
-            contents: [{
-                parts: [{
-                    text: prompt
-                }]
-            }],
-            generationConfig: {
-                temperature: 0.7,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 512,
-            }
+            prompt: prompt,
+            method: 'generateContent',
+            model: this.geminiModel
         };
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch(this.geminiApiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1859,7 +1851,7 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+                throw new Error(`API error: ${errorData.error || response.statusText}`);
             }
 
             const data = await response.json();

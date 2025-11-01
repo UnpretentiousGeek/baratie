@@ -29,10 +29,16 @@ document.addEventListener('keyup', (e) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getSelection') {
     // Return just the current selection
-    sendResponse({
+    const response = {
       selection: window.getSelection().toString().trim() || lastSelection,
       url: window.location.href
+    };
+    console.log('📨 Content script: getSelection response:', {
+      selectionLength: response.selection.length,
+      url: response.url
     });
+    sendResponse(response);
+    return true; // Required for async sendResponse
   } else if (request.action === 'getPageContent') {
     // Return selection + full page content as fallback
     const currentSelection = window.getSelection().toString().trim();
@@ -41,11 +47,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Get main content (try to extract meaningful text)
     const fullText = extractMainContent();
 
-    sendResponse({
+    const response = {
       selection: selection,
       fullText: fullText,
       url: window.location.href
+    };
+
+    console.log('📨 Content script: getPageContent response:', {
+      selectionLength: response.selection.length,
+      fullTextLength: response.fullText.length,
+      url: response.url
     });
+
+    sendResponse(response);
+    return true; // Required for async sendResponse
   }
 });
 

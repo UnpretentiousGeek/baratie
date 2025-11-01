@@ -16,6 +16,7 @@ let previewSection;
 let previewText;
 let charCount;
 let settingsLink;
+let resetLink;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,10 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
   previewText = document.getElementById('preview-text');
   charCount = document.getElementById('char-count');
   settingsLink = document.getElementById('settings-link');
+  resetLink = document.getElementById('reset-link');
 
   // Event listeners
   captureBtn.addEventListener('click', handleCapture);
   settingsLink.addEventListener('click', handleSettings);
+  if (resetLink) {
+    resetLink.addEventListener('click', handleReset);
+  }
 
   // Load saved settings
   loadSettings();
@@ -80,11 +85,26 @@ async function handleCapture() {
     // Get selection from content script
     chrome.tabs.sendMessage(tab.id, { action: 'getPageContent' }, async (response) => {
       if (chrome.runtime.lastError) {
+        console.error('❌ Content script error:', chrome.runtime.lastError);
         showStatus('Error: Could not access page content. Try refreshing the page.', 'error');
         captureBtn.disabled = false;
         captureBtn.classList.remove('loading');
         return;
       }
+
+      if (!response) {
+        console.error('❌ No response from content script');
+        showStatus('Error: No response from page. Try refreshing.', 'error');
+        captureBtn.disabled = false;
+        captureBtn.classList.remove('loading');
+        return;
+      }
+
+      console.log('📥 Received from content script:', {
+        hasSelection: !!response.selection,
+        selectionLength: response.selection?.length || 0,
+        url: response.url
+      });
 
       const { selection, fullText, url } = response;
 
@@ -136,6 +156,13 @@ async function sendViaUrlParams(text, sourceUrl) {
     const encodedUrl = encodeURIComponent(sourceUrl);
     const baratieUrl = `${baratiePath}?recipe_text=${encoded}&source_url=${encodedUrl}`;
 
+    console.log('📤 Sending via URL params:', {
+      baratiePath,
+      textLength: text.length,
+      sourceUrl,
+      finalUrl: baratieUrl.substring(0, 100) + '...'
+    });
+
     showStatus('Opening Baratie...', 'success');
 
     // Open Baratie in new tab
@@ -165,6 +192,14 @@ async function sendViaStorage(text, sourceUrl) {
     const encodedUrl = encodeURIComponent(sourceUrl);
     const baratieUrl = `${baratiePath}?recipe_storage_id=${storageId}&source_url=${encodedUrl}`;
 
+    console.log('📤 Sending via storage:', {
+      baratiePath,
+      storageId,
+      textLength: text.length,
+      sourceUrl,
+      finalUrl: baratieUrl
+    });
+
     showStatus('Opening Baratie...', 'success');
 
     // Open Baratie in new tab
@@ -193,6 +228,12 @@ async function sendUrlOnly(url) {
     const baratiePath = await getBaratiePath();
     const encodedUrl = encodeURIComponent(url);
     const baratieUrl = `${baratiePath}?recipe_url=${encodedUrl}`;
+
+    console.log('📤 Sending URL only:', {
+      baratiePath,
+      sourceUrl: url,
+      finalUrl: baratieUrl
+    });
 
     showStatus('Opening Baratie...', 'success');
 
@@ -263,13 +304,26 @@ async function handleSettings(e) {
     'Enter the full path to your Baratie app:\n\n' +
     'Local file: file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html\n' +
     'Localhost: http://localhost:8000\n' +
-    'Vercel: https://your-app-name.vercel.app',
+    'Vercel: https://baratie-piece.vercel.app',
     currentPath
   );
 
   if (newPath && newPath.trim()) {
     chrome.storage.sync.set({ baratiePath: newPath.trim() }, () => {
-      alert('Settings saved! Restart the extension for changes to take effect.');
+      showStatus('✅ Settings saved!', 'success');
+      loadSettings(); // Refresh display
+    });
+  }
+}
+
+// Handle reset link click - Reset to default Vercel URL
+async function handleReset(e) {
+  e.preventDefault();
+  if (confirm('Reset to default Vercel URL?\n\nhttps://baratie-piece.vercel.app')) {
+    chrome.storage.sync.remove('baratiePath', () => {
+      showStatus('✅ Reset to Vercel URL!', 'success');
+      loadSettings(); // Refresh display
+      console.log('Path reset to default Vercel:', DEFAULT_VERCEL_PATH);
     });
   }
 }
