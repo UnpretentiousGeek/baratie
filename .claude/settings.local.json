@@ -11,7 +11,8 @@
       "Bash(move README_EXTENSION.md docs )",
       "Bash(move EXTENSION_SUMMARY.md docs )",
       "Bash(move:*)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(dir /b)"
     ],
     "deny": [],
     "ask": []

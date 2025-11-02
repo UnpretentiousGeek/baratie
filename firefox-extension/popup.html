@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baratie Recipe Capture</title>
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="popup-header">
+      <h1 class="popup-title">Baratie</h1>
+      <p class="popup-subtitle">Recipe Capture</p>
+    </div>
+
+    <div class="popup-content">
+      <div id="status-message" class="status-message">
+        <p><strong>Two ways to capture:</strong></p>
+        <p>1️⃣ Highlight recipe text for instant extraction</p>
+        <p>2️⃣ Or just click capture to process the URL</p>
+      </div>
+
+      <div id="preview-section" class="preview-section" style="display: none;">
+        <div class="preview-label">Captured Text:</div>
+        <div id="preview-text" class="preview-text"></div>
+        <div class="preview-stats">
+          <span id="char-count" class="char-count">0</span> characters
+        </div>
+      </div>
+
+      <button id="capture-btn" class="btn-capture">
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L13 8H17L13 12L15 18L10 14L5 18L7 12L3 8H7L10 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>Capture Recipe</span>
+      </button>
+
+      <div class="help-text">
+        <p><strong>How to use:</strong></p>
+        <ul>
+          <li><strong>Text Mode:</strong> Highlight recipe text for instant AI extraction</li>
+          <li><strong>URL Mode:</strong> Just click capture to process the webpage URL</li>
+          <li>Baratie opens automatically and extracts the recipe</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="popup-footer">
+      <a href="#" id="settings-link" class="settings-link">⚙️ Change Path</a>
+      <a href="#" id="reset-link" class="settings-link">🔄 Reset to Vercel</a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

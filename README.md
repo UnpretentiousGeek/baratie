@@ -7,7 +7,7 @@ An intelligent web application that transforms messy online recipes into structu
 - **Smart Recipe Extraction**: Paste any recipe URL (blogs, YouTube, Instagram, TikTok) and let AI extract structured recipe data
 - **Interactive Cooking Interface**: Step-by-step guidance with progress tracking and ingredient scaling
 - **AI Chat Assistant**: Get cooking tips, substitutions, and technique advice
-- **Browser Extension**: Capture recipes directly from any webpage
+- **Browser Extension**: Capture recipes directly from any webpage (Chrome, Edge, and Firefox)
 - **Session Persistence**: Your cooking progress is automatically saved
 - **YouTube Integration**: Extract recipes from video descriptions and captions
 - **Nutrition Calculation**: AI-powered macro and nutrition information
@@ -23,15 +23,30 @@ baratie/
 │   ├── config.js.template  # Template for setup
 │   └── styles.css
 │
-├── extension/              # Chrome extension
-│   ├── manifest.json
+├── chrome-extension/       # Chrome/Edge extension (ready to install)
+│   ├── manifest.json       # Chrome Manifest V3
 │   ├── background.js
-│   ├── content-script.js
-│   ├── popup.html
 │   ├── popup.js
-│   └── styles/
+│   ├── popup.html
+│   ├── content-script.js
+│   ├── INSTALL.txt         # Installation guide
+│   ├── README.md
+│   ├── styles/
+│   └── icons/
+│
+├── firefox-extension/      # Firefox extension (ready to install)
+│   ├── manifest.json       # Firefox Manifest V2
+│   ├── background.js
+│   ├── popup.js
+│   ├── popup.html
+│   ├── content-script.js
+│   ├── INSTALL.txt         # Installation guide
+│   ├── README.md
+│   ├── styles/
+│   └── icons/
 │
 ├── docs/                   # Documentation
+│   ├── CROSS_BROWSER.md    # Extension technical documentation
 │   ├── SETUP_GUIDE.md
 │   ├── YOUTUBE_SETUP.md
 │   └── ...
@@ -107,20 +122,52 @@ Note: Since this is a client-side app, environment variables are limited. Consid
 
 ## 📱 Browser Extension
 
-### Installation
+Two separate folders for easy installation - just pick your browser!
 
-1. Open Chrome and go to `chrome://extensions`
+### Chrome/Edge Installation
+
+📁 Use the **`chrome-extension/`** folder
+
+1. Open `chrome://extensions` (or `edge://extensions`)
 2. Enable "Developer mode"
 3. Click "Load unpacked"
-4. Select the `extension/` folder
+4. Select the `chrome-extension/` folder
+5. Enable "Allow access to file URLs" in extension details
+
+**See `chrome-extension/INSTALL.txt` for detailed instructions.**
+
+### Firefox Installation
+
+📁 Use the **`firefox-extension/`** folder
+
+**Temporary (Quick Testing):**
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click "Load Temporary Add-on..."
+3. Select `firefox-extension/manifest.json`
+
+**Permanent:**
+- Use Firefox Developer Edition (see `firefox-extension/INSTALL.txt`)
+- Or sign the extension at addons.mozilla.org (free)
+
+**See `firefox-extension/INSTALL.txt` for detailed instructions.**
+
+### Why Two Folders?
+
+Chrome uses **Manifest V3**, Firefox uses **Manifest V2**. Separate folders means:
+- ✅ No manual switching needed
+- ✅ Ready to install out-of-the-box
+- ✅ Clear installation per browser
+- ✅ Same functionality, different manifests
+
+Both share identical JavaScript code with cross-browser compatibility built-in.
 
 ### Configuration
 
 1. Click the extension icon
-2. Click "Settings"
+2. Click "Settings" (⚙️)
 3. Enter your Baratie URL:
-   - Local: `file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html`
-   - Vercel: `https://your-app.vercel.app`
+   - Vercel: `https://baratie-piece.vercel.app` (default)
+   - Local: `file:///path/to/Baratie/app/index.html`
 
 ### Usage
 
@@ -141,14 +188,16 @@ Note: Since this is a client-side app, environment variables are limited. Consid
 - **Styling**: CSS3 with CSS Grid/Flexbox
 - **AI**: Google Gemini API
 - **Hosting**: Vercel
-- **Extension**: Chrome Extension Manifest V3
+- **Extension**: Cross-browser compatible (Chrome Manifest V3, Firefox Manifest V2)
 
 ### Key Files
 
 - `app/app.js` - Main application logic (1444 lines)
 - `app/config.js` - API configuration (not committed)
-- `extension/popup.js` - Extension popup interface
-- `extension/background.js` - Extension background service worker
+- `extension/popup.js` - Extension popup interface (cross-browser)
+- `extension/background.js` - Extension background script (cross-browser)
+- `extension/manifest.json` - Active manifest (Chrome V3 or Firefox V2)
+- `extension/build.js` - Helper script to switch between browsers
 
 ## 🚨 Important Notes
 

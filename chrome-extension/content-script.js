@@ -1,7 +1,10 @@
 // ==========================================
 // Baratie Recipe Capture Extension
-// Content Script (injected into all pages)
+// Content Script (Cross-browser compatible)
 // ==========================================
+
+// Cross-browser API compatibility
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 // Track last text selection
 let lastSelection = '';
@@ -26,14 +29,14 @@ document.addEventListener('keyup', (e) => {
 });
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getSelection') {
     // Return just the current selection
     const response = {
       selection: window.getSelection().toString().trim() || lastSelection,
       url: window.location.href
     };
-    console.log('📨 Content script: getSelection response:', {
+    console.log('Content script: getSelection response:', {
       selectionLength: response.selection.length,
       url: response.url
     });
@@ -53,7 +56,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       url: window.location.href
     };
 
-    console.log('📨 Content script: getPageContent response:', {
+    console.log('Content script: getPageContent response:', {
       selectionLength: response.selection.length,
       fullTextLength: response.fullText.length,
       url: response.url

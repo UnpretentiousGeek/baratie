@@ -1,7 +1,10 @@
 // ==========================================
 // Baratie Recipe Capture Extension
-// Popup Script
+// Popup Script (Cross-browser compatible)
 // ==========================================
+
+// Cross-browser API compatibility
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 // Configuration - Default paths (user can customize in settings)
 // For local development: file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html
@@ -46,28 +49,45 @@ document.addEventListener('DOMContentLoaded', () => {
 // Detect if user has text selected
 async function detectSelection() {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
 
     // Check if we can access this tab
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:') || tab.url.startsWith('moz-extension://')) {
       showStatus('Cannot capture from browser internal pages', 'error');
       captureBtn.disabled = true;
       return;
     }
 
     // Request selection from content script
-    chrome.tabs.sendMessage(tab.id, { action: 'getSelection' }, (response) => {
-      if (chrome.runtime.lastError) {
-        // Content script might not be injected yet, ignore error
-        console.log('Content script not ready:', chrome.runtime.lastError);
-        return;
-      }
+    const sendMessage = browserAPI.tabs.sendMessage(tab.id, { action: 'getSelection' });
 
-      if (response && response.selection && response.selection.length > 50) {
-        showPreview(response.selection);
-        showStatus('Text detected! Click capture to send to Baratie.', 'success');
-      }
-    });
+    // Handle both Promise-based (Firefox) and callback-based (Chrome) APIs
+    if (sendMessage && typeof sendMessage.then === 'function') {
+      // Firefox Promise-based API
+      sendMessage.then((response) => {
+        if (response && response.selection && response.selection.length > 50) {
+          showPreview(response.selection);
+          showStatus('Text detected! Click capture to send to Baratie.', 'success');
+        }
+      }).catch((error) => {
+        console.log('Content script not ready:', error);
+      });
+    } else {
+      // Chrome callback-based API
+      browserAPI.tabs.sendMessage(tab.id, { action: 'getSelection' }, (response) => {
+        if (browserAPI.runtime.lastError) {
+          // Content script might not be injected yet, ignore error
+          console.log('Content script not ready:', browserAPI.runtime.lastError);
+          return;
+        }
+
+        if (response && response.selection && response.selection.length > 50) {
+          showPreview(response.selection);
+          showStatus('Text detected! Click capture to send to Baratie.', 'success');
+        }
+      });
+    }
   } catch (error) {
     console.error('Error detecting selection:', error);
   }
@@ -80,18 +100,11 @@ async function handleCapture() {
     captureBtn.classList.add('loading');
     showStatus('Capturing recipe text...', '');
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
 
     // Get selection from content script
-    chrome.tabs.sendMessage(tab.id, { action: 'getPageContent' }, async (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('❌ Content script error:', chrome.runtime.lastError);
-        showStatus('Error: Could not access page content. Try refreshing the page.', 'error');
-        captureBtn.disabled = false;
-        captureBtn.classList.remove('loading');
-        return;
-      }
-
+    const handleResponse = async (response) => {
       if (!response) {
         console.error('❌ No response from content script');
         showStatus('Error: No response from page. Try refreshing.', 'error');
@@ -130,7 +143,7 @@ async function handleCapture() {
           // Use URL query parameters for small content
           await sendViaUrlParams(capturedText, url);
         } else {
-          // Use chrome.storage for large content
+          // Use storage for large content
           await sendViaStorage(capturedText, url);
         }
       } else {
@@ -139,7 +152,32 @@ async function handleCapture() {
         showStatus('No text selected. Sending URL for extraction...', '');
         await sendUrlOnly(url);
       }
-    });
+    };
+
+    const sendMessage = browserAPI.tabs.sendMessage(tab.id, { action: 'getPageContent' });
+
+    // Handle both Promise-based (Firefox) and callback-based (Chrome) APIs
+    if (sendMessage && typeof sendMessage.then === 'function') {
+      // Firefox Promise-based API
+      sendMessage.then(handleResponse).catch((error) => {
+        console.error('❌ Content script error:', error);
+        showStatus('Error: Could not access page content. Try refreshing the page.', 'error');
+        captureBtn.disabled = false;
+        captureBtn.classList.remove('loading');
+      });
+    } else {
+      // Chrome callback-based API
+      browserAPI.tabs.sendMessage(tab.id, { action: 'getPageContent' }, async (response) => {
+        if (browserAPI.runtime.lastError) {
+          console.error('❌ Content script error:', browserAPI.runtime.lastError);
+          showStatus('Error: Could not access page content. Try refreshing the page.', 'error');
+          captureBtn.disabled = false;
+          captureBtn.classList.remove('loading');
+          return;
+        }
+        await handleResponse(response);
+      });
+    }
   } catch (error) {
     console.error('Capture error:', error);
     showStatus(`Error: ${error.message}`, 'error');
@@ -166,7 +204,7 @@ async function sendViaUrlParams(text, sourceUrl) {
     showStatus('Opening Baratie...', 'success');
 
     // Open Baratie in new tab
-    await chrome.tabs.create({ url: baratieUrl });
+    await browserAPI.tabs.create({ url: baratieUrl });
 
     // Close popup after short delay
     setTimeout(() => {
@@ -180,14 +218,14 @@ async function sendViaUrlParams(text, sourceUrl) {
   }
 }
 
-// Send data via chrome.storage (for large content)
+// Send data via storage (for large content)
 async function sendViaStorage(text, sourceUrl) {
   try {
     const baratiePath = await getBaratiePath();
     const storageId = `recipe_${Date.now()}`;
 
     // Store text with unique ID
-    await chrome.storage.local.set({ [storageId]: text });
+    await browserAPI.storage.local.set({ [storageId]: text });
 
     const encodedUrl = encodeURIComponent(sourceUrl);
     const baratieUrl = `${baratiePath}?recipe_storage_id=${storageId}&source_url=${encodedUrl}`;
@@ -203,11 +241,11 @@ async function sendViaStorage(text, sourceUrl) {
     showStatus('Opening Baratie...', 'success');
 
     // Open Baratie in new tab
-    await chrome.tabs.create({ url: baratieUrl });
+    await browserAPI.tabs.create({ url: baratieUrl });
 
     // Clean up storage after 60 seconds
     setTimeout(() => {
-      chrome.storage.local.remove(storageId);
+      browserAPI.storage.local.remove(storageId);
     }, 60000);
 
     // Close popup after short delay
@@ -238,7 +276,7 @@ async function sendUrlOnly(url) {
     showStatus('Opening Baratie...', 'success');
 
     // Open Baratie in new tab
-    await chrome.tabs.create({ url: baratieUrl });
+    await browserAPI.tabs.create({ url: baratieUrl });
 
     // Close popup after short delay
     setTimeout(() => {
@@ -269,7 +307,7 @@ function showPreview(text) {
 // Get Baratie URL (from settings or default)
 async function getBaratiePath() {
   try {
-    const result = await chrome.storage.sync.get(['baratiePath']);
+    const result = await browserAPI.storage.sync.get(['baratiePath']);
     if (result.baratiePath) {
       return result.baratiePath;
     }
@@ -284,7 +322,7 @@ async function getBaratiePath() {
 // Load saved settings
 async function loadSettings() {
   try {
-    const result = await chrome.storage.sync.get(['baratiePath']);
+    const result = await browserAPI.storage.sync.get(['baratiePath']);
     if (result.baratiePath) {
       // User has customized path
       console.log('Using custom Baratie path:', result.baratiePath);
@@ -309,10 +347,9 @@ async function handleSettings(e) {
   );
 
   if (newPath && newPath.trim()) {
-    chrome.storage.sync.set({ baratiePath: newPath.trim() }, () => {
-      showStatus('✅ Settings saved!', 'success');
-      loadSettings(); // Refresh display
-    });
+    await browserAPI.storage.sync.set({ baratiePath: newPath.trim() });
+    showStatus('Settings saved!', 'success');
+    loadSettings(); // Refresh display
   }
 }
 
@@ -320,10 +357,9 @@ async function handleSettings(e) {
 async function handleReset(e) {
   e.preventDefault();
   if (confirm('Reset to default Vercel URL?\n\nhttps://baratie-piece.vercel.app')) {
-    chrome.storage.sync.remove('baratiePath', () => {
-      showStatus('✅ Reset to Vercel URL!', 'success');
-      loadSettings(); // Refresh display
-      console.log('Path reset to default Vercel:', DEFAULT_VERCEL_PATH);
-    });
+    await browserAPI.storage.sync.remove('baratiePath');
+    showStatus('Reset to Vercel URL!', 'success');
+    loadSettings(); // Refresh display
+    console.log('Path reset to default Vercel:', DEFAULT_VERCEL_PATH);
   }
 }
