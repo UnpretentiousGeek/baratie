@@ -6,7 +6,7 @@
 const CONFIG = {
     // Gemini AI Configuration
     GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY_HERE', // Replace with your actual API key
-    GEMINI_MODEL: 'gemini-2.0-flash', // or 'gemini-1.5-pro-latest' for higher quality
+    GEMINI_MODEL: 'gemini-2.0-flash-lite', // or 'gemini-1.5-pro-latest' for higher quality
     GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1/models/',
 
     // YouTube Data API Configuration

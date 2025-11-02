@@ -6,7 +6,7 @@
 const CONFIG = {
     // Gemini AI Configuration
     GEMINI_API_ENDPOINT: '/api/gemini', // Serverless proxy endpoint
-    GEMINI_MODEL: 'gemini-2.0-flash',   // Model name (used in requests)
+    GEMINI_MODEL: 'gemini-2.0-flash-lite',   // Model name (used in requests)
 
     // YouTube Data API Configuration
     YOUTUBE_API_ENDPOINT: '/api/youtube', // Serverless proxy endpoint
