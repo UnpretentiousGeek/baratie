@@ -4,7 +4,7 @@ An intelligent web application that transforms messy online recipes into structu
 
 ## 🌟 Features
 
-- **Smart Recipe Extraction**: Paste any recipe URL (blogs, YouTube, Instagram, TikTok) and let AI extract structured recipe data
+- **Smart Recipe Extraction**: Paste any recipe URL (blogs, YouTube videos, and recipe websites) and let AI extract structured recipe data
 - **Interactive Cooking Interface**: Step-by-step guidance with progress tracking and ingredient scaling
 - **AI Chat Assistant**: Get cooking tips, substitutions, and technique advice
 - **Browser Extension**: Capture recipes directly from any webpage (Chrome, Edge, and Firefox)
