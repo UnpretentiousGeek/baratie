@@ -982,3 +982,151 @@ body {
         transform: rotate(360deg);
     }
 }
+
+/* ==========================================
+ * Quota Tracker Styles
+ * ========================================== */
+
+.quota-tracker {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    width: 320px;
+    max-height: 500px;
+    overflow-y: auto;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+.quota-tracker.minimized {
+    width: auto;
+    max-height: 50px;
+    overflow: hidden;
+}
+
+.quota-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quota-header h4 {
+    font-size: 0.9rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.cache-stats {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    margin-top: 4px;
+}
+
+.quota-models {
+    padding: 12px;
+}
+
+.quota-model {
+    background: var(--bg-light);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+
+.quota-model:last-child {
+    margin-bottom: 0;
+}
+
+.quota-model.rate-limited {
+    background: #fee;
+    border: 1px solid var(--error-color);
+}
+
+.model-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    text-transform: capitalize;
+}
+
+.model-quota {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.quota-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.quota-label {
+    width: 40px;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.quota-bar {
+    flex: 1;
+    height: 12px;
+    background: #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.quota-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success-color), var(--success-color));
+    transition: width 0.3s ease;
+    border-radius: 6px;
+}
+
+.quota-bar.healthy .quota-fill {
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+}
+
+.quota-bar.warning .quota-fill {
+    background: linear-gradient(90deg, #f39c12, #e67e22);
+}
+
+.quota-bar.critical .quota-fill {
+    background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+.quota-text {
+    width: 50px;
+    text-align: right;
+    color: var(--text-dark);
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .quota-tracker {
+        width: 280px;
+        bottom: 80px;
+        right: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .quota-tracker {
+        width: calc(100% - 20px);
+        left: 10px;
+        right: 10px;
+        bottom: 80px;
+    }
+}

@@ -2,6 +2,513 @@
 // Baratie - AI Recipe Manager
 // ==========================================
 
+// ==========================================
+// Multi-Model Routing System
+// ==========================================
+
+/**
+ * ResponseCache - Caches API responses to reduce quota usage
+ * Stores in sessionStorage (short-term) and localStorage (24hr expiry)
+ */
+class ResponseCache {
+    constructor() {
+        this.sessionCache = new Map();
+        this.localStoragePrefix = 'baratie_cache_';
+        this.expiryHours = 24;
+        this.stats = {
+            hits: 0,
+            misses: 0
+        };
+    }
+
+    // Generate hash for cache key
+    generateHash(input) {
+        let hash = 0;
+        for (let i = 0; i < input.length; i++) {
+            const char = input.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(36);
+    }
+
+    // Get cache key for recipe extraction
+    getRecipeKey(url) {
+        return `recipe_${this.generateHash(url)}`;
+    }
+
+    // Get cache key for nutrition calculation
+    getNutritionKey(ingredients, servings) {
+        const ingredientsStr = JSON.stringify(ingredients);
+        return `nutrition_${this.generateHash(ingredientsStr + servings)}`;
+    }
+
+    // Get cache key for YouTube extraction
+    getYouTubeKey(videoId) {
+        return `youtube_${videoId}`;
+    }
+
+    // Get cache key for chat (based on context + question)
+    getChatKey(recipeContext, question) {
+        const contextStr = recipeContext.substring(0, 500); // First 500 chars
+        return `chat_${this.generateHash(contextStr + question)}`;
+    }
+
+    // Store in cache
+    set(key, value, type = 'recipe') {
+        const cacheEntry = {
+            value: value,
+            timestamp: Date.now(),
+            type: type
+        };
+
+        // Store in session cache (immediate access)
+        this.sessionCache.set(key, cacheEntry);
+
+        // Store in localStorage (persistent)
+        try {
+            localStorage.setItem(
+                this.localStoragePrefix + key,
+                JSON.stringify(cacheEntry)
+            );
+        } catch (e) {
+            console.warn('localStorage full, cache not persisted:', e);
+        }
+    }
+
+    // Get from cache
+    get(key) {
+        // Try session cache first (fastest)
+        if (this.sessionCache.has(key)) {
+            const entry = this.sessionCache.get(key);
+            if (this.isValid(entry)) {
+                this.stats.hits++;
+                console.log(`Cache HIT (session): ${key}`);
+                return entry.value;
+            } else {
+                this.sessionCache.delete(key);
+            }
+        }
+
+        // Try localStorage
+        try {
+            const stored = localStorage.getItem(this.localStoragePrefix + key);
+            if (stored) {
+                const entry = JSON.parse(stored);
+                if (this.isValid(entry)) {
+                    // Restore to session cache
+                    this.sessionCache.set(key, entry);
+                    this.stats.hits++;
+                    console.log(`Cache HIT (localStorage): ${key}`);
+                    return entry.value;
+                } else {
+                    localStorage.removeItem(this.localStoragePrefix + key);
+                }
+            }
+        } catch (e) {
+            console.warn('Error reading from localStorage:', e);
+        }
+
+        this.stats.misses++;
+        console.log(`Cache MISS: ${key}`);
+        return null;
+    }
+
+    // Check if cache entry is still valid
+    isValid(entry) {
+        if (!entry || !entry.timestamp) return false;
+        const age = Date.now() - entry.timestamp;
+        const maxAge = this.expiryHours * 60 * 60 * 1000;
+        return age < maxAge;
+    }
+
+    // Clear expired entries
+    clearExpired() {
+        const now = Date.now();
+        const maxAge = this.expiryHours * 60 * 60 * 1000;
+
+        // Clear session cache
+        for (const [key, entry] of this.sessionCache.entries()) {
+            if (now - entry.timestamp > maxAge) {
+                this.sessionCache.delete(key);
+            }
+        }
+
+        // Clear localStorage
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(this.localStoragePrefix)) {
+                    const stored = localStorage.getItem(key);
+                    if (stored) {
+                        const entry = JSON.parse(stored);
+                        if (now - entry.timestamp > maxAge) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+        } catch (e) {
+            console.warn('Error clearing expired cache:', e);
+        }
+    }
+
+    // Get cache statistics
+    getStats() {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate = total > 0 ? (this.stats.hits / total * 100).toFixed(1) : 0;
+        return {
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            hitRate: hitRate + '%'
+        };
+    }
+
+    // Clear all cache
+    clear() {
+        this.sessionCache.clear();
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(this.localStoragePrefix)) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+        } catch (e) {
+            console.warn('Error clearing cache:', e);
+        }
+    }
+}
+
+/**
+ * QuotaTracker - Tracks API usage per model (RPM and RPD limits)
+ * Uses rolling 60-second windows for RPM
+ * Persists daily counts to localStorage
+ */
+class QuotaTracker {
+    constructor(modelLimits) {
+        this.modelLimits = modelLimits; // { modelName: { rpm, rpd } }
+        this.requestTimestamps = {}; // { modelName: [timestamps] }
+        this.dailyCounts = {}; // { modelName: count }
+        this.lastResetDate = null;
+        this.localStorageKey = 'baratie_quota_tracker';
+
+        this.loadFromStorage();
+        this.checkDailyReset();
+    }
+
+    // Load quota data from localStorage
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.localStorageKey);
+            if (stored) {
+                const data = JSON.parse(stored);
+                this.dailyCounts = data.dailyCounts || {};
+                this.lastResetDate = data.lastResetDate || this.getTodayDate();
+            } else {
+                this.resetDailyCounts();
+            }
+        } catch (e) {
+            console.warn('Error loading quota data:', e);
+            this.resetDailyCounts();
+        }
+    }
+
+    // Save quota data to localStorage
+    saveToStorage() {
+        try {
+            const data = {
+                dailyCounts: this.dailyCounts,
+                lastResetDate: this.lastResetDate
+            };
+            localStorage.setItem(this.localStorageKey, JSON.stringify(data));
+        } catch (e) {
+            console.warn('Error saving quota data:', e);
+        }
+    }
+
+    // Get today's date as string (YYYY-MM-DD)
+    getTodayDate() {
+        const now = new Date();
+        return now.toISOString().split('T')[0];
+    }
+
+    // Check if we need to reset daily counts
+    checkDailyReset() {
+        const today = this.getTodayDate();
+        if (this.lastResetDate !== today) {
+            this.resetDailyCounts();
+        }
+    }
+
+    // Reset daily counts
+    resetDailyCounts() {
+        this.dailyCounts = {};
+        this.lastResetDate = this.getTodayDate();
+        Object.keys(this.modelLimits).forEach(model => {
+            this.dailyCounts[model] = 0;
+        });
+        this.saveToStorage();
+    }
+
+    // Clean old timestamps (older than 60 seconds)
+    cleanOldTimestamps(modelName) {
+        const now = Date.now();
+        const sixtySecondsAgo = now - 60000;
+
+        if (!this.requestTimestamps[modelName]) {
+            this.requestTimestamps[modelName] = [];
+        }
+
+        this.requestTimestamps[modelName] = this.requestTimestamps[modelName]
+            .filter(ts => ts > sixtySecondsAgo);
+    }
+
+    // Check if model can accept new request
+    canUseModel(modelName) {
+        this.checkDailyReset();
+        this.cleanOldTimestamps(modelName);
+
+        const limits = this.modelLimits[modelName];
+        if (!limits) return false;
+
+        // Check RPM (requests per minute)
+        const recentRequests = (this.requestTimestamps[modelName] || []).length;
+        if (recentRequests >= limits.rpm) {
+            return false;
+        }
+
+        // Check RPD (requests per day)
+        const dailyCount = this.dailyCounts[modelName] || 0;
+        if (dailyCount >= limits.rpd) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // Record a successful request
+    recordRequest(modelName) {
+        const now = Date.now();
+
+        // Add to RPM tracking
+        if (!this.requestTimestamps[modelName]) {
+            this.requestTimestamps[modelName] = [];
+        }
+        this.requestTimestamps[modelName].push(now);
+
+        // Increment daily count
+        if (!this.dailyCounts[modelName]) {
+            this.dailyCounts[modelName] = 0;
+        }
+        this.dailyCounts[modelName]++;
+
+        this.saveToStorage();
+    }
+
+    // Get available models (not rate-limited)
+    getAvailableModels() {
+        return Object.keys(this.modelLimits).filter(model => this.canUseModel(model));
+    }
+
+    // Get quota status for a model
+    getModelStatus(modelName) {
+        this.checkDailyReset();
+        this.cleanOldTimestamps(modelName);
+
+        const limits = this.modelLimits[modelName];
+        if (!limits) return null;
+
+        const recentRequests = (this.requestTimestamps[modelName] || []).length;
+        const dailyCount = this.dailyCounts[modelName] || 0;
+
+        return {
+            model: modelName,
+            rpm: {
+                used: recentRequests,
+                limit: limits.rpm,
+                available: limits.rpm - recentRequests,
+                percentage: Math.round((recentRequests / limits.rpm) * 100)
+            },
+            rpd: {
+                used: dailyCount,
+                limit: limits.rpd,
+                available: limits.rpd - dailyCount,
+                percentage: Math.round((dailyCount / limits.rpd) * 100)
+            },
+            canUse: this.canUseModel(modelName)
+        };
+    }
+
+    // Get status for all models
+    getAllStatus() {
+        return Object.keys(this.modelLimits).map(model => this.getModelStatus(model));
+    }
+
+    // Get wait time estimate (seconds until a slot is available)
+    getWaitTime(modelName) {
+        this.cleanOldTimestamps(modelName);
+
+        const timestamps = this.requestTimestamps[modelName] || [];
+        if (timestamps.length === 0) return 0;
+
+        // Find oldest timestamp
+        const oldestTimestamp = Math.min(...timestamps);
+        const now = Date.now();
+        const age = now - oldestTimestamp;
+        const waitTime = Math.max(0, 60000 - age); // Time until oldest request expires
+
+        return Math.ceil(waitTime / 1000); // Convert to seconds
+    }
+}
+
+/**
+ * RequestQueue - Queues requests when all models are rate-limited
+ * Processes queue when quota becomes available
+ */
+class RequestQueue {
+    constructor() {
+        this.queue = [];
+        this.processing = false;
+    }
+
+    // Add request to queue
+    enqueue(request) {
+        this.queue.push({
+            ...request,
+            timestamp: Date.now(),
+            id: this.generateId()
+        });
+        console.log(`Request queued. Queue size: ${this.queue.length}`);
+    }
+
+    // Remove and return next request
+    dequeue() {
+        return this.queue.shift();
+    }
+
+    // Get queue size
+    size() {
+        return this.queue.length;
+    }
+
+    // Check if queue is empty
+    isEmpty() {
+        return this.queue.length === 0;
+    }
+
+    // Generate unique ID for request
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2);
+    }
+
+    // Get queue position for a request ID
+    getPosition(id) {
+        const index = this.queue.findIndex(req => req.id === id);
+        return index >= 0 ? index + 1 : -1;
+    }
+
+    // Clear queue
+    clear() {
+        this.queue = [];
+    }
+}
+
+/**
+ * ModelRouter - Routes requests to optimal models with load balancing
+ * Implements fallback chains and automatic retry logic
+ */
+class ModelRouter {
+    constructor(quotaTracker) {
+        this.quotaTracker = quotaTracker;
+
+        // Define fallback chains for different task types
+        this.fallbackChains = {
+            extraction: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+            chat: ['gemini-2.0-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash'],
+            nutrition: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'],
+            youtube: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        };
+    }
+
+    // Get optimal model for task type
+    selectModel(taskType = 'extraction') {
+        const chain = this.fallbackChains[taskType] || this.fallbackChains.extraction;
+
+        // Try to find an available model from the chain
+        for (const model of chain) {
+            if (this.quotaTracker.canUseModel(model)) {
+                console.log(`Selected model: ${model} for task: ${taskType}`);
+                return model;
+            }
+        }
+
+        // No models available
+        console.warn(`No models available for task: ${taskType}`);
+        return null;
+    }
+
+    // Get fallback chain for a task type
+    getFallbackChain(taskType = 'extraction') {
+        return this.fallbackChains[taskType] || this.fallbackChains.extraction;
+    }
+
+    // Get next fallback model
+    getNextFallback(currentModel, taskType = 'extraction') {
+        const chain = this.getFallbackChain(taskType);
+        const currentIndex = chain.indexOf(currentModel);
+
+        if (currentIndex === -1 || currentIndex === chain.length - 1) {
+            return null; // No more fallbacks
+        }
+
+        // Find next available model in chain
+        for (let i = currentIndex + 1; i < chain.length; i++) {
+            const model = chain[i];
+            if (this.quotaTracker.canUseModel(model)) {
+                console.log(`Falling back to: ${model}`);
+                return model;
+            }
+        }
+
+        return null; // No available fallbacks
+    }
+
+    // Check if any models are available
+    hasAvailableModels() {
+        return this.quotaTracker.getAvailableModels().length > 0;
+    }
+
+    // Get load-balanced model (distributes load across available models)
+    selectBalancedModel(taskType = 'extraction') {
+        const chain = this.getFallbackChain(taskType);
+        const availableModels = chain.filter(model => this.quotaTracker.canUseModel(model));
+
+        if (availableModels.length === 0) return null;
+
+        // Select model with most available quota (simple load balancing)
+        let bestModel = availableModels[0];
+        let bestScore = 0;
+
+        for (const model of availableModels) {
+            const status = this.quotaTracker.getModelStatus(model);
+            const score = status.rpm.available + (status.rpd.available / 10); // Prioritize RPM availability
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestModel = model;
+            }
+        }
+
+        console.log(`Load-balanced selection: ${bestModel} (score: ${bestScore.toFixed(1)})`);
+        return bestModel;
+    }
+}
+
 class RecipeManager {
     constructor() {
         this.currentRecipe = null;
@@ -17,6 +524,18 @@ class RecipeManager {
 
         // YouTube API configuration (Serverless)
         this.youtubeApiEndpoint = CONFIG.YOUTUBE_API_ENDPOINT || '/api/youtube';
+
+        // Initialize multi-model routing system
+        this.cache = new ResponseCache();
+        this.quotaTracker = new QuotaTracker(CONFIG.GEMINI_MODELS || {});
+        this.requestQueue = new RequestQueue();
+        this.modelRouter = new ModelRouter(this.quotaTracker);
+
+        // Clear expired cache on init
+        this.cache.clearExpired();
+
+        // Update quota UI periodically (every 5 seconds)
+        setInterval(() => this.updateQuotaUI(), 5000);
 
         this.init();
     }
@@ -146,9 +665,12 @@ class RecipeManager {
         }
     }
 
-    // AI Recipe Extraction using Gemini API
+    // AI Recipe Extraction using Gemini API (with caching)
     async extractRecipeFromURL(url) {
         try {
+            // Check cache first
+            const cacheKey = this.cache.getRecipeKey(url);
+
             // Check if this is a YouTube URL
             if (this.isYouTubeURL(url)) {
                 return await this.extractRecipeFromYouTube(url);
@@ -197,7 +719,7 @@ URL: ${url}
 CONTENT:
 ${focused}`;
 
-            const recipe = await this.callGeminiAPI(prompt);
+            const recipe = await this.callGeminiWithFallback(prompt, 'extraction', cacheKey);
             recipe.source = url;
             return this.normalizeExtractedRecipe(recipe);
 
@@ -289,6 +811,9 @@ ${focused}`;
     // Extract recipe from plain text (not URL)
     async extractRecipeFromText(text, sourceUrl = 'User Selection') {
         try {
+            // Generate cache key from text
+            const cacheKey = this.cache.getRecipeKey(sourceUrl + text.substring(0, 500));
+
             const prompt = `You are a recipe extraction expert. Extract the recipe from the following text content.
 
 Rules:
@@ -319,7 +844,7 @@ SOURCE: ${sourceUrl}
 CONTENT:
 ${text.substring(0, 15000)}`;
 
-            const recipe = await this.callGeminiAPI(prompt);
+            const recipe = await this.callGeminiWithFallback(prompt, 'extraction', cacheKey);
             recipe.source = sourceUrl;
             return this.normalizeExtractedRecipe(recipe);
 
@@ -740,6 +1265,9 @@ ${text.substring(0, 15000)}`;
 
     // Extract recipe from YouTube video data (reusable for Shorts and source videos)
     async extractRecipeFromYouTubeData(videoData, commentsData, videoId) {
+        // Check cache first
+        const cacheKey = this.cache.getYouTubeKey(videoId);
+
         // Combine description and pinned comment
         let content = '';
 
@@ -787,7 +1315,7 @@ Video Title: ${videoData.title}
 CONTENT:
 ${content}`;
 
-        const recipe = await this.callGeminiAPI(prompt);
+        const recipe = await this.callGeminiWithFallback(prompt, 'youtube', cacheKey);
         recipe.title = recipe.title || videoData.title;
 
         // Check if recipe has ingredients but NO instructions (edge case #2)
@@ -1037,64 +1565,164 @@ ${captions.substring(0, 10000)}`;
         };
     }
 
-    // Call Gemini API
-    async callGeminiAPI(prompt) {
-        // Call serverless proxy endpoint instead of Gemini directly
+    // ==========================================
+    // Multi-Model API Calls with Fallback & Caching
+    // ==========================================
+
+    /**
+     * Main method for calling Gemini API with multi-model support
+     * Includes caching, quota tracking, automatic fallback, and retry logic
+     */
+    async callGeminiWithFallback(prompt, taskType = 'extraction', cacheKey = null) {
+        // Check cache first (if cacheKey provided)
+        if (cacheKey) {
+            const cached = this.cache.get(cacheKey);
+            if (cached) {
+                console.log('Returning cached response');
+                return cached;
+            }
+        }
+
+        // Check if any models are available
+        if (!this.modelRouter.hasAvailableModels()) {
+            // All models rate-limited
+            const waitTimes = Object.keys(CONFIG.GEMINI_MODELS || {}).map(model =>
+                this.quotaTracker.getWaitTime(model)
+            );
+            const minWait = Math.min(...waitTimes);
+
+            throw new Error(
+                `All models are currently rate-limited. Please wait approximately ${minWait} seconds and try again. ` +
+                `Consider using the app less frequently to stay within quota limits.`
+            );
+        }
+
+        // Select optimal model with load balancing
+        let selectedModel = this.modelRouter.selectBalancedModel(taskType);
+
+        if (!selectedModel) {
+            throw new Error('No available models for this request. Please try again later.');
+        }
+
+        // Try primary model with retries
+        let lastError = null;
+        const maxRetries = 3;
+        const baseDelay = 1000; // 1 second
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                console.log(`Attempt ${attempt + 1}/${maxRetries} with model: ${selectedModel}`);
+
+                const result = await this.callGeminiAPIRaw(prompt, selectedModel);
+
+                // Success - record request and cache result
+                this.quotaTracker.recordRequest(selectedModel);
+
+                if (cacheKey) {
+                    this.cache.set(cacheKey, result, taskType);
+                }
+
+                // Update quota UI
+                this.updateQuotaUI();
+
+                return result;
+
+            } catch (error) {
+                lastError = error;
+                console.error(`Attempt ${attempt + 1} failed:`, error.message);
+
+                // Check if it's a 429 (rate limit) error
+                const is429 = error.message.includes('429') || error.message.includes('rate limit');
+
+                if (is429) {
+                    console.log('Rate limit detected, trying fallback model');
+
+                    // Try fallback model
+                    const fallbackModel = this.modelRouter.getNextFallback(selectedModel, taskType);
+
+                    if (fallbackModel) {
+                        selectedModel = fallbackModel;
+                        continue; // Try fallback immediately
+                    } else {
+                        // No more fallbacks available
+                        throw new Error(
+                            'All available models are rate-limited. Please wait a moment and try again.'
+                        );
+                    }
+                }
+
+                // For non-429 errors, use exponential backoff before retry
+                if (attempt < maxRetries - 1) {
+                    const delay = baseDelay * Math.pow(2, attempt);
+                    console.log(`Waiting ${delay}ms before retry...`);
+                    await this.delay(delay);
+                }
+            }
+        }
+
+        // All retries exhausted
+        throw new Error(`Request failed after ${maxRetries} attempts: ${lastError.message}`);
+    }
+
+    /**
+     * Raw Gemini API call (used by callGeminiWithFallback)
+     */
+    async callGeminiAPIRaw(prompt, model) {
         const requestBody = {
             prompt: prompt,
             method: 'generateContent',
-            model: this.geminiModel
+            model: model
         };
 
-        try {
-            const response = await fetch(this.geminiApiEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
+        const response = await fetch(this.geminiApiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API error: ${errorData.error || response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            // Extract the text from Gemini's response
-            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (!generatedText) {
-                throw new Error('No response from Gemini API');
-            }
-
-            // Clean up the response and robustly parse JSON
-            let cleanedText = generatedText.trim();
-            cleanedText = cleanedText
-                .replace(/^```\s*json\s*/i, '')
-                .replace(/^```/i, '')
-                .replace(/```\s*$/i, '')
-                .trim();
-
-            // Try direct parse; if it fails, try to extract the first top-level JSON object
-            let parsedResponse;
-            try {
-                parsedResponse = JSON.parse(cleanedText);
-            } catch (e) {
-                const match = cleanedText.match(/\{[\s\S]*\}/);
-                if (match) {
-                    parsedResponse = JSON.parse(match[0]);
-                } else {
-                    throw e;
-                }
-            }
-            return parsedResponse;
-
-        } catch (error) {
-            console.error('Gemini API call failed:', error);
-            throw error;
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMsg = errorData.error || response.statusText;
+            throw new Error(`API error (${response.status}): ${errorMsg}`);
         }
+
+        const data = await response.json();
+
+        // Extract the text from Gemini's response
+        const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedText) {
+            throw new Error('No response from Gemini API');
+        }
+
+        // Clean up the response and robustly parse JSON
+        let cleanedText = generatedText.trim();
+        cleanedText = cleanedText
+            .replace(/^```\s*json\s*/i, '')
+            .replace(/^```/i, '')
+            .replace(/```\s*$/i, '')
+            .trim();
+
+        // Try direct parse; if it fails, try to extract the first top-level JSON object
+        let parsedResponse;
+        try {
+            parsedResponse = JSON.parse(cleanedText);
+        } catch (e) {
+            const match = cleanedText.match(/\{[\s\S]*\}/);
+            if (match) {
+                parsedResponse = JSON.parse(match[0]);
+            } else {
+                throw e;
+            }
+        }
+        return parsedResponse;
+    }
+
+    // Legacy method - now uses multi-model system
+    async callGeminiAPI(prompt) {
+        return await this.callGeminiWithFallback(prompt, 'extraction');
     }
 
     // ==========================================
@@ -1366,6 +1994,12 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('macros-error').style.display = 'none';
 
         try {
+            // Check cache first
+            const cacheKey = this.cache.getNutritionKey(
+                this.currentRecipe.ingredients,
+                this.currentServings
+            );
+
             // Build recipe context for Gemini
             const ingredientsList = this.currentRecipe.ingredients
                 .map(ing => this.scaleIngredient(ing))
@@ -1398,7 +2032,7 @@ Response format (exact keys):
 
 Base your estimates on standard nutritional databases. Be realistic and conservative.`;
 
-            const macrosData = await this.callGeminiAPI(prompt);
+            const macrosData = await this.callGeminiWithFallback(prompt, 'nutrition', cacheKey);
 
             // Calculate percentages for macronutrients
             const totalMacroCalories =
@@ -1831,44 +2465,93 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Call Gemini API for chat (simpler, text-only response)
-    async callGeminiAPIForChat(prompt) {
-        // Call serverless proxy endpoint instead of Gemini directly
-        const requestBody = {
-            prompt: prompt,
-            method: 'generateContent',
-            model: this.geminiModel
-        };
-
-        try {
-            const response = await fetch(this.geminiApiEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API error: ${errorData.error || response.statusText}`);
+    // Call Gemini API for chat (text-only response, with caching)
+    async callGeminiAPIForChat(prompt, cacheKey = null) {
+        // Check cache first
+        if (cacheKey) {
+            const cached = this.cache.get(cacheKey);
+            if (cached) {
+                console.log('Returning cached chat response');
+                return cached;
             }
-
-            const data = await response.json();
-
-            // Extract the text from Gemini's response
-            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (!generatedText) {
-                throw new Error('No response from Gemini API');
-            }
-
-            return generatedText.trim();
-
-        } catch (error) {
-            console.error('Gemini API chat call failed:', error);
-            throw error;
         }
+
+        // Select model for chat
+        let selectedModel = this.modelRouter.selectBalancedModel('chat');
+
+        if (!selectedModel) {
+            throw new Error('No available models for chat. Please try again later.');
+        }
+
+        // Try with retries and fallback
+        let lastError = null;
+        const maxRetries = 2; // Fewer retries for chat
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const requestBody = {
+                    prompt: prompt,
+                    method: 'generateContent',
+                    model: selectedModel
+                };
+
+                const response = await fetch(this.geminiApiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    const errorMsg = errorData.error || response.statusText;
+                    throw new Error(`API error (${response.status}): ${errorMsg}`);
+                }
+
+                const data = await response.json();
+                const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!generatedText) {
+                    throw new Error('No response from Gemini API');
+                }
+
+                // Success - record request
+                this.quotaTracker.recordRequest(selectedModel);
+
+                // Cache result if cacheKey provided
+                if (cacheKey) {
+                    this.cache.set(cacheKey, generatedText.trim(), 'chat');
+                }
+
+                // Update quota UI
+                this.updateQuotaUI();
+
+                return generatedText.trim();
+
+            } catch (error) {
+                lastError = error;
+                console.error(`Chat attempt ${attempt + 1} failed:`, error.message);
+
+                // Check for rate limit
+                const is429 = error.message.includes('429') || error.message.includes('rate limit');
+
+                if (is429) {
+                    const fallbackModel = this.modelRouter.getNextFallback(selectedModel, 'chat');
+                    if (fallbackModel) {
+                        selectedModel = fallbackModel;
+                        continue;
+                    }
+                }
+
+                // For non-429 errors or no fallbacks, retry with backoff
+                if (attempt < maxRetries - 1) {
+                    await this.delay(1000);
+                }
+            }
+        }
+
+        throw new Error(`Chat request failed: ${lastError.message}`);
     }
 
     // ==========================================
@@ -2154,6 +2837,73 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
 
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // ==========================================
+    // Quota Tracker UI
+    // ==========================================
+
+    updateQuotaUI() {
+        const quotaContainer = document.getElementById('quota-tracker');
+        if (!quotaContainer) return; // UI not loaded yet
+
+        const allStatus = this.quotaTracker.getAllStatus();
+        const cacheStats = this.cache.getStats();
+
+        let html = '<div class="quota-header">';
+        html += '<h4>API Quota Status</h4>';
+        html += `<div class="cache-stats">Cache Hit Rate: ${cacheStats.hitRate}</div>`;
+        html += '</div>';
+
+        html += '<div class="quota-models">';
+
+        allStatus.forEach(status => {
+            const rpmHealth = status.rpm.percentage < 70 ? 'healthy' :
+                            status.rpm.percentage < 90 ? 'warning' : 'critical';
+            const rpdHealth = status.rpd.percentage < 70 ? 'healthy' :
+                            status.rpd.percentage < 90 ? 'warning' : 'critical';
+
+            // Simplify model name for display
+            const displayName = status.model.replace('gemini-', '').replace('-', ' ');
+
+            html += `
+                <div class="quota-model ${status.canUse ? '' : 'rate-limited'}">
+                    <div class="model-name">${displayName}</div>
+                    <div class="model-quota">
+                        <div class="quota-bar-container">
+                            <div class="quota-label">Minute</div>
+                            <div class="quota-bar ${rpmHealth}">
+                                <div class="quota-fill" style="width: ${status.rpm.percentage}%"></div>
+                            </div>
+                            <div class="quota-text">${status.rpm.used}/${status.rpm.limit}</div>
+                        </div>
+                        <div class="quota-bar-container">
+                            <div class="quota-label">Day</div>
+                            <div class="quota-bar ${rpdHealth}">
+                                <div class="quota-fill" style="width: ${status.rpd.percentage}%"></div>
+                            </div>
+                            <div class="quota-text">${status.rpd.used}/${status.rpd.limit}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+
+        quotaContainer.innerHTML = html;
+    }
+
+    toggleQuotaTracker() {
+        const quotaTracker = document.getElementById('quota-tracker');
+        if (!quotaTracker) return;
+
+        if (quotaTracker.classList.contains('minimized')) {
+            quotaTracker.classList.remove('minimized');
+            this.updateQuotaUI();
+        } else {
+            quotaTracker.classList.add('minimized');
+        }
     }
 }
 

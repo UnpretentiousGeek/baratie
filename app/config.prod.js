@@ -6,7 +6,32 @@
 const CONFIG = {
     // Gemini AI Configuration
     GEMINI_API_ENDPOINT: '/api/gemini', // Serverless proxy endpoint
-    GEMINI_MODEL: 'gemini-2.0-flash-lite',   // Model name (used in requests)
+    GEMINI_MODEL: 'gemini-2.0-flash-lite', // Default model (used as fallback)
+
+    // Multi-Model Configuration
+    // Each model has independent rate limits on the same API key
+    GEMINI_MODELS: {
+        'gemini-2.0-flash': {
+            rpm: 15,    // Requests per minute
+            rpd: 200,   // Requests per day
+            priority: 3
+        },
+        'gemini-2.0-flash-lite': {
+            rpm: 30,
+            rpd: 200,
+            priority: 2
+        },
+        'gemini-2.5-flash-lite': {
+            rpm: 15,
+            rpd: 1000,
+            priority: 1  // Highest priority (best quota)
+        },
+        'gemini-2.5-flash': {
+            rpm: 10,
+            rpd: 250,
+            priority: 4
+        }
+    },
 
     // YouTube Data API Configuration
     YOUTUBE_API_ENDPOINT: '/api/youtube', // Serverless proxy endpoint
