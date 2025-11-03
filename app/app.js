@@ -1139,11 +1139,14 @@ Rules:
 - If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
 - For each ingredient, provide EXACTLY these fields:
-  - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided" or "Salt to taste (optional)")
+  - text: clean base ingredient text (e.g., "2 cups all-purpose flour" or "Salt to taste")
   - amount: numeric value if present, else null and format it properly
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
-  - name: ingredient name only (e.g., "flour", "salt")
-- IMPORTANT: Do NOT add parentheses, brackets, or doubled symbols like ((divided)), ((optional)) or ((4 oz, 113 g)) to the ingredient text.
+  - name: ingredient name only (e.g., "all-purpose flour", "salt")
+  - notes (optional): usage instructions like "divided", "optional", "chopped", "room temperature" - NO parentheses
+  - conversion (optional): metric/imperial conversion like "about 250 g", "4 oz", "113 g" - NO parentheses
+- IMPORTANT: Keep text, notes, and conversion fields SEPARATE. Do NOT put notes or conversions in the text field.
+- IMPORTANT: Do NOT add parentheses to any field. The display will add them automatically.
 
 Response shape (exact keys):
 {
@@ -1151,9 +1154,9 @@ Response shape (exact keys):
   "title": "",
   "servings": 4,
   "ingredients": [
-    { "text": "2 cups all-purpose flour, divided", "amount": 2, "unit": "cups", "name": "all-purpose flour" },
-    { "text": "4 oz beef broth (about 113 g)", "amount": 4, "unit": "oz", "name": "beef broth" },
-    { "text": "Salt to taste (optional)", "amount": null, "unit": "", "name": "salt" }
+    { "text": "2 cups all-purpose flour", "amount": 2, "unit": "cups", "name": "all-purpose flour", "notes": "divided" },
+    { "text": "4 oz beef broth", "amount": 4, "unit": "oz", "name": "beef broth", "conversion": "about 113 g" },
+    { "text": "Salt to taste", "amount": null, "unit": "", "name": "salt", "notes": "optional" }
   ],
   "instructions": ["..."]
 }
@@ -1267,12 +1270,14 @@ Rules:
 - If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
 - For each ingredient, provide EXACTLY these fields:
-  - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided" or "Salt to taste (optional)")
+  - text: clean base ingredient text (e.g., "2 cups all-purpose flour" or "Salt to taste")
   - amount: numeric value if present, else null
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
-  - name: ingredient name only (e.g., "flour", "salt")
-- IMPORTANT: Do NOT add extra parentheses, brackets, or doubled symbols like ((divided)) or ((optional))
-- Single parentheses are fine: (divided), (optional), (4 oz), but NEVER double them: ((divided))
+  - name: ingredient name only (e.g., "all-purpose flour", "salt")
+  - notes (optional): usage instructions like "divided", "optional", "chopped", "room temperature" - NO parentheses
+  - conversion (optional): metric/imperial conversion like "about 250 g", "4 oz", "113 g" - NO parentheses
+- IMPORTANT: Keep text, notes, and conversion fields SEPARATE. Do NOT put notes or conversions in the text field.
+- IMPORTANT: Do NOT add parentheses to any field. The display will add them automatically.
 
 Response shape (exact keys):
 {
@@ -1280,9 +1285,9 @@ Response shape (exact keys):
   "title": "",
   "servings": 4,
   "ingredients": [
-    { "text": "2 cups all-purpose flour, divided", "amount": 2, "unit": "cups", "name": "all-purpose flour" },
-    { "text": "4 oz beef broth (about 113 g)", "amount": 4, "unit": "oz", "name": "beef broth" },
-    { "text": "Salt to taste (optional)", "amount": null, "unit": "", "name": "salt" }
+    { "text": "2 cups all-purpose flour", "amount": 2, "unit": "cups", "name": "all-purpose flour", "notes": "divided" },
+    { "text": "4 oz beef broth", "amount": 4, "unit": "oz", "name": "beef broth", "conversion": "about 113 g" },
+    { "text": "Salt to taste", "amount": null, "unit": "", "name": "salt", "notes": "optional" }
   ],
   "instructions": ["..."]
 }
@@ -1866,17 +1871,19 @@ Rules:
 - If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
 - For each ingredient, provide EXACTLY these fields:
-  - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided")
-  - IMPORTANT: Do NOT add extra parentheses, brackets, or doubled symbols like ((divided)) or ((4 oz, 113 g))
-  - Single parentheses are fine: (divided), (optional), but NEVER double them: ((divided))
+  - text: clean base ingredient text (e.g., "2 cups all-purpose flour" or "Salt to taste")
   - amount: numeric value if present, else null
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
-  - name: ingredient name
+  - name: ingredient name only (e.g., "all-purpose flour", "salt")
+  - notes (optional): usage instructions like "divided", "optional", "chopped", "room temperature" - NO parentheses
+  - conversion (optional): metric/imperial conversion like "about 250 g", "4 oz", "113 g" - NO parentheses
+- IMPORTANT: Keep text, notes, and conversion fields SEPARATE. Do NOT put notes or conversions in the text field.
+- IMPORTANT: Do NOT add parentheses to any field. The display will add them automatically.
 
 Response examples:
-{ "text": "2 cups all-purpose flour, divided", "amount": 2, "unit": "cups", "name": "all-purpose flour" },
-{ "text": "4 oz beef broth (about 113 g)", "amount": 4, "unit": "oz", "name": "beef broth" },
-{ "text": "Salt to taste (optional)", "amount": null, "unit": "", "name": "salt" }
+{ "text": "2 cups all-purpose flour", "amount": 2, "unit": "cups", "name": "all-purpose flour", "notes": "divided" },
+{ "text": "4 oz beef broth", "amount": 4, "unit": "oz", "name": "beef broth", "conversion": "about 113 g" },
+{ "text": "Salt to taste", "amount": null, "unit": "", "name": "salt", "notes": "optional" }
 
 Response shape (exact keys):
 {
@@ -1884,7 +1891,7 @@ Response shape (exact keys):
   "title": "${videoData.title}",
   "servings": 4,
   "ingredients": [
-    { "text": "", "amount": 0, "unit": "", "name": "" }
+    { "text": "", "amount": 0, "unit": "", "name": "", "notes": "", "conversion": "" }
   ],
   "instructions": ["..."]
 }
@@ -2790,43 +2797,67 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
     // Ingredients are shown as-is from the extracted recipe
 
     scaleIngredient(ingredient) {
+        // If no amount, return text as-is (handles "to taste", "pinch of", etc.)
         if (ingredient.amount == null || ingredient.amount === undefined) {
-            return ingredient.text;
+            // If new fields exist, format them; otherwise use text
+            if (ingredient.notes || ingredient.conversion) {
+                return this.formatIngredientWithFields(ingredient);
+            }
+            return ingredient.text || '';
         }
 
         const scaleFactor = this.currentServings / this.originalServings;
         const scaledAmount = ingredient.amount * scaleFactor;
         const formattedAmount = this.formatAmount(scaledAmount);
 
-        // Extract parenthetical notes and suffix information from original text
-        // Pattern: "amount unit name (notes) extra"
-        // We want to preserve: (notes) and any text after the main ingredient name
+        // Build scaled ingredient using new structured fields if available
+        if (ingredient.notes !== undefined || ingredient.conversion !== undefined) {
+            // New format: use structured fields
+            const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
+            const name = ingredient.name ? ` ${ingredient.name}` : '';
+            let result = `${formattedAmount}${unit}${name}`.trim();
+
+            // Add conversion if present (in parentheses)
+            if (ingredient.conversion && ingredient.conversion.trim()) {
+                result += ` (${ingredient.conversion.trim()})`;
+            }
+
+            // Add notes if present (comma-separated or in parentheses based on content)
+            if (ingredient.notes && ingredient.notes.trim()) {
+                const notes = ingredient.notes.trim();
+                // Short notes like "divided", "optional" go after comma
+                if (notes.length < 15 && !notes.includes(' ')) {
+                    result += `, ${notes}`;
+                } else {
+                    // Longer notes go in parentheses
+                    result += ` (${notes})`;
+                }
+            }
+
+            return result;
+        }
+
+        // Fallback: old format (backward compatibility for cached recipes)
+        // Extract parenthetical notes from original text field
         const originalText = ingredient.text || '';
-
-        // Find parenthetical expressions like (divided), (optional), (about 113 g), etc.
         const parentheticalMatches = originalText.match(/\([^)]+\)/g) || [];
-
-        // Find comma-separated notes like ", divided" or ", optional"
         const commaNotesMatch = originalText.match(/,\s*[^,()]+$/);
         const commaNotes = commaNotesMatch ? commaNotesMatch[0] : '';
 
-        // Build the scaled ingredient text
         const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
         const name = ingredient.name ? ` ${ingredient.name}` : '';
         let scaledText = `${formattedAmount}${unit}${name}`.trim();
 
-        // Append parenthetical notes (if they don't contain measurement conversions to avoid confusion)
+        // Re-append non-conversion parenthetical notes
         if (parentheticalMatches.length > 0) {
             parentheticalMatches.forEach(note => {
-                // Skip metric conversion notes that would be incorrect after scaling
-                // e.g., (about 113 g) should not be kept as the gram amount is now wrong
                 if (!this.isMetricConversion(note)) {
                     scaledText += ` ${note}`;
                 }
             });
         }
 
-        // Append comma notes if present and not already in parentheses
+        // Re-append comma notes
         if (commaNotes && !parentheticalMatches.some(note => note.toLowerCase().includes(commaNotes.toLowerCase().trim().replace(',', '')))) {
             scaledText += commaNotes;
         }
@@ -2834,10 +2865,29 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         return scaledText.trim();
     }
 
-    // Helper to detect metric conversion notes that shouldn't be preserved when scaling
+    // Format ingredient using structured fields (for non-scaled ingredients)
+    formatIngredientWithFields(ingredient) {
+        let result = ingredient.text || '';
+
+        if (ingredient.conversion && ingredient.conversion.trim()) {
+            result += ` (${ingredient.conversion.trim()})`;
+        }
+
+        if (ingredient.notes && ingredient.notes.trim()) {
+            const notes = ingredient.notes.trim();
+            if (notes.length < 15 && !notes.includes(' ')) {
+                result += `, ${notes}`;
+            } else {
+                result += ` (${notes})`;
+            }
+        }
+
+        return result.trim();
+    }
+
+    // Helper to detect metric conversion notes (used for backward compatibility)
     isMetricConversion(note) {
         const lowerNote = note.toLowerCase();
-        // Check if note contains measurement units with numbers (e.g., "113 g", "4 oz", "250 ml")
         return /\d+\s*(g|kg|mg|ml|l|oz|lb|cup|tbsp|tsp)/.test(lowerNote) &&
                (lowerNote.includes('about') || lowerNote.includes('approx'));
     }
@@ -2914,6 +2964,9 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
 
         // Remove duplicate parenthetical notes: (divided) (divided) → (divided)
         text = text.replace(/\(\s*([^)]+)\)\s*\(\s*\1\s*\)/gi, '($1)');
+
+        // Remove double parentheses: ((text)) → (text)
+        text = text.replace(/\(\(([^)]+)\)\)/g, '($1)');
 
         // Remove triple+ parentheses: (((text))) → (text)
         while (text.includes('(((') || text.includes(')))')) {
