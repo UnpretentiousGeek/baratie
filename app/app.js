@@ -1629,18 +1629,17 @@ ${text.substring(0, 15000)}`;
         }
     }
 
-    // Fetch YouTube video captions/transcript
-    async fetchYouTubeCaptions(videoId) {
+    // Fetch YouTube video captions/transcript with timestamps
+    async fetchYouTubeCaptions(videoId, withTimestamps = false) {
         try {
-            // Use a third-party service to fetch captions since YouTube Data API doesn't provide transcripts
-            // We'll try to fetch from YouTube's timedtext endpoint
+            // Try to fetch from YouTube's timedtext endpoint
             const captionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en`;
 
             const response = await fetch(captionUrl);
 
             if (!response.ok) {
                 console.warn('Captions not available for this video');
-                return null;
+                return withTimestamps ? null : null;
             }
 
             const xmlText = await response.text();
@@ -1651,24 +1650,121 @@ ${text.substring(0, 15000)}`;
             const textElements = xmlDoc.getElementsByTagName('text');
 
             if (textElements.length === 0) {
-                return null;
+                return withTimestamps ? null : null;
             }
 
-            // Extract and combine caption text
-            let captionText = '';
-            for (let i = 0; i < textElements.length; i++) {
-                const text = textElements[i].textContent.trim();
-                if (text) {
-                    captionText += text + ' ';
+            if (withTimestamps) {
+                // Return array of {text, start, duration} objects
+                const captions = [];
+                for (let i = 0; i < textElements.length; i++) {
+                    const elem = textElements[i];
+                    const text = elem.textContent.trim();
+                    const start = parseFloat(elem.getAttribute('start') || '0');
+                    const duration = parseFloat(elem.getAttribute('dur') || '0');
+
+                    if (text) {
+                        captions.push({
+                            text: text,
+                            start: start,
+                            end: start + duration,
+                            duration: duration
+                        });
+                    }
                 }
+                return captions;
+            } else {
+                // Return plain text (backward compatibility)
+                let captionText = '';
+                for (let i = 0; i < textElements.length; i++) {
+                    const text = textElements[i].textContent.trim();
+                    if (text) {
+                        captionText += text + ' ';
+                    }
+                }
+                return captionText.trim();
             }
-
-            return captionText.trim();
 
         } catch (error) {
             console.warn('Error fetching YouTube captions:', error);
-            return null;
+            return withTimestamps ? null : null;
         }
+    }
+
+    // Match recipe instructions to video timestamps using captions
+    async matchInstructionsToTimestamps(instructions, videoId) {
+        try {
+            // Fetch captions with timestamps
+            const captions = await this.fetchYouTubeCaptions(videoId, true);
+
+            if (!captions || captions.length === 0) {
+                console.warn('No captions available for timestamp matching');
+                return instructions.map(inst => ({ text: inst, timestamp: null }));
+            }
+
+            // Build caption text with markers for Gemini
+            const captionText = captions.map(cap =>
+                `[${this.formatTimestamp(cap.start)}] ${cap.text}`
+            ).join('\n');
+
+            // Use Gemini AI to match instructions to captions
+            const prompt = `You are a video timestamp expert. Match each recipe instruction to the most relevant timestamp from the video captions.
+
+INSTRUCTIONS (to match):
+${instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}
+
+VIDEO CAPTIONS (with timestamps):
+${captionText.substring(0, 8000)}
+
+For each instruction, find the timestamp where that step is demonstrated or explained in the video.
+If no good match exists, return null for that instruction.
+
+Response format (JSON only, no markdown):
+{
+  "matches": [
+    { "instruction_index": 0, "timestamp_seconds": 45.5, "confidence": "high" },
+    { "instruction_index": 1, "timestamp_seconds": null, "confidence": "none" }
+  ]
+}`;
+
+            const response = await this.callGeminiAPIForChat(prompt);
+
+            // Parse Gemini response
+            let matches;
+            try {
+                // Remove markdown code fences if present
+                const cleanResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                matches = JSON.parse(cleanResponse);
+            } catch (parseError) {
+                console.warn('Failed to parse Gemini timestamp response:', parseError);
+                return instructions.map(inst => ({ text: inst, timestamp: null }));
+            }
+
+            // Build result array
+            return instructions.map((inst, idx) => {
+                const match = matches.matches?.find(m => m.instruction_index === idx);
+                return {
+                    text: inst,
+                    timestamp: match?.timestamp_seconds || null,
+                    confidence: match?.confidence || 'none'
+                };
+            });
+
+        } catch (error) {
+            console.error('Error matching timestamps:', error);
+            return instructions.map(inst => ({ text: inst, timestamp: null }));
+        }
+    }
+
+    // Format seconds to MM:SS or HH:MM:SS
+    formatTimestamp(seconds) {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+
+        if (hrs > 0) {
+            return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
     // Extract source video ID from YouTube Short description
@@ -1981,6 +2077,26 @@ ${captions.substring(0, 10000)}`;
 
             // Don't add placeholder instructions - video will be embedded directly
             recipe.instructions = [];
+        }
+
+        // FINAL STEP: Match instructions to timestamps (if captions available and instructions exist)
+        if (recipe.instructions && recipe.instructions.length > 0) {
+            console.log('Attempting to match instructions to video timestamps...');
+            try {
+                const instructionsWithTimestamps = await this.matchInstructionsToTimestamps(
+                    recipe.instructions,
+                    videoId
+                );
+
+                // Store video ID and timestamped instructions
+                recipe.youtubeVideoId = videoId;
+                recipe.instructionsWithTimestamps = instructionsWithTimestamps;
+
+                console.log(`Matched ${instructionsWithTimestamps.filter(i => i.timestamp).length}/${recipe.instructions.length} instructions to timestamps`);
+            } catch (error) {
+                console.warn('Failed to match timestamps:', error);
+                // Continue without timestamps if matching fails
+            }
         }
 
         return this.normalizeExtractedRecipe(recipe);
@@ -2525,8 +2641,11 @@ ${captions.substring(0, 10000)}`;
             return; // Don't show any other instructions
         }
 
-        // Normal instructions with checkboxes
-        recipe.instructions.forEach((instruction, index) => {
+        // Normal instructions with checkboxes and optional timestamps
+        const instructionsData = recipe.instructionsWithTimestamps || recipe.instructions.map(text => ({ text, timestamp: null }));
+        const videoId = recipe.youtubeVideoId;
+
+        instructionsData.forEach((instruction, index) => {
             const div = document.createElement('div');
             div.className = 'instruction-item';
             if (this.completedSteps.has(index)) {
@@ -2548,7 +2667,24 @@ ${captions.substring(0, 10000)}`;
 
             const text = document.createElement('div');
             text.className = 'instruction-text';
-            text.textContent = instruction;
+            text.textContent = instruction.text || instruction;
+
+            // Add timestamp badge if available
+            if (instruction.timestamp && videoId) {
+                const timestampBadge = document.createElement('a');
+                timestampBadge.className = 'timestamp-badge';
+                timestampBadge.href = `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(instruction.timestamp)}s`;
+                timestampBadge.target = '_blank';
+                timestampBadge.rel = 'noopener noreferrer';
+                timestampBadge.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    ${this.formatTimestamp(instruction.timestamp)}
+                `;
+                timestampBadge.title = 'Watch this step in the video';
+                number.appendChild(timestampBadge);
+            }
 
             content.appendChild(number);
             content.appendChild(text);
