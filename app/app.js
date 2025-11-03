@@ -2949,6 +2949,7 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         // Build scaled ingredient using new structured fields if available
         if (ingredient.notes !== undefined || ingredient.conversion !== undefined) {
             // New format: use structured fields
+            // Use structured amount/unit/name instead of text field to avoid duplicates
             const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
             const name = ingredient.name ? ` ${ingredient.name}` : '';
             let result = `${formattedAmount}${unit}${name}`.trim();
@@ -3003,7 +3004,14 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
 
     // Format ingredient using structured fields (for non-scaled ingredients)
     formatIngredientWithFields(ingredient) {
-        let result = ingredient.text || '';
+        // Clean the text field by removing any parenthetical content and trailing commas
+        // This prevents duplication when conversion/notes are in separate fields
+        let baseText = (ingredient.text || '')
+            .replace(/\s*\([^)]*\)\s*/g, ' ')  // Remove all parenthetical content
+            .replace(/\s*,\s*[^,]*$/, '')       // Remove trailing comma notes
+            .trim();
+
+        let result = baseText;
 
         if (ingredient.conversion && ingredient.conversion.trim()) {
             result += ` (${ingredient.conversion.trim()})`;
