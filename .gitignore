@@ -3,6 +3,7 @@ app/config.js
 config.js
 *.env
 .env.local
+CLAUDE.md
 
 # Node modules (if you add dependencies later)
 node_modules/
