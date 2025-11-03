@@ -1137,11 +1137,13 @@ Rules:
 - Respond with ONLY JSON (no markdown, no comments, no code fences).
 - If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
-- For each ingredient:
-  - text: original line text
+- For each ingredient, provide EXACTLY these fields:
+  - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided" or "Salt to taste (optional)")
   - amount: numeric value if present, else null
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
-  - name: ingredient name
+  - name: ingredient name only (e.g., "flour", "salt")
+- IMPORTANT: Do NOT add extra parentheses, brackets, or doubled symbols like ((divided)) or ((optional))
+- Single parentheses are fine: (divided), (optional), (4 oz), but NEVER double them: ((divided))
 
 Response shape (exact keys):
 {
@@ -1149,7 +1151,9 @@ Response shape (exact keys):
   "title": "",
   "servings": 4,
   "ingredients": [
-    { "text": "", "amount": 0, "unit": "", "name": "" }
+    { "text": "2 cups all-purpose flour, divided", "amount": 2, "unit": "cups", "name": "all-purpose flour" },
+    { "text": "4 oz beef broth (about 113 g)", "amount": 4, "unit": "oz", "name": "beef broth" },
+    { "text": "Salt to taste (optional)", "amount": null, "unit": "", "name": "salt" }
   ],
   "instructions": ["..."]
 }
@@ -1262,11 +1266,13 @@ Rules:
 - Respond with ONLY JSON (no markdown, no comments, no code fences).
 - If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
-- For each ingredient:
-  - text: original line text
+- For each ingredient, provide EXACTLY these fields:
+  - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided" or "Salt to taste (optional)")
   - amount: numeric value if present, else null
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
-  - name: ingredient name
+  - name: ingredient name only (e.g., "flour", "salt")
+- IMPORTANT: Do NOT add extra parentheses, brackets, or doubled symbols like ((divided)) or ((optional))
+- Single parentheses are fine: (divided), (optional), (4 oz), but NEVER double them: ((divided))
 
 Response shape (exact keys):
 {
@@ -1274,7 +1280,9 @@ Response shape (exact keys):
   "title": "",
   "servings": 4,
   "ingredients": [
-    { "text": "", "amount": 0, "unit": "", "name": "" }
+    { "text": "2 cups all-purpose flour, divided", "amount": 2, "unit": "cups", "name": "all-purpose flour" },
+    { "text": "4 oz beef broth (about 113 g)", "amount": 4, "unit": "oz", "name": "beef broth" },
+    { "text": "Salt to taste (optional)", "amount": null, "unit": "", "name": "salt" }
   ],
   "instructions": ["..."]
 }
@@ -1857,11 +1865,18 @@ Rules:
 - Respond with ONLY JSON (no markdown, no comments, no code fences).
 - If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
-- For each ingredient:
-  - text: original line text
+- For each ingredient, provide EXACTLY these fields:
+  - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided")
+  - IMPORTANT: Do NOT add extra parentheses, brackets, or doubled symbols like ((divided)) or ((4 oz, 113 g))
+  - Single parentheses are fine: (divided), (optional), but NEVER double them: ((divided))
   - amount: numeric value if present, else null
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
   - name: ingredient name
+
+Response examples:
+{ "text": "2 cups all-purpose flour, divided", "amount": 2, "unit": "cups", "name": "all-purpose flour" },
+{ "text": "4 oz beef broth (about 113 g)", "amount": 4, "unit": "oz", "name": "beef broth" },
+{ "text": "Salt to taste (optional)", "amount": null, "unit": "", "name": "salt" }
 
 Response shape (exact keys):
 {
