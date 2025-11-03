@@ -945,7 +945,8 @@ class RecipeManager {
         this.currentServings = 4;
         this.completedSteps = new Set();
         this.chatHistory = [];
-        this.currentMacros = null; // Store calculated macros
+        this.currentMacros = null; // Store calculated macros (per single serving)
+        this.macrosServingSize = 1; // Number of servings to calculate nutrition for
         this.cookingTimer = null; // Cooking timer instance
 
         // Gemini API configuration (Serverless)
@@ -1020,6 +1021,14 @@ class RecipeManager {
         // Tabs
         document.querySelectorAll('.tab-button').forEach(button => {
             button.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+        });
+
+        // Macros serving selector
+        document.getElementById('macros-decrease-servings').addEventListener('click', () => this.adjustMacrosServings(-1));
+        document.getElementById('macros-increase-servings').addEventListener('click', () => this.adjustMacrosServings(1));
+        document.getElementById('macros-servings-input').addEventListener('change', (e) => {
+            const value = parseInt(e.target.value);
+            if (value > 0) this.setMacrosServings(value);
         });
 
         // Macros recalculation
@@ -1139,11 +1148,10 @@ Rules:
 - If servings are missing, infer a reasonable integer from context (2–8 typical). Never return null; use an integer.
 - For each ingredient, provide EXACTLY these fields:
   - text: clean ingredient line as it would naturally be written (e.g., "2 cups flour, divided" or "Salt to taste (optional)")
-  - amount: numeric value if present, else null
+  - amount: numeric value if present, else null and format it properly
   - unit: unit string (e.g., g, kg, ml, tbsp, tsp, cup, to taste), else ""
   - name: ingredient name only (e.g., "flour", "salt")
-- IMPORTANT: Do NOT add extra parentheses, brackets, or doubled symbols like ((divided)) or ((optional))
-- Single parentheses are fine: (divided), (optional), (4 oz), but NEVER double them: ((divided))
+- IMPORTANT: Do NOT add parentheses, brackets, or doubled symbols like ((divided)), ((optional)) or ((4 oz, 113 g)) to the ingredient text.
 
 Response shape (exact keys):
 {
@@ -2683,39 +2691,71 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
     }
 
     displayMacros(macros) {
+        // Store the base macros (per single serving)
+        this.currentMacros = macros;
+
         // Hide loading, show content
         document.getElementById('macros-loading').style.display = 'none';
         document.getElementById('macros-content').style.display = 'block';
         document.getElementById('macros-error').style.display = 'none';
 
-        // Update servings label
-        document.getElementById('macros-servings').textContent = this.currentServings;
+        // Update recipe total servings label
+        document.getElementById('recipe-total-servings').textContent = this.currentServings;
+
+        // Display macros based on selected serving size
+        this.updateMacrosDisplay();
+    }
+
+    updateMacrosDisplay() {
+        if (!this.currentMacros) return;
+
+        const macros = this.currentMacros;
+        const servingMultiplier = this.macrosServingSize;
 
         // Update calories
-        document.getElementById('total-calories').textContent = macros.calories;
+        document.getElementById('total-calories').textContent = Math.round(macros.calories * servingMultiplier);
 
         // Update macronutrients
-        document.getElementById('protein-grams').textContent = macros.protein.grams;
-        document.getElementById('protein-percentage').textContent = macros.protein.percentage;
+        document.getElementById('protein-grams').textContent = Math.round(macros.protein.grams * servingMultiplier);
+        document.getElementById('protein-percentage').textContent = macros.protein.percentage; // Percentage stays same
 
-        document.getElementById('carbs-grams').textContent = macros.carbs.grams;
+        document.getElementById('carbs-grams').textContent = Math.round(macros.carbs.grams * servingMultiplier);
         document.getElementById('carbs-percentage').textContent = macros.carbs.percentage;
 
-        document.getElementById('fats-grams').textContent = macros.fats.grams;
+        document.getElementById('fats-grams').textContent = Math.round(macros.fats.grams * servingMultiplier);
         document.getElementById('fats-percentage').textContent = macros.fats.percentage;
 
-        document.getElementById('fiber-grams').textContent = macros.fiber;
+        document.getElementById('fiber-grams').textContent = Math.round(macros.fiber * servingMultiplier);
 
         // Update additional nutrients
-        document.getElementById('sodium-mg').textContent = `${macros.sodium}mg`;
-        document.getElementById('sugar-grams').textContent = `${macros.sugar}g`;
-        document.getElementById('cholesterol-mg').textContent = `${macros.cholesterol}mg`;
+        document.getElementById('sodium-mg').textContent = `${Math.round(macros.sodium * servingMultiplier)}mg`;
+        document.getElementById('sugar-grams').textContent = `${Math.round(macros.sugar * servingMultiplier)}g`;
+        document.getElementById('cholesterol-mg').textContent = `${Math.round(macros.cholesterol * servingMultiplier)}mg`;
     }
 
     // ==========================================
     // Dynamic Scaling
     // ==========================================
 
+    // Macros serving size adjustment (for nutrition calculation only)
+    adjustMacrosServings(delta) {
+        const newServings = this.macrosServingSize + delta;
+        if (newServings > 0 && newServings <= 50) {
+            this.setMacrosServings(newServings);
+        }
+    }
+
+    setMacrosServings(servings) {
+        this.macrosServingSize = servings;
+        document.getElementById('macros-servings-input').value = servings;
+
+        // Update the displayed macros based on new serving size
+        if (this.currentMacros) {
+            this.updateMacrosDisplay();
+        }
+    }
+
+    // Recipe serving adjustment (only used by chat assistant now)
     adjustServings(delta) {
         const newServings = this.currentServings + delta;
         if (newServings > 0 && newServings <= 50) {
@@ -2725,10 +2765,9 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
 
     setServings(servings) {
         this.currentServings = servings;
-        document.getElementById('servings-input').value = servings;
         this.updateIngredientsList();
 
-        // Recalculate macros if they were already calculated
+        // Recalculate macros if they were already calculated (servings changed = new recipe)
         if (this.currentMacros) {
             this.calculateMacros();
         }
@@ -3372,6 +3411,7 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             originalServings: this.originalServings,
             completedSteps: Array.from(this.completedSteps),
             macros: this.currentMacros,
+            macrosServingSize: this.macrosServingSize,
             timestamp: Date.now()
         };
 
@@ -3401,6 +3441,7 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             this.originalServings = data.originalServings;
             this.completedSteps = new Set(data.completedSteps);
             this.currentMacros = data.macros || null;
+            this.macrosServingSize = data.macrosServingSize || 1;
 
             // Restore to cooking stage
             this.displayCookingInterface();
@@ -3410,6 +3451,9 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             if (this.currentMacros) {
                 this.displayMacros(this.currentMacros);
             }
+
+            // Restore macros serving input value
+            document.getElementById('macros-servings-input').value = this.macrosServingSize;
 
         } catch (e) {
             console.error('Failed to restore session:', e);

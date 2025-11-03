@@ -93,7 +93,7 @@
                 </div>
 
                 <!-- Serving Adjuster -->
-                <div class="serving-adjuster">
+                <div class="serving-adjuster" style="display: none;">
                     <label for="servings-input">Servings:</label>
                     <div class="adjuster-controls">
                         <button id="decrease-servings" class="btn-adjuster"></button>
@@ -136,7 +136,23 @@
                     <div class="macros-section">
                         <div class="macros-header">
                             <h3>Nutrition Information</h3>
-                            <p class="macros-serving-info">Per serving (based on <span id="macros-servings">4</span> servings)</p>
+                            <div class="macros-serving-selector">
+                                <label for="macros-servings-input">Calculate nutrition for:</label>
+                                <div class="macros-adjuster-controls">
+                                    <button id="macros-decrease-servings" class="btn-adjuster">−</button>
+                                    <input
+                                        type="number"
+                                        id="macros-servings-input"
+                                        value="1"
+                                        min="1"
+                                        max="50"
+                                        aria-label="Number of servings for nutrition calculation"
+                                    >
+                                    <button id="macros-increase-servings" class="btn-adjuster">+</button>
+                                    <span class="macros-serving-label">serving(s)</span>
+                                </div>
+                            </div>
+                            <p class="macros-serving-info">Nutrition shown per serving (recipe makes <span id="recipe-total-servings">4</span> servings)</p>
                         </div>
 
                         <div id="macros-loading" class="macros-loading">

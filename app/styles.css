@@ -715,6 +715,45 @@ body {
     font-size: 0.95rem;
 }
 
+.macros-serving-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.macros-serving-selector label {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 0.95rem;
+}
+
+.macros-adjuster-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.macros-adjuster-controls input {
+    width: 60px;
+    text-align: center;
+    padding: 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.macros-serving-label {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-left: 0.25rem;
+}
+
 .macros-loading {
     text-align: center;
     padding: 3rem;
@@ -945,6 +984,25 @@ body {
     .btn-secondary {
         padding: 0.75rem 1rem;
         font-size: 0.9rem;
+    }
+
+    .macros-serving-selector {
+        padding: 0.75rem;
+    }
+
+    .macros-serving-selector label {
+        font-size: 0.85rem;
+    }
+
+    .macros-adjuster-controls input {
+        width: 50px;
+        font-size: 0.9rem;
+    }
+
+    .btn-adjuster {
+        width: 32px;
+        height: 32px;
+        font-size: 1.25rem;
     }
 }
 
