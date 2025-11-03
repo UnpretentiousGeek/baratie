@@ -509,6 +509,435 @@ class ModelRouter {
     }
 }
 
+/**
+ * CookingTimer - Manages countdown timer with pause/resume/reset functionality
+ * Displays in top-right corner during cooking stage
+ * Shows modal popup when timer completes
+ */
+class CookingTimer {
+    constructor(recipeManager) {
+        this.recipeManager = recipeManager;
+        this.timeRemaining = 0; // in seconds
+        this.isRunning = false;
+        this.isPaused = false;
+        this.intervalId = null;
+        this.note = '';
+        this.audioContext = null;
+        this.hasShownNotificationPermission = false;
+
+        this.bindEventListeners();
+        this.restoreFromSession();
+    }
+
+    bindEventListeners() {
+        // Minimize/Maximize
+        document.getElementById('timer-minimize-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleMinimize();
+        });
+
+        document.querySelector('.timer-header').addEventListener('click', () => {
+            this.toggleMinimize();
+        });
+
+        // Time adjustment
+        document.getElementById('timer-add-5').addEventListener('click', () => this.addTime(5));
+        document.getElementById('timer-subtract-5').addEventListener('click', () => this.subtractTime(5));
+
+        // Controls
+        document.getElementById('timer-toggle').addEventListener('click', () => this.toggleTimer());
+        document.getElementById('timer-reset').addEventListener('click', () => this.reset());
+
+        // Note input
+        document.getElementById('timer-note').addEventListener('input', (e) => {
+            this.note = e.target.value;
+            this.saveToSession();
+        });
+
+        // Modal dismiss
+        document.getElementById('timer-modal-dismiss').addEventListener('click', () => this.dismissModal());
+
+        // Modal overlay click
+        document.querySelector('.timer-modal-overlay')?.addEventListener('click', () => this.dismissModal());
+
+        // Keyboard shortcuts (only when timer is visible)
+        document.addEventListener('keydown', (e) => {
+            if (!this.isVisible()) return;
+
+            // Space: Start/Pause
+            if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                this.toggleTimer();
+            }
+
+            // R: Reset
+            if (e.code === 'KeyR' && e.target.tagName !== 'INPUT' && !e.ctrlKey) {
+                e.preventDefault();
+                this.reset();
+            }
+
+            // Plus/Equals: Add 5 minutes
+            if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.shiftKey) {
+                e.preventDefault();
+                this.addTime(5);
+            }
+
+            // Minus: Subtract 5 minutes
+            if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+                e.preventDefault();
+                this.subtractTime(5);
+            }
+        });
+    }
+
+    addTime(minutes) {
+        this.timeRemaining += minutes * 60;
+        if (this.timeRemaining < 0) this.timeRemaining = 0;
+        this.updateDisplay();
+        this.saveToSession();
+        this.showStatus(`+${minutes} minutes`);
+    }
+
+    subtractTime(minutes) {
+        this.timeRemaining -= minutes * 60;
+        if (this.timeRemaining < 0) this.timeRemaining = 0;
+        this.updateDisplay();
+        this.saveToSession();
+        this.showStatus(`-${minutes} minutes`);
+    }
+
+    toggleTimer() {
+        if (this.isRunning && !this.isPaused) {
+            this.pause();
+        } else if (this.isPaused) {
+            this.resume();
+        } else {
+            this.start();
+        }
+    }
+
+    start() {
+        if (this.timeRemaining === 0) {
+            this.showStatus('Set a time first!');
+            return;
+        }
+
+        this.isRunning = true;
+        this.isPaused = false;
+        this.updateControlsState();
+        this.showStatus('Timer started');
+
+        // Request notification permission on first start
+        this.requestNotificationPermission();
+
+        this.intervalId = setInterval(() => this.tick(), 1000);
+        this.saveToSession();
+    }
+
+    pause() {
+        this.isPaused = true;
+        this.updateControlsState();
+        this.showStatus('Timer paused');
+
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+        this.saveToSession();
+    }
+
+    resume() {
+        this.isPaused = false;
+        this.updateControlsState();
+        this.showStatus('Timer resumed');
+
+        this.intervalId = setInterval(() => this.tick(), 1000);
+        this.saveToSession();
+    }
+
+    reset() {
+        this.isRunning = false;
+        this.isPaused = false;
+        this.timeRemaining = 0;
+
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+
+        this.updateDisplay();
+        this.updateControlsState();
+        this.showStatus('Timer reset');
+        this.saveToSession();
+    }
+
+    tick() {
+        this.timeRemaining--;
+
+        if (this.timeRemaining <= 0) {
+            this.timeRemaining = 0;
+            this.complete();
+        }
+
+        this.updateDisplay();
+        this.saveToSession();
+    }
+
+    complete() {
+        this.isRunning = false;
+        this.isPaused = false;
+
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+
+        this.updateControlsState();
+        this.showModal();
+        this.playNotificationSound();
+        this.showBrowserNotification();
+        this.flashTabTitle();
+        this.saveToSession();
+    }
+
+    updateDisplay() {
+        const hours = Math.floor(this.timeRemaining / 3600);
+        const minutes = Math.floor((this.timeRemaining % 3600) / 60);
+        const seconds = this.timeRemaining % 60;
+
+        document.getElementById('timer-hours').textContent = String(hours).padStart(2, '0');
+        document.getElementById('timer-minutes').textContent = String(minutes).padStart(2, '0');
+        document.getElementById('timer-seconds').textContent = String(seconds).padStart(2, '0');
+    }
+
+    updateControlsState() {
+        const widget = document.getElementById('timer-widget');
+        const toggleBtn = document.getElementById('timer-toggle');
+        const addBtn = document.getElementById('timer-add-5');
+        const subtractBtn = document.getElementById('timer-subtract-5');
+        const resetBtn = document.getElementById('timer-reset');
+
+        // Update widget state classes
+        widget.classList.remove('timer-running', 'timer-paused');
+
+        if (this.isRunning && !this.isPaused) {
+            widget.classList.add('timer-running');
+            toggleBtn.textContent = 'Pause';
+            addBtn.disabled = true;
+            subtractBtn.disabled = true;
+        } else if (this.isPaused) {
+            widget.classList.add('timer-paused');
+            toggleBtn.textContent = 'Resume';
+            addBtn.disabled = true;
+            subtractBtn.disabled = true;
+        } else {
+            toggleBtn.textContent = 'Start';
+            addBtn.disabled = false;
+            subtractBtn.disabled = false;
+        }
+    }
+
+    showStatus(message) {
+        const statusEl = document.getElementById('timer-status');
+        statusEl.textContent = message;
+        statusEl.style.opacity = '1';
+
+        setTimeout(() => {
+            statusEl.style.opacity = '0';
+        }, 2000);
+    }
+
+    showModal() {
+        const modal = document.getElementById('timer-modal');
+        const noteEl = document.getElementById('timer-modal-note');
+
+        if (this.note) {
+            noteEl.textContent = this.note;
+        } else {
+            noteEl.textContent = '';
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    dismissModal() {
+        const modal = document.getElementById('timer-modal');
+        modal.classList.add('hidden');
+    }
+
+    toggleMinimize() {
+        const widget = document.getElementById('timer-widget');
+        const btn = document.getElementById('timer-minimize-btn');
+
+        if (widget.classList.contains('minimized')) {
+            widget.classList.remove('minimized');
+            btn.textContent = '−';
+        } else {
+            widget.classList.add('minimized');
+            btn.textContent = '+';
+        }
+    }
+
+    show() {
+        document.getElementById('timer-widget').classList.add('visible');
+    }
+
+    hide() {
+        document.getElementById('timer-widget').classList.remove('visible');
+    }
+
+    isVisible() {
+        return document.getElementById('timer-widget').classList.contains('visible');
+    }
+
+    // Audio notification
+    playNotificationSound() {
+        try {
+            // Create a simple beep using Web Audio API
+            this.audioContext = this.audioContext || new (window.AudioContext || window.webkitAudioContext)();
+
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+
+            oscillator.frequency.value = 800; // 800 Hz beep
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.5);
+
+            // Play 3 beeps
+            setTimeout(() => {
+                const osc2 = this.audioContext.createOscillator();
+                const gain2 = this.audioContext.createGain();
+                osc2.connect(gain2);
+                gain2.connect(this.audioContext.destination);
+                osc2.frequency.value = 800;
+                osc2.type = 'sine';
+                gain2.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                osc2.start(this.audioContext.currentTime);
+                osc2.stop(this.audioContext.currentTime + 0.5);
+            }, 600);
+
+            setTimeout(() => {
+                const osc3 = this.audioContext.createOscillator();
+                const gain3 = this.audioContext.createGain();
+                osc3.connect(gain3);
+                gain3.connect(this.audioContext.destination);
+                osc3.frequency.value = 800;
+                osc3.type = 'sine';
+                gain3.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gain3.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                osc3.start(this.audioContext.currentTime);
+                osc3.stop(this.audioContext.currentTime + 0.5);
+            }, 1200);
+        } catch (error) {
+            console.warn('Could not play notification sound:', error);
+        }
+    }
+
+    // Browser notification
+    requestNotificationPermission() {
+        if (!('Notification' in window)) return;
+
+        if (Notification.permission === 'default' && !this.hasShownNotificationPermission) {
+            this.hasShownNotificationPermission = true;
+            Notification.requestPermission();
+        }
+    }
+
+    showBrowserNotification() {
+        if (!('Notification' in window)) return;
+
+        if (Notification.permission === 'granted') {
+            const notification = new Notification('⏰ Timer Complete!', {
+                body: this.note || 'Your cooking timer has finished.',
+                requireInteraction: true
+            });
+
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+            };
+        }
+    }
+
+    // Tab title flash
+    flashTabTitle() {
+        const originalTitle = document.title;
+        let flashCount = 0;
+        const maxFlashes = 10;
+
+        const flashInterval = setInterval(() => {
+            document.title = flashCount % 2 === 0 ? '⏰ TIMER COMPLETE!' : originalTitle;
+            flashCount++;
+
+            if (flashCount >= maxFlashes) {
+                clearInterval(flashInterval);
+                document.title = originalTitle;
+            }
+        }, 1000);
+    }
+
+    // Session persistence
+    saveToSession() {
+        const timerData = {
+            timeRemaining: this.timeRemaining,
+            isRunning: this.isRunning,
+            isPaused: this.isPaused,
+            note: this.note,
+            timestamp: Date.now()
+        };
+
+        try {
+            sessionStorage.setItem('baratie_timer', JSON.stringify(timerData));
+        } catch (e) {
+            console.warn('Failed to save timer state:', e);
+        }
+    }
+
+    restoreFromSession() {
+        try {
+            const timerData = sessionStorage.getItem('baratie_timer');
+            if (!timerData) return;
+
+            const data = JSON.parse(timerData);
+
+            // Don't restore if data is old (> 24 hours)
+            const age = Date.now() - data.timestamp;
+            if (age > 24 * 60 * 60 * 1000) {
+                sessionStorage.removeItem('baratie_timer');
+                return;
+            }
+
+            this.timeRemaining = data.timeRemaining || 0;
+            this.note = data.note || '';
+
+            // Restore note field
+            document.getElementById('timer-note').value = this.note;
+
+            // Don't automatically restart timer, but preserve time
+            this.isRunning = false;
+            this.isPaused = false;
+
+            this.updateDisplay();
+            this.updateControlsState();
+        } catch (e) {
+            console.warn('Failed to restore timer state:', e);
+        }
+    }
+
+    clearSession() {
+        sessionStorage.removeItem('baratie_timer');
+    }
+}
+
 class RecipeManager {
     constructor() {
         this.currentRecipe = null;
@@ -517,6 +946,7 @@ class RecipeManager {
         this.completedSteps = new Set();
         this.chatHistory = [];
         this.currentMacros = null; // Store calculated macros
+        this.cookingTimer = null; // Cooking timer instance
 
         // Gemini API configuration (Serverless)
         this.geminiApiEndpoint = CONFIG.GEMINI_API_ENDPOINT || '/api/gemini';
@@ -552,6 +982,9 @@ class RecipeManager {
 
         // Check for browser extension data
         this.checkExtensionData();
+
+        // Initialize cooking timer
+        this.cookingTimer = new CookingTimer(this);
     }
 
     bindEventListeners() {
@@ -602,6 +1035,15 @@ class RecipeManager {
             stage.classList.remove('active');
         });
         document.getElementById(`stage-${stageName}`).classList.add('active');
+
+        // Show/hide timer based on stage
+        if (this.cookingTimer) {
+            if (stageName === 'cooking') {
+                this.cookingTimer.show();
+            } else {
+                this.cookingTimer.hide();
+            }
+        }
     }
 
     // ==========================================
@@ -1754,6 +2196,12 @@ ${captions.substring(0, 10000)}`;
     startCooking() {
         this.displayCookingInterface();
         this.goToStage('cooking');
+
+        // Show cooking timer
+        if (this.cookingTimer) {
+            this.cookingTimer.show();
+        }
+
         this.saveSession();
     }
 
@@ -2784,6 +3232,12 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
         this.chatHistory = [];
         this.currentMacros = null;
         sessionStorage.removeItem('baratie_session');
+
+        // Hide and reset cooking timer
+        if (this.cookingTimer) {
+            this.cookingTimer.hide();
+            this.cookingTimer.reset();
+        }
 
         document.getElementById('recipe-url').value = '';
         document.getElementById('chat-messages').innerHTML = '';

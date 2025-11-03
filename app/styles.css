@@ -1130,3 +1130,306 @@ body {
         bottom: 80px;
     }
 }
+
+/* ==========================================
+ * Cooking Timer Styles
+ * ========================================== */
+
+.timer-widget {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    width: 320px;
+    overflow: hidden;
+    z-index: 998;
+    transition: all 0.3s ease;
+    display: none; /* Hidden by default, shown only in cooking stage */
+}
+
+.timer-widget.visible {
+    display: block;
+}
+
+.timer-widget.minimized {
+    width: auto;
+    max-height: 50px;
+}
+
+.timer-widget.minimized .timer-content {
+    display: none;
+}
+
+.timer-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+    color: white;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.timer-header span {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.timer-minimize-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+}
+
+.timer-minimize-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.timer-content {
+    padding: 16px;
+}
+
+.timer-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: var(--text-dark);
+    margin-bottom: 16px;
+    background: var(--bg-light);
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.timer-digit {
+    min-width: 65px;
+    text-align: center;
+}
+
+.timer-separator {
+    margin: 0 4px;
+    color: var(--primary-color);
+}
+
+.timer-widget.timer-running .timer-display {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+}
+
+.timer-widget.timer-paused .timer-display {
+    background: linear-gradient(135deg, #fff3cd, #ffe6a3);
+}
+
+.timer-note {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    transition: border-color 0.3s;
+}
+
+.timer-note:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.timer-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.timer-btn {
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.timer-btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.timer-btn-primary:hover {
+    background: #e55a2a;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+}
+
+.timer-btn-primary:disabled {
+    background: var(--text-light);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.timer-btn-secondary {
+    background: white;
+    color: var(--text-dark);
+    border: 2px solid var(--border-color);
+}
+
+.timer-btn-secondary:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.timer-btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.timer-status {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    min-height: 20px;
+    transition: opacity 0.3s;
+}
+
+/* Timer Complete Modal */
+.timer-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.timer-modal.hidden {
+    display: none;
+}
+
+.timer-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.timer-modal-content {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+    overflow: hidden;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.timer-modal-header {
+    padding: 24px;
+    background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+    color: white;
+    text-align: center;
+}
+
+.timer-modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.timer-modal-body {
+    padding: 24px;
+    text-align: center;
+}
+
+.timer-modal-note {
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 0;
+    font-style: italic;
+}
+
+.timer-modal-note:empty::before {
+    content: "Your timer is complete!";
+    font-style: normal;
+}
+
+.timer-modal-footer {
+    padding: 16px 24px 24px;
+    text-align: center;
+}
+
+/* Responsive Design for Timer */
+@media (max-width: 768px) {
+    .timer-widget {
+        width: 280px;
+        top: 80px; /* Below header on mobile */
+        right: 10px;
+    }
+
+    .timer-display {
+        font-size: 2.5rem;
+    }
+
+    .timer-digit {
+        min-width: 55px;
+    }
+}
+
+@media (max-width: 480px) {
+    .timer-widget {
+        width: calc(100vw - 20px);
+        left: 10px;
+        right: 10px;
+        top: 80px;
+    }
+
+    .timer-display {
+        font-size: 2rem;
+    }
+
+    .timer-digit {
+        min-width: 45px;
+    }
+
+    .timer-controls {
+        grid-template-columns: 1fr 1fr;
+    }
+}
