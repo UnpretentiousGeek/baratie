@@ -1680,6 +1680,131 @@ ${text.substring(0, 15000)}`;
         return null;
     }
 
+    // Extract all URLs from text (for finding recipe links in descriptions)
+    extractLinksFromText(text) {
+        if (!text) return [];
+
+        // Comprehensive URL regex
+        const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+        const urls = text.match(urlRegex) || [];
+
+        return urls.map(url => ({
+            url: url.trim(),
+            type: this.classifyURL(url)
+        }));
+    }
+
+    // Classify URL to determine if it's likely a recipe link
+    classifyURL(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            const path = urlObj.pathname.toLowerCase();
+
+            // Recipe domains
+            const recipeSites = [
+                'allrecipes.com', 'foodnetwork.com', 'bonappetit.com',
+                'seriouseats.com', 'epicurious.com', 'cooking.nytimes.com',
+                'kingarthurbaking.com', 'delish.com', 'food52.com',
+                'thekitchn.com', 'simplyrecipes.com', 'budgetbytes.com',
+                'recipetineats.com', 'skinnytaste.com', 'minimalistbaker.com',
+                'tasty.co', 'foodandwine.com', 'marthastewart.com',
+                'cookieandkate.com', 'pinchofyum.com', 'sallysbakingaddiction.com'
+            ];
+
+            if (recipeSites.some(site => hostname.includes(site))) {
+                return 'recipe';
+            }
+
+            // Recipe-like indicators in path
+            if (path.includes('/recipe') || path.includes('/recipes')) {
+                return 'recipe';
+            }
+
+            // Google Docs/Sheets (often used for recipes)
+            if (hostname.includes('docs.google.com') || hostname.includes('drive.google.com')) {
+                return 'recipe';
+            }
+
+            // Pastebin-like services
+            if (hostname.includes('pastebin.com') || hostname.includes('gist.github.com')) {
+                return 'recipe';
+            }
+
+            // Social media (skip these)
+            if (hostname.includes('instagram.com') || hostname.includes('facebook.com') ||
+                hostname.includes('twitter.com') || hostname.includes('x.com') ||
+                hostname.includes('tiktok.com')) {
+                return 'social';
+            }
+
+            // Merch/shop (skip these)
+            if (hostname.includes('shop') || hostname.includes('store') ||
+                path.includes('/shop') || path.includes('/merch')) {
+                return 'merch';
+            }
+
+            // Video platforms (skip to avoid recursion)
+            if (hostname.includes('youtube.com') || hostname.includes('youtu.be') ||
+                hostname.includes('vimeo.com')) {
+                return 'video';
+            }
+
+            return 'unknown';
+        } catch {
+            return 'unknown';
+        }
+    }
+
+    // Try to extract recipe from links found in description
+    async tryRecipeLinksFromDescription(description) {
+        console.log('Attempting to extract recipe from links in description...');
+
+        const links = this.extractLinksFromText(description);
+
+        // Filter and prioritize recipe links
+        const recipeLinks = links
+            .filter(link => link.type === 'recipe' || link.type === 'unknown')
+            .filter(link => link.type !== 'video') // Skip video links to prevent recursion
+            .slice(0, 3); // Try up to 3 links
+
+        if (recipeLinks.length === 0) {
+            console.log('No recipe links found in description');
+            return null;
+        }
+
+        console.log(`Found ${recipeLinks.length} potential recipe link(s)`);
+
+        // Try each link in sequence
+        for (let i = 0; i < recipeLinks.length; i++) {
+            const {url} = recipeLinks[i];
+
+            try {
+                console.log(`Trying recipe link ${i + 1}/${recipeLinks.length}: ${url}`);
+                this.showStatus(`Fetching recipe from linked page (${i + 1}/${recipeLinks.length})...`, 'loading');
+
+                const recipe = await this.extractRecipeFromURL(url);
+
+                if (recipe && recipe.isValid &&
+                    recipe.ingredients && recipe.ingredients.length >= 3) {
+                    console.log('Successfully extracted recipe from linked page!');
+                    return recipe;
+                }
+            } catch (error) {
+                console.warn(`Failed to extract from ${url}:`, error.message);
+                // Continue to next link
+            }
+
+            // Small delay to avoid hammering servers
+            if (i < recipeLinks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        console.log('No valid recipes found in description links');
+        return null;
+    }
+
     // Check if description appears sparse/incomplete (likely a remix)
     isDescriptionSparse(description) {
         if (!description) return true;
@@ -1759,6 +1884,23 @@ ${content}`;
 
         const recipe = await this.callGeminiWithFallback(prompt, 'youtube', cacheKey);
         recipe.title = recipe.title || videoData.title;
+
+        // TIER 2: Try description links if primary extraction failed
+        if (!recipe.isValid || !recipe.ingredients || recipe.ingredients.length < 3) {
+            console.warn('Primary extraction incomplete. Trying description links...');
+
+            if (videoData.description) {
+                const linkedRecipe = await this.tryRecipeLinksFromDescription(videoData.description);
+
+                if (linkedRecipe && linkedRecipe.isValid &&
+                    linkedRecipe.ingredients && linkedRecipe.ingredients.length >= 3) {
+                    // Success! Use linked recipe but keep video metadata
+                    linkedRecipe.title = `${videoData.title} (from linked recipe)`;
+                    console.log('Successfully extracted recipe from description link!');
+                    return this.normalizeExtractedRecipe(linkedRecipe);
+                }
+            }
+        }
 
         // Check if recipe has ingredients but NO instructions (edge case #2)
         const hasIngredients = recipe.ingredients && recipe.ingredients.length >= 3;
