@@ -941,10 +941,12 @@ class CookingTimer {
 class RecipeManager {
     constructor() {
         this.currentRecipe = null;
+        this.originalServings = 4; // Original servings from recipe extraction
+        this.currentServings = 4; // Current servings (can be adjusted via chat)
         this.completedSteps = new Set();
         this.chatHistory = [];
-        this.currentMacros = null; // Store calculated macros (per single serving)
-        this.macrosServingSize = 1; // Number of servings to calculate nutrition for (defaults to 1, set from recipe)
+        this.currentMacros = null; // Store calculated total recipe macros
+        this.macrosServingSize = 1; // Number of portions to divide recipe into for nutrition display
         this.cookingTimer = null; // Cooking timer instance
 
         // Gemini API configuration (Serverless)
@@ -2367,10 +2369,19 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('cooking-title').textContent = recipe.title;
         document.getElementById('cooking-source').textContent = recipe.source;
 
-        // Set macros serving size from recipe servings (or default to 1)
-        this.macrosServingSize = recipe.servings || 1;
+        // Set servings (from recipe or current state)
+        this.originalServings = recipe.servings || 4;
+        if (!this.currentServings || this.currentServings === 4) {
+            this.currentServings = this.originalServings;
+        }
+
+        // Update servings display (read-only)
+        document.getElementById('recipe-servings-count').textContent = this.currentServings;
+
+        // Set macros serving size from current servings
+        this.macrosServingSize = this.currentServings;
         document.getElementById('macros-servings-input').value = this.macrosServingSize;
-        document.getElementById('recipe-total-servings').textContent = this.macrosServingSize;
+        document.getElementById('recipe-total-servings').textContent = this.currentServings;
 
         // Ingredients
         this.updateIngredientsList();
@@ -2387,10 +2398,10 @@ ${captions.substring(0, 10000)}`;
         const ingredientList = document.getElementById('cooking-ingredient-list');
         ingredientList.innerHTML = '';
 
-        // Show ingredients as-is (no scaling)
+        // Show scaled ingredients based on currentServings
         recipe.ingredients.forEach(ing => {
             const li = document.createElement('li');
-            li.textContent = ing.text;
+            li.textContent = this.scaleIngredient(ing);
             ingredientList.appendChild(li);
         });
     }
@@ -2738,6 +2749,25 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
     // Dynamic Scaling
     // ==========================================
 
+    // Recipe serving adjustment (via chat assistant only)
+    setServings(servings) {
+        this.currentServings = servings;
+        document.getElementById('recipe-servings-count').textContent = servings;
+        this.updateIngredientsList();
+
+        // Also update macros serving size to match
+        this.macrosServingSize = servings;
+        document.getElementById('macros-servings-input').value = servings;
+        document.getElementById('recipe-total-servings').textContent = servings;
+
+        // Recalculate macros if they were already calculated
+        if (this.currentMacros) {
+            this.calculateMacros();
+        }
+
+        this.saveSession();
+    }
+
     // Macros serving size adjustment (for nutrition calculation only)
     adjustMacrosServings(delta) {
         const newServings = this.macrosServingSize + delta;
@@ -3026,10 +3056,11 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
             // Build context-aware prompt for Gemini
             const recipeContext = `
 Recipe Title: ${this.currentRecipe.title}
-Servings: ${this.currentRecipe.servings || 1}
+Current Servings: ${this.currentServings}
+Original Servings: ${this.originalServings}
 
-Ingredients:
-${this.currentRecipe.ingredients.map((ing, i) => `[${i}] ${ing.text}`).join('\n')}
+Ingredients (scaled for ${this.currentServings} servings):
+${this.currentRecipe.ingredients.map((ing, i) => `[${i}] ${this.scaleIngredient(ing)}`).join('\n')}
 
 Instructions:
 ${this.currentRecipe.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}
@@ -3038,15 +3069,15 @@ ${this.currentRecipe.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n
             const prompt = `You are an interactive cooking assistant with the ability to modify recipes. You can help the user adjust their recipe in real-time.
 
 IMPORTANT CAPABILITIES:
-1. You can substitute ingredients by responding with: ACTION:SUBSTITUTE_INGREDIENT:INDEX:NEW_TEXT (where INDEX is the ingredient number in brackets, and NEW_TEXT is the replacement)
-2. Only use these actions when the user explicitly requests changes
+1. You can change the serving size by responding with: ACTION:SET_SERVINGS:X (where X is the new number of servings)
+2. You can substitute ingredients by responding with: ACTION:SUBSTITUTE_INGREDIENT:INDEX:NEW_TEXT (where INDEX is the ingredient number in brackets, and NEW_TEXT is the replacement)
+3. Only use these actions when the user explicitly requests changes
 
 IMPORTANT:
-- This recipe does NOT support serving size adjustments. The recipe is shown as-is from the original source.
-- If user asks about scaling/serving changes, explain they can view nutrition for different serving amounts in the Nutrition tab.
 - Only answer cooking-related questions. If the user asks about non-cooking topics, politely redirect them to cooking questions.
 
 When responding with actions:
+- For serving adjustments: If user says "change to 6 servings", "make it for 6", or "update recipe for 6 servings", respond with "ACTION:SET_SERVINGS:6" followed by a friendly message
 - For substitutions: If user says "replace the eggs with flax eggs", find the egg ingredient index and respond with "ACTION:SUBSTITUTE_INGREDIENT:2:2 flax eggs" (example) followed by an explanation
 
 You can include MULTIPLE actions in one response by putting them on separate lines.
@@ -3093,7 +3124,13 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             const parts = action.split(':');
             const actionType = parts[1];
 
-            if (actionType === 'SUBSTITUTE_INGREDIENT') {
+            if (actionType === 'SET_SERVINGS') {
+                const newServings = parseInt(parts[2]);
+                if (newServings > 0 && newServings <= 50) {
+                    this.setServings(newServings);
+                    this.addSystemMessage(`✓ Recipe adjusted to ${newServings} servings`);
+                }
+            } else if (actionType === 'SUBSTITUTE_INGREDIENT') {
                 const ingredientIndex = parseInt(parts[2]);
                 const newIngredientText = parts.slice(3).join(':');
 
@@ -3426,6 +3463,8 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
 
         const sessionData = {
             recipe: this.currentRecipe,
+            currentServings: this.currentServings,
+            originalServings: this.originalServings,
             completedSteps: Array.from(this.completedSteps),
             macros: this.currentMacros,
             macrosServingSize: this.macrosServingSize,
@@ -3454,9 +3493,11 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             }
 
             this.currentRecipe = data.recipe;
+            this.currentServings = data.currentServings || data.recipe?.servings || 4;
+            this.originalServings = data.originalServings || data.recipe?.servings || 4;
             this.completedSteps = new Set(data.completedSteps);
             this.currentMacros = data.macros || null;
-            this.macrosServingSize = data.macrosServingSize || (data.recipe?.servings || 1);
+            this.macrosServingSize = data.macrosServingSize || this.currentServings;
 
             // Restore to cooking stage
             this.displayCookingInterface();
