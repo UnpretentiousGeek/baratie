@@ -2783,9 +2783,49 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         const scaleFactor = this.currentServings / this.originalServings;
         const scaledAmount = ingredient.amount * scaleFactor;
         const formattedAmount = this.formatAmount(scaledAmount);
+
+        // Extract parenthetical notes and suffix information from original text
+        // Pattern: "amount unit name (notes) extra"
+        // We want to preserve: (notes) and any text after the main ingredient name
+        const originalText = ingredient.text || '';
+
+        // Find parenthetical expressions like (divided), (optional), (about 113 g), etc.
+        const parentheticalMatches = originalText.match(/\([^)]+\)/g) || [];
+
+        // Find comma-separated notes like ", divided" or ", optional"
+        const commaNotesMatch = originalText.match(/,\s*[^,()]+$/);
+        const commaNotes = commaNotesMatch ? commaNotesMatch[0] : '';
+
+        // Build the scaled ingredient text
         const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
         const name = ingredient.name ? ` ${ingredient.name}` : '';
-        return `${formattedAmount}${unit}${name}`.trim();
+        let scaledText = `${formattedAmount}${unit}${name}`.trim();
+
+        // Append parenthetical notes (if they don't contain measurement conversions to avoid confusion)
+        if (parentheticalMatches.length > 0) {
+            parentheticalMatches.forEach(note => {
+                // Skip metric conversion notes that would be incorrect after scaling
+                // e.g., (about 113 g) should not be kept as the gram amount is now wrong
+                if (!this.isMetricConversion(note)) {
+                    scaledText += ` ${note}`;
+                }
+            });
+        }
+
+        // Append comma notes if present and not already in parentheses
+        if (commaNotes && !parentheticalMatches.some(note => note.toLowerCase().includes(commaNotes.toLowerCase().trim().replace(',', '')))) {
+            scaledText += commaNotes;
+        }
+
+        return scaledText.trim();
+    }
+
+    // Helper to detect metric conversion notes that shouldn't be preserved when scaling
+    isMetricConversion(note) {
+        const lowerNote = note.toLowerCase();
+        // Check if note contains measurement units with numbers (e.g., "113 g", "4 oz", "250 ml")
+        return /\d+\s*(g|kg|mg|ml|l|oz|lb|cup|tbsp|tsp)/.test(lowerNote) &&
+               (lowerNote.includes('about') || lowerNote.includes('approx'));
     }
 
     formatAmount(amount) {
