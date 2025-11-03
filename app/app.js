@@ -2800,6 +2800,37 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         return { amount, unit, name };
     }
 
+    // Clean up ingredient text formatting issues
+    cleanIngredientText(text) {
+        if (!text) return '';
+
+        // Remove duplicate parenthetical notes: (divided) (divided) → (divided)
+        text = text.replace(/\(\s*([^)]+)\)\s*\(\s*\1\s*\)/gi, '($1)');
+
+        // Remove triple+ parentheses: (((text))) → (text)
+        while (text.includes('(((') || text.includes(')))')) {
+            text = text.replace(/\({3,}/g, '(').replace(/\){3,}/g, ')');
+        }
+
+        // Normalize whitespace around parentheses
+        text = text.replace(/\s+\(/g, ' (').replace(/\)\s+/g, ') ');
+
+        // Remove whitespace inside parentheses
+        text = text.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+
+        // Remove multiple consecutive spaces
+        text = text.replace(/\s{2,}/g, ' ');
+
+        // Clean up common formatting issues
+        text = text
+            .replace(/\s+,/g, ',')          // Remove space before comma
+            .replace(/,\s+/g, ', ')         // Normalize space after comma
+            .replace(/\s+\./g, '.')         // Remove space before period
+            .trim();
+
+        return text;
+    }
+
     normalizeExtractedRecipe(recipe) {
         const safe = { ...recipe };
         // Default/clean servings
@@ -2814,25 +2845,28 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
             safe.ingredients = safe.ingredients.map(ing => {
                 if (ing && typeof ing === 'object') {
                     const text = ing.text || [ing.amount, ing.unit, ing.name].filter(Boolean).join(' ').trim();
+                    const cleanedText = this.cleanIngredientText(text);
+
                     if (ing.amount == null || ing.name == null) {
-                        const parsed = this.parseIngredientLine(text);
+                        const parsed = this.parseIngredientLine(cleanedText);
                         return {
-                            text: text || '',
+                            text: cleanedText || '',
                             amount: parsed.amount,
                             unit: parsed.unit,
                             name: parsed.name
                         };
                     }
                     return {
-                        text: text || '',
+                        text: cleanedText || '',
                         amount: ing.amount,
                         unit: ing.unit || '',
                         name: ing.name || ''
                     };
                 } else if (typeof ing === 'string') {
-                    const parsed = this.parseIngredientLine(ing);
+                    const cleanedText = this.cleanIngredientText(ing);
+                    const parsed = this.parseIngredientLine(cleanedText);
                     return {
-                        text: ing,
+                        text: cleanedText,
                         amount: parsed.amount,
                         unit: parsed.unit,
                         name: parsed.name
