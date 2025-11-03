@@ -2598,21 +2598,23 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('macros-error').style.display = 'none';
 
         try {
+            const recipeServings = this.currentRecipe.servings || 1;
+
             // Check cache first
             const cacheKey = this.cache.getNutritionKey(
                 this.currentRecipe.ingredients,
-                this.currentServings
+                recipeServings
             );
 
             // Build recipe context for Gemini
             const ingredientsList = this.currentRecipe.ingredients
-                .map(ing => this.scaleIngredient(ing))
+                .map(ing => ing.text)
                 .join('\n');
 
-            const prompt = `You are a nutrition expert. Calculate the approximate nutritional information for this recipe.
+            const prompt = `You are a nutrition expert. Calculate the approximate nutritional information for the ENTIRE recipe (all ingredients combined).
 
 Recipe: ${this.currentRecipe.title}
-Servings: ${this.currentServings}
+Servings in recipe: ${recipeServings}
 
 Ingredients:
 ${ingredientsList}
@@ -2620,7 +2622,7 @@ ${ingredientsList}
 Instructions:
 ${this.currentRecipe.instructions.join('\n')}
 
-Please provide nutritional information PER SERVING as JSON (no markdown, no code fences).
+Please provide nutritional information for the TOTAL/ENTIRE RECIPE as JSON (no markdown, no code fences).
 
 Response format (exact keys):
 {
@@ -2682,7 +2684,7 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
     }
 
     displayMacros(macros) {
-        // Store the base macros (per single serving)
+        // Store the total recipe macros (will be divided by user's selected serving count)
         this.currentMacros = macros;
 
         // Hide loading, show content
@@ -2701,28 +2703,35 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
     updateMacrosDisplay() {
         if (!this.currentMacros) return;
 
-        const macros = this.currentMacros;
-        const servingMultiplier = this.macrosServingSize;
+        const macros = this.currentMacros; // Total recipe macros
+        const userServings = this.macrosServingSize; // User's selected serving count
+        const perServingDivider = userServings; // Divide total by user's serving count
+
+        // Calculate per-serving values based on user's selected serving count
+        const perServingCalories = Math.round(macros.calories / perServingDivider);
+        const perServingProtein = Math.round(macros.protein.grams / perServingDivider);
+        const perServingCarbs = Math.round(macros.carbs.grams / perServingDivider);
+        const perServingFats = Math.round(macros.fats.grams / perServingDivider);
 
         // Update calories
-        document.getElementById('total-calories').textContent = Math.round(macros.calories * servingMultiplier);
+        document.getElementById('total-calories').textContent = perServingCalories;
 
-        // Update macronutrients
-        document.getElementById('protein-grams').textContent = Math.round(macros.protein.grams * servingMultiplier);
+        // Update macronutrients (per serving)
+        document.getElementById('protein-grams').textContent = perServingProtein;
         document.getElementById('protein-percentage').textContent = macros.protein.percentage; // Percentage stays same
 
-        document.getElementById('carbs-grams').textContent = Math.round(macros.carbs.grams * servingMultiplier);
+        document.getElementById('carbs-grams').textContent = perServingCarbs;
         document.getElementById('carbs-percentage').textContent = macros.carbs.percentage;
 
-        document.getElementById('fats-grams').textContent = Math.round(macros.fats.grams * servingMultiplier);
+        document.getElementById('fats-grams').textContent = perServingFats;
         document.getElementById('fats-percentage').textContent = macros.fats.percentage;
 
-        document.getElementById('fiber-grams').textContent = Math.round(macros.fiber * servingMultiplier);
+        document.getElementById('fiber-grams').textContent = Math.round(macros.fiber / perServingDivider);
 
-        // Update additional nutrients
-        document.getElementById('sodium-mg').textContent = `${Math.round(macros.sodium * servingMultiplier)}mg`;
-        document.getElementById('sugar-grams').textContent = `${Math.round(macros.sugar * servingMultiplier)}g`;
-        document.getElementById('cholesterol-mg').textContent = `${Math.round(macros.cholesterol * servingMultiplier)}mg`;
+        // Update additional nutrients (per serving)
+        document.getElementById('sodium-mg').textContent = `${Math.round(macros.sodium / perServingDivider)}mg`;
+        document.getElementById('sugar-grams').textContent = `${Math.round(macros.sugar / perServingDivider)}g`;
+        document.getElementById('cholesterol-mg').textContent = `${Math.round(macros.cholesterol / perServingDivider)}mg`;
     }
 
     // ==========================================
