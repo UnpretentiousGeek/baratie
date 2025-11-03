@@ -1632,56 +1632,38 @@ ${text.substring(0, 15000)}`;
     // Fetch YouTube video captions/transcript with timestamps
     async fetchYouTubeCaptions(videoId, withTimestamps = false) {
         try {
-            // Try to fetch from YouTube's timedtext endpoint
-            const captionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en`;
-
-            const response = await fetch(captionUrl);
+            // Call serverless function to fetch captions (using Innertube API - reliable as of 2025)
+            const response = await fetch('/api/youtube-captions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ videoId })
+            });
 
             if (!response.ok) {
                 console.warn('Captions not available for this video');
                 return withTimestamps ? null : null;
             }
 
-            const xmlText = await response.text();
+            const data = await response.json();
 
-            // Parse XML captions
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-            const textElements = xmlDoc.getElementsByTagName('text');
-
-            if (textElements.length === 0) {
+            if (!data.success || !data.captions || data.captions.length === 0) {
+                console.warn('No captions found for this video');
                 return withTimestamps ? null : null;
             }
 
             if (withTimestamps) {
-                // Return array of {text, start, duration} objects
-                const captions = [];
-                for (let i = 0; i < textElements.length; i++) {
-                    const elem = textElements[i];
-                    const text = elem.textContent.trim();
-                    const start = parseFloat(elem.getAttribute('start') || '0');
-                    const duration = parseFloat(elem.getAttribute('dur') || '0');
-
-                    if (text) {
-                        captions.push({
-                            text: text,
-                            start: start,
-                            end: start + duration,
-                            duration: duration
-                        });
-                    }
-                }
-                return captions;
+                // Return array of {text, start, duration, end} objects
+                return data.captions.map(cap => ({
+                    text: cap.text,
+                    start: cap.start,
+                    duration: cap.duration,
+                    end: cap.start + cap.duration
+                }));
             } else {
                 // Return plain text (backward compatibility)
-                let captionText = '';
-                for (let i = 0; i < textElements.length; i++) {
-                    const text = textElements[i].textContent.trim();
-                    if (text) {
-                        captionText += text + ' ';
-                    }
-                }
-                return captionText.trim();
+                return data.captions.map(cap => cap.text).join(' ');
             }
 
         } catch (error) {
@@ -2521,10 +2503,10 @@ ${captions.substring(0, 10000)}`;
         const ingredientList = document.getElementById('cooking-ingredient-list');
         ingredientList.innerHTML = '';
 
-        // Show scaled ingredients based on currentServings
+        // Show ingredients as-is from extraction (matching preview display)
         recipe.ingredients.forEach(ing => {
             const li = document.createElement('li');
-            li.textContent = this.scaleIngredient(ing);
+            li.textContent = ing.text;  // Use text field directly like preview
             ingredientList.appendChild(li);
         });
     }

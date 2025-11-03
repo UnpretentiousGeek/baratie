@@ -4,7 +4,6 @@
   "description": "AI-powered recipe manager with Gemini integration - Serverless architecture",
   "private": true,
   "scripts": {
-    "dev": "vercel dev",
     "build": "echo 'No build step required for static site'",
     "deploy": "vercel --prod"
   },

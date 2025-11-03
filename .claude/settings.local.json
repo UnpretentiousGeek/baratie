@@ -12,7 +12,8 @@
       "Bash(move EXTENSION_SUMMARY.md docs )",
       "Bash(move:*)",
       "Bash(cmd /c:*)",
-      "Bash(dir /b)"
+      "Bash(dir /b)",
+      "Bash(vercel --version:*)"
     ],
     "deny": [],
     "ask": []
