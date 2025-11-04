@@ -52,13 +52,19 @@ class CaptionHandler(BaseHTTPRequestHandler):
                         print(f'English not available, fetching first available language...', flush=True)
                         # Get first manually created or auto-generated transcript
                         try:
-                            transcript = transcript_list.find_manually_created_transcript()
+                            # Try to get any manually created transcript
+                            transcript = next(iter(transcript_list))
                             fetched_transcript = transcript.fetch()
-                            print(f'Successfully fetched manually created captions in {transcript.language}!', flush=True)
+                            print(f'Successfully fetched captions in {transcript.language}!', flush=True)
                         except:
-                            transcript = transcript_list.find_generated_transcript()
-                            fetched_transcript = transcript.fetch()
-                            print(f'Successfully fetched auto-generated captions in {transcript.language}!', flush=True)
+                            # Last resort: try to get any transcript at all
+                            all_transcripts = list(transcript_list)
+                            if all_transcripts:
+                                transcript = all_transcripts[0]
+                                fetched_transcript = transcript.fetch()
+                                print(f'Successfully fetched captions in {transcript.language}!', flush=True)
+                            else:
+                                fetched_transcript = None
 
                 except Exception as e:
                     print(f'No transcripts available: {type(e).__name__}: {str(e)}', flush=True)
