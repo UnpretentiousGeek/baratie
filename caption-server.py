@@ -138,4 +138,6 @@ def run(port=8000):
     httpd.serve_forever()
 
 if __name__ == '__main__':
-    run()
+    # Use PORT environment variable if available (for Railway/Heroku/etc)
+    port = int(os.environ.get('PORT', 8000))
+    run(port)
