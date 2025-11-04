@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caption API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+        }
+        h1 { color: #ff6b35; }
+        input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        button {
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🎬 Caption API Test</h1>
+        <input type="text" id="url" placeholder="Paste YouTube URL" />
+        <button onclick="test()">Test Caption API</button>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        function getId(url) {
+            try {
+                const u = new URL(url.includes('http') ? url : 'https://' + url);
+                if (u.searchParams.has('v')) return u.searchParams.get('v');
+                if (u.hostname === 'youtu.be') return u.pathname.slice(1);
+                const m = u.pathname.match(/\/(shorts|embed)\/([a-zA-Z0-9_-]{11})/);
+                if (m) return m[2];
+            } catch (e) {}
+            return null;
+        }
+
+        async function test() {
+            const url = document.getElementById('url').value.trim();
+            const out = document.getElementById('output');
+
+            if (!url) {
+                out.innerHTML = '<span class="error">Enter a URL</span>';
+                return;
+            }
+
+            const id = getId(url);
+            if (!id || id.length !== 11) {
+                out.innerHTML = '<span class="error">Invalid YouTube URL</span>';
+                return;
+            }
+
+            out.innerHTML = '⏳ Testing...';
+
+            try {
+                const res = await fetch('/api/youtube-captions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoId: id })
+                });
+
+                if (!res.ok) {
+                    const err = await res.text();
+                    out.innerHTML = `<span class="error">❌ API Error (${res.status})</span>\n\n${err}`;
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (!data.success || !data.captions) {
+                    out.innerHTML = `<span class="error">❌ No captions</span>\n\n${data.error || 'Unknown'}`;
+                    return;
+                }
+
+                const chars = data.captions.map(c => c.text).join(' ').length;
+                const preview = data.captions.slice(0, 5).map(c =>
+                    `[${Math.floor(c.start)}s] ${c.text}`
+                ).join('\n');
+
+                out.innerHTML = `<span class="success">✅ SUCCESS!</span>\n\nVideo: ${id}\nSegments: ${data.captions.length}\nChars: ${chars}\n\nPreview:\n${preview}`;
+
+            } catch (err) {
+                out.innerHTML = `<span class="error">❌ Error</span>\n\n${err.message}`;
+            }
+        }
+
+        document.getElementById('url').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') test();
+        });
+    </script>
+</body>
+</html>

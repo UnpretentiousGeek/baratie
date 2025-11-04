@@ -13,7 +13,13 @@
       "Bash(move:*)",
       "Bash(cmd /c:*)",
       "Bash(dir /b)",
-      "Bash(vercel --version:*)"
+      "Bash(vercel --version:*)",
+      "Bash(mv:*)",
+      "Bash(pip:*)",
+      "Bash(dir /b \"d:\\Vibe Coding Projects\\Baratie\\api\")",
+      "Bash(python caption-server.py:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

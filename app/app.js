@@ -1635,7 +1635,8 @@ ${text.substring(0, 15000)}`;
     // Fetch YouTube video captions/transcript with timestamps
     async fetchYouTubeCaptions(videoId, withTimestamps = false) {
         try {
-            // Call serverless function to fetch captions (using Innertube API - reliable as of 2025)
+            // Call Vercel serverless function for caption extraction
+            // Uses youtube-transcript-plus (Node.js compatible)
             const response = await fetch('/api/youtube-captions', {
                 method: 'POST',
                 headers: {
