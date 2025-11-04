@@ -1991,18 +1991,24 @@ ${content}`;
         // TIER 2: Try description links if primary extraction failed
         if (!recipe.isValid || !recipe.ingredients || recipe.ingredients.length < 3) {
             console.warn('Primary extraction incomplete. Trying description links...');
+            this.showStatus('Checking description for recipe links...', 'loading');
 
             if (videoData.description) {
-                const linkedRecipe = await this.tryRecipeLinksFromDescription(videoData.description);
+                try {
+                    const linkedRecipe = await this.tryRecipeLinksFromDescription(videoData.description);
 
-                if (linkedRecipe && linkedRecipe.isValid &&
-                    linkedRecipe.ingredients && linkedRecipe.ingredients.length >= 3) {
-                    // Success! Use linked recipe but keep video metadata
-                    linkedRecipe.title = `${videoData.title} (from linked recipe)`;
-                    console.log('Successfully extracted recipe from description link!');
-                    return this.normalizeExtractedRecipe(linkedRecipe);
-                } else {
-                    console.warn('Description links did not yield valid recipe. Will try captions next.');
+                    if (linkedRecipe && linkedRecipe.isValid &&
+                        linkedRecipe.ingredients && linkedRecipe.ingredients.length >= 3) {
+                        // Success! Use linked recipe but keep video metadata
+                        linkedRecipe.title = `${videoData.title} (from linked recipe)`;
+                        console.log('Successfully extracted recipe from description link!');
+                        return this.normalizeExtractedRecipe(linkedRecipe);
+                    } else {
+                        console.warn('Description links did not yield valid recipe. Will try captions next.');
+                    }
+                } catch (linkError) {
+                    console.warn('Error trying description links:', linkError.message);
+                    // Continue to caption fallback
                 }
             }
         }
@@ -2014,6 +2020,7 @@ ${content}`;
 
         if (needsCaptionFallback) {
             console.warn('Recipe incomplete or invalid. Trying to extract from video captions...');
+            this.showStatus('Extracting recipe from video captions...', 'loading');
 
             // Try to fetch video captions/transcript
             const captions = await this.fetchYouTubeCaptions(videoId);
