@@ -2001,29 +2001,64 @@ ${content}`;
                     linkedRecipe.title = `${videoData.title} (from linked recipe)`;
                     console.log('Successfully extracted recipe from description link!');
                     return this.normalizeExtractedRecipe(linkedRecipe);
+                } else {
+                    console.warn('Description links did not yield valid recipe. Will try captions next.');
                 }
             }
         }
 
-        // Check if recipe has ingredients but NO instructions (edge case #2)
+        // TIER 3: If still no valid recipe OR missing instructions, try captions
         const hasIngredients = recipe.ingredients && recipe.ingredients.length >= 3;
         const hasInstructions = recipe.instructions && recipe.instructions.length >= 2;
+        const needsCaptionFallback = !recipe.isValid || !hasIngredients || !hasInstructions;
 
-        if (hasIngredients && !hasInstructions && recipe.isValid) {
-            console.warn('YouTube video has ingredients but no instructions. Trying captions...');
+        if (needsCaptionFallback) {
+            console.warn('Recipe incomplete or invalid. Trying to extract from video captions...');
 
-            // STEP 1: Try to fetch video captions/transcript
+            // Try to fetch video captions/transcript
             const captions = await this.fetchYouTubeCaptions(videoId);
 
             if (captions && captions.length > 200) {
-                console.log('Captions found! Extracting instructions from captions.');
+                console.log('Captions found! Attempting to extract recipe from captions.');
 
-                // Use Gemini to extract instructions from captions
-                const captionPrompt = `You are a recipe instruction expert. Extract ONLY the cooking instructions from the following video transcript/captions.
+                // Determine what to extract based on what's missing
+                let captionPrompt;
+                if (!hasIngredients) {
+                    // Need full recipe from captions
+                    captionPrompt = `You are a recipe extraction expert. Extract the complete recipe from the following video transcript/captions.
+
+Rules:
+- Respond with ONLY JSON (no markdown, no comments, no code fences).
+- If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
+- Extract ALL ingredients with amounts and ALL cooking instructions
+- Ignore non-cooking dialogue, introductions, outros, product promotions
+- If servings are missing, infer a reasonable integer from context (2–8 typical)
+- For each ingredient, provide the text field with the full ingredient text
+
+Response shape (exact keys):
+{
+  "isValid": true,
+  "title": "${videoData.title}",
+  "servings": 4,
+  "ingredients": [
+    { "text": "2 cups flour", "amount": 2, "unit": "cups", "name": "flour" }
+  ],
+  "instructions": ["Step 1...", "Step 2..."]
+}
+
+If this is NOT a recipe or insufficient information, return {"isValid": false}.
+
+Video Title: ${videoData.title}
+
+CAPTIONS/TRANSCRIPT:
+${captions.substring(0, 10000)}`;
+                } else {
+                    // Only need instructions (already have ingredients)
+                    captionPrompt = `You are a recipe instruction expert. Extract ONLY the cooking instructions from the following video transcript/captions.
 
 Rules:
 - Extract step-by-step cooking instructions ONLY
-- Ignore non-cooking dialogue, introductions, outros
+- Ignore non-cooking dialogue, introductions, outros, product promotions
 - Format as clear, actionable steps
 - Return as JSON array of instruction strings
 - Minimum 2 instructions required
@@ -2037,31 +2072,45 @@ Video Title: ${videoData.title}
 
 CAPTIONS/TRANSCRIPT:
 ${captions.substring(0, 10000)}`;
+                }
 
                 try {
                     const captionResult = await this.callGeminiAPI(captionPrompt);
 
-                    if (captionResult.instructions && captionResult.instructions.length >= 2) {
+                    if (!hasIngredients && captionResult.isValid &&
+                        captionResult.ingredients && captionResult.ingredients.length >= 3 &&
+                        captionResult.instructions && captionResult.instructions.length >= 2) {
+                        // Successfully extracted full recipe from captions!
+                        captionResult.title = videoData.title;
+                        console.log('Successfully extracted full recipe from video captions.');
+                        return this.normalizeExtractedRecipe(captionResult);
+                    } else if (hasIngredients && captionResult.instructions && captionResult.instructions.length >= 2) {
                         // Successfully extracted instructions from captions!
                         recipe.instructions = captionResult.instructions;
+                        recipe.isValid = true;
                         console.log('Successfully extracted instructions from video captions.');
                         return this.normalizeExtractedRecipe(recipe);
+                    } else {
+                        console.warn('Caption extraction did not yield sufficient recipe data.');
                     }
                 } catch (error) {
-                    console.warn('Failed to extract instructions from captions:', error);
+                    console.warn('Failed to extract from captions:', error);
                 }
             }
 
-            // STEP 2: Last resort - embed video in instructions section
-            console.warn('No captions available. Embedding video as last resort.');
-
-            // Mark recipe as needing video embed (in instructions, not ingredients)
-            recipe.embedVideoId = videoId;
-            recipe.embedVideoTitle = videoData.title;
-            recipe.embedInInstructions = true; // NEW: flag to embed in instructions
-
-            // Don't add placeholder instructions - video will be embedded directly
-            recipe.instructions = [];
+            // Last resort - embed video
+            // Only do this if we have some ingredients (partial recipe)
+            if (hasIngredients) {
+                console.warn('Could not extract instructions from captions. Embedding video as last resort.');
+                recipe.embedVideoId = videoId;
+                recipe.embedVideoTitle = videoData.title;
+                recipe.embedInInstructions = true;
+                recipe.instructions = [];
+                recipe.isValid = true; // Valid because we have ingredients
+            } else {
+                console.error('Could not extract recipe from any source.');
+                recipe.isValid = false;
+            }
         }
 
         // FINAL STEP: Check if captions are available for optional timestamp feature
