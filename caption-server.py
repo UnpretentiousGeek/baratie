@@ -34,13 +34,11 @@ class CaptionHandler(BaseHTTPRequestHandler):
 
                 print(f'Fetching captions for video: {video_id}', flush=True)
 
-                # Fetch transcript using correct API
-                ytt_api = YouTubeTranscriptApi()
-
+                # Fetch transcript using correct API (static methods)
                 # First, get list of available transcripts
                 try:
                     print(f'Getting list of available transcripts...', flush=True)
-                    transcript_list = ytt_api.list(video_id)
+                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
 
                     # Try to find English transcript first (any English variant)
                     try:
