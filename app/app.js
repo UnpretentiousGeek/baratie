@@ -1645,14 +1645,15 @@ ${text.substring(0, 15000)}`;
             });
 
             if (!response.ok) {
-                console.warn('Captions not available for this video');
+                const errorText = await response.text();
+                console.warn(`Captions API returned ${response.status}: ${errorText}`);
                 return withTimestamps ? null : null;
             }
 
             const data = await response.json();
 
             if (!data.success || !data.captions || data.captions.length === 0) {
-                console.warn('No captions found for this video');
+                console.warn('No captions found for this video:', data.error || 'Unknown reason');
                 return withTimestamps ? null : null;
             }
 
@@ -2098,7 +2099,9 @@ ${content}`;
             // Try to fetch video captions/transcript
             const captions = await this.fetchYouTubeCaptions(videoId);
 
-            if (captions && captions.length > 200) {
+            console.log(`Caption fetch result: ${captions ? `${captions.length} characters` : 'null/failed'}`);
+
+            if (captions && captions.length > 100) {  // Reduced from 200 to 100
                 console.log('Captions found! Attempting to extract recipe from captions.');
 
                 // Determine what to extract based on what's missing
@@ -2176,6 +2179,8 @@ ${captions.substring(0, 10000)}`;
                 } catch (error) {
                     console.warn('Failed to extract from captions:', error);
                 }
+            } else {
+                console.warn(`Captions unavailable or too short (${captions ? captions.length : 0} characters). Minimum 100 characters required.`);
             }
 
             // Last resort - embed video
@@ -2194,7 +2199,7 @@ ${captions.substring(0, 10000)}`;
                     isValid: false,
                     error: 'No recipe found in video description, linked pages, or captions. This video may not contain a recipe.',
                     title: videoData.title,
-                    source: url
+                    source: `https://www.youtube.com/watch?v=${videoId}`
                 };
             }
         }
