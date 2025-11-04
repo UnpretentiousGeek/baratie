@@ -1025,6 +1025,9 @@ class RecipeManager {
 
         // Macros recalculation
         document.getElementById('recalculate-macros')?.addEventListener('click', () => this.calculateMacros());
+
+        // Timestamp toggle for YouTube videos
+        document.getElementById('timestamp-toggle')?.addEventListener('change', (e) => this.toggleTimestamps(e.target.checked));
     }
 
     // ==========================================
@@ -2061,23 +2064,25 @@ ${captions.substring(0, 10000)}`;
             recipe.instructions = [];
         }
 
-        // FINAL STEP: Match instructions to timestamps (if captions available and instructions exist)
+        // FINAL STEP: Check if captions are available for optional timestamp feature
+        // Don't automatically add timestamps - let user toggle them on via UI
         if (recipe.instructions && recipe.instructions.length > 0) {
-            console.log('Attempting to match instructions to video timestamps...');
+            console.log('Checking caption availability for optional timestamp feature...');
             try {
-                const instructionsWithTimestamps = await this.matchInstructionsToTimestamps(
-                    recipe.instructions,
-                    videoId
-                );
+                const captionCheck = await this.fetchYouTubeCaptions(videoId, true);
 
-                // Store video ID and timestamped instructions
-                recipe.youtubeVideoId = videoId;
-                recipe.instructionsWithTimestamps = instructionsWithTimestamps;
-
-                console.log(`Matched ${instructionsWithTimestamps.filter(i => i.timestamp).length}/${recipe.instructions.length} instructions to timestamps`);
+                if (captionCheck && captionCheck.length > 0) {
+                    // Store video ID and caption availability flag
+                    recipe.youtubeVideoId = videoId;
+                    recipe.hasCaptions = true;
+                    console.log('Captions available - user can toggle timestamps on if desired');
+                } else {
+                    recipe.hasCaptions = false;
+                    console.log('No captions available for this video');
+                }
             } catch (error) {
-                console.warn('Failed to match timestamps:', error);
-                // Continue without timestamps if matching fails
+                console.warn('Failed to check caption availability:', error);
+                recipe.hasCaptions = false;
             }
         }
 
@@ -2488,6 +2493,20 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('macros-servings-input').value = this.macrosServingSize;
         document.getElementById('recipe-total-servings').textContent = this.currentServings;
 
+        // Show/hide timestamp toggle based on caption availability
+        const toggleContainer = document.getElementById('timestamp-toggle-container');
+        const timestampToggle = document.getElementById('timestamp-toggle');
+
+        if (recipe.youtubeVideoId && recipe.hasCaptions) {
+            toggleContainer.style.display = 'flex';
+            // Reset toggle state (timestamps off by default)
+            timestampToggle.checked = false;
+            this.timestampsEnabled = false;
+        } else {
+            toggleContainer.style.display = 'none';
+            this.timestampsEnabled = false;
+        }
+
         // Ingredients
         this.updateIngredientsList();
 
@@ -2624,7 +2643,11 @@ ${captions.substring(0, 10000)}`;
         }
 
         // Normal instructions with checkboxes and optional timestamps
-        const instructionsData = recipe.instructionsWithTimestamps || recipe.instructions.map(text => ({ text, timestamp: null }));
+        // Only show timestamps if toggle is enabled AND timestamps are available
+        const showTimestamps = this.timestampsEnabled && recipe.instructionsWithTimestamps;
+        const instructionsData = showTimestamps
+            ? recipe.instructionsWithTimestamps
+            : recipe.instructions.map(text => ({ text, timestamp: null }));
         const videoId = recipe.youtubeVideoId;
 
         instructionsData.forEach((instruction, index) => {
@@ -2651,8 +2674,8 @@ ${captions.substring(0, 10000)}`;
             text.className = 'instruction-text';
             text.textContent = instruction.text || instruction;
 
-            // Add timestamp badge if available
-            if (instruction.timestamp && videoId) {
+            // Add timestamp badge ONLY if timestamps are enabled via toggle
+            if (showTimestamps && instruction.timestamp && videoId) {
                 const timestampBadge = document.createElement('a');
                 timestampBadge.className = 'timestamp-badge';
                 timestampBadge.href = `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(instruction.timestamp)}s`;
@@ -2696,6 +2719,60 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('progress-text').textContent = `${completedSteps}/${totalSteps}`;
         document.getElementById('progress-percentage').textContent = `${percentage}%`;
         document.getElementById('progress-fill').style.width = `${percentage}%`;
+    }
+
+    // Toggle timestamps on/off for YouTube videos
+    async toggleTimestamps(enabled) {
+        const recipe = this.currentRecipe;
+
+        if (!recipe.youtubeVideoId || !recipe.hasCaptions) {
+            console.warn('Cannot toggle timestamps: no video ID or captions unavailable');
+            return;
+        }
+
+        this.timestampsEnabled = enabled;
+
+        if (enabled) {
+            // Check if we already have timestamps
+            if (recipe.instructionsWithTimestamps) {
+                console.log('Using cached timestamps');
+                this.displayInstructions();
+                return;
+            }
+
+            // Show loading state
+            this.showStatus('Loading video timestamps...', 'loading');
+
+            try {
+                // Fetch and match timestamps
+                const instructionsWithTimestamps = await this.matchInstructionsToTimestamps(
+                    recipe.instructions,
+                    recipe.youtubeVideoId
+                );
+
+                // Cache the results
+                recipe.instructionsWithTimestamps = instructionsWithTimestamps;
+
+                // Refresh display
+                this.displayInstructions();
+
+                const matchedCount = instructionsWithTimestamps.filter(i => i.timestamp).length;
+                this.showStatus(`Matched ${matchedCount}/${recipe.instructions.length} instructions to video timestamps`, 'success');
+                setTimeout(() => this.hideStatus(), 3000);
+
+            } catch (error) {
+                console.error('Failed to match timestamps:', error);
+                this.showStatus('Failed to load timestamps. Please try again.', 'error');
+                setTimeout(() => this.hideStatus(), 3000);
+
+                // Reset toggle on error
+                document.getElementById('timestamp-toggle').checked = false;
+                this.timestampsEnabled = false;
+            }
+        } else {
+            // Timestamps disabled - just refresh display without timestamps
+            this.displayInstructions();
+        }
     }
 
     // ==========================================
