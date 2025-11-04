@@ -34,37 +34,29 @@ class CaptionHandler(BaseHTTPRequestHandler):
 
                 print(f'Fetching captions for video: {video_id}', flush=True)
 
-                # Fetch transcript using correct API (static methods)
-                # First, get list of available transcripts
-                try:
-                    print(f'Getting list of available transcripts...', flush=True)
-                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                # Create API instance
+                api = YouTubeTranscriptApi()
+                fetched_transcript = None
 
-                    # Try to find English transcript first (any English variant)
-                    try:
-                        print(f'Attempting to fetch English captions...', flush=True)
-                        # Try multiple English variants: en, en-US, en-GB, etc.
-                        transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB', 'en-CA', 'en-AU'])
-                        fetched_transcript = transcript.fetch()
-                        print(f'Successfully fetched English captions ({transcript.language})!', flush=True)
-                    except:
-                        # If English not available, get the first available transcript
-                        print(f'English not available, fetching first available language...', flush=True)
-                        # Get first manually created or auto-generated transcript
+                try:
+                    # Try English variants first
+                    for lang in ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU']:
                         try:
-                            # Try to get any manually created transcript
-                            transcript = next(iter(transcript_list))
-                            fetched_transcript = transcript.fetch()
-                            print(f'Successfully fetched captions in {transcript.language}!', flush=True)
+                            print(f'Attempting to fetch {lang} captions...', flush=True)
+                            fetched_transcript = api.fetch(video_id, [lang])
+                            print(f'Successfully fetched {lang} captions!', flush=True)
+                            break
                         except:
-                            # Last resort: try to get any transcript at all
-                            all_transcripts = list(transcript_list)
-                            if all_transcripts:
-                                transcript = all_transcripts[0]
-                                fetched_transcript = transcript.fetch()
-                                print(f'Successfully fetched captions in {transcript.language}!', flush=True)
-                            else:
-                                fetched_transcript = None
+                            continue
+
+                    # If no English found, get list of available languages and try first one
+                    if not fetched_transcript:
+                        print(f'English not available, fetching first available language...', flush=True)
+                        available = api.list(video_id)
+                        if available:
+                            first_lang = available[0]['language_code']
+                            fetched_transcript = api.fetch(video_id, [first_lang])
+                            print(f'Successfully fetched {first_lang} captions!', flush=True)
 
                 except Exception as e:
                     print(f'No transcripts available: {type(e).__name__}: {str(e)}', flush=True)
@@ -77,11 +69,11 @@ class CaptionHandler(BaseHTTPRequestHandler):
                     })
                     return
 
-                # The fetch() method returns a FetchedTranscript object that is iterable
+                # fetch() returns a FetchedTranscript containing FetchedTranscriptSnippet objects
                 segment_count = len(fetched_transcript)
-                print(f'Successfully fetched {segment_count} segments')
+                print(f'Successfully fetched {segment_count} segments', flush=True)
 
-                # Format captions - iterate over the FetchedTranscript
+                # Format captions - use object attributes, not dictionary keys
                 captions = []
                 for snippet in fetched_transcript:
                     captions.append({
