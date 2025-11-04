@@ -1076,9 +1076,9 @@ class RecipeManager {
             const recipe = await this.extractRecipeFromURL(url);
 
             if (!recipe.isValid) {
-                // Show sarcastic error message for non-recipe content
-                const sarcasticMessage = this.getSarcasticErrorMessage(url);
-                this.showStatus(sarcasticMessage, 'error');
+                // Show specific error message if provided, otherwise sarcastic message
+                const errorMessage = recipe.error || this.getSarcasticErrorMessage(url);
+                this.showStatus(errorMessage, 'error');
                 document.getElementById('process-btn').disabled = false;
                 return;
             }
@@ -1851,8 +1851,8 @@ Response format (JSON only, no markdown):
     }
 
     // Try to extract recipe from links found in description
-    async tryRecipeLinksFromDescription(description) {
-        console.log('Attempting to extract recipe from links in description...');
+    async tryRecipeLinksFromDescription(description, videoTitle) {
+        console.log('Attempting to find recipe links in description...');
 
         const links = this.extractLinksFromText(description);
 
@@ -1860,7 +1860,7 @@ Response format (JSON only, no markdown):
         const recipeLinks = links
             .filter(link => link.type === 'recipe' || link.type === 'unknown')
             .filter(link => link.type !== 'video') // Skip video links to prevent recursion
-            .slice(0, 3); // Try up to 3 links
+            .slice(0, 5); // Check up to 5 links
 
         if (recipeLinks.length === 0) {
             console.log('No recipe links found in description');
@@ -1869,34 +1869,107 @@ Response format (JSON only, no markdown):
 
         console.log(`Found ${recipeLinks.length} potential recipe link(s)`);
 
-        // Try each link in sequence
+        // NEW APPROACH: Just check page titles, not full extraction
         for (let i = 0; i < recipeLinks.length; i++) {
             const {url} = recipeLinks[i];
 
             try {
-                console.log(`Trying recipe link ${i + 1}/${recipeLinks.length}: ${url}`);
-                this.showStatus(`Fetching recipe from linked page (${i + 1}/${recipeLinks.length})...`, 'loading');
+                console.log(`Checking link ${i + 1}/${recipeLinks.length}: ${url}`);
+                this.showStatus(`Checking linked page title (${i + 1}/${recipeLinks.length})...`, 'loading');
 
-                const recipe = await this.extractRecipeFromURL(url);
+                // Fetch just the HTML to extract title
+                const { html } = await this.fetchURLContent(url);
+                const pageTitle = this.extractPageTitle(html);
 
-                if (recipe && recipe.isValid &&
-                    recipe.ingredients && recipe.ingredients.length >= 3) {
-                    console.log('Successfully extracted recipe from linked page!');
-                    return recipe;
+                if (pageTitle) {
+                    console.log(`Page title: "${pageTitle}"`);
+
+                    // Check if page title is similar to video title
+                    if (this.areTitlesSimilar(videoTitle, pageTitle)) {
+                        console.log('Page title matches video title! Extracting recipe from this page...');
+                        this.showStatus('Found matching recipe page. Extracting...', 'loading');
+
+                        // Now do full extraction since titles match
+                        const recipe = await this.extractRecipeFromURL(url);
+
+                        if (recipe && recipe.isValid &&
+                            recipe.ingredients && recipe.ingredients.length >= 3) {
+                            console.log('Successfully extracted recipe from linked page!');
+                            return recipe;
+                        }
+                    } else {
+                        console.log('Page title does not match video title. Skipping.');
+                    }
                 }
             } catch (error) {
-                console.warn(`Failed to extract from ${url}:`, error.message);
+                console.warn(`Failed to check ${url}:`, error.message);
                 // Continue to next link
             }
 
             // Small delay to avoid hammering servers
             if (i < recipeLinks.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
 
-        console.log('No valid recipes found in description links');
+        console.log('No matching recipe pages found in description links');
         return null;
+    }
+
+    // Extract page title from HTML
+    extractPageTitle(html) {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Try multiple title sources
+            const title = doc.querySelector('title')?.textContent ||
+                         doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+                         doc.querySelector('meta[name="twitter:title"]')?.getAttribute('content') ||
+                         doc.querySelector('h1')?.textContent;
+
+            return title?.trim() || null;
+        } catch (error) {
+            console.warn('Error extracting page title:', error);
+            return null;
+        }
+    }
+
+    // Check if two titles are similar (fuzzy match)
+    areTitlesSimilar(title1, title2) {
+        if (!title1 || !title2) return false;
+
+        // Normalize titles: lowercase, remove special chars, extra spaces
+        const normalize = (str) => str.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const norm1 = normalize(title1);
+        const norm2 = normalize(title2);
+
+        // Exact match after normalization
+        if (norm1 === norm2) return true;
+
+        // Check if one contains the other (at least 60% of shorter title)
+        const shorter = norm1.length < norm2.length ? norm1 : norm2;
+        const longer = norm1.length < norm2.length ? norm2 : norm1;
+
+        if (longer.includes(shorter) && shorter.length >= 10) return true;
+
+        // Calculate word overlap
+        const words1 = new Set(norm1.split(' ').filter(w => w.length > 3));
+        const words2 = new Set(norm2.split(' ').filter(w => w.length > 3));
+
+        if (words1.size === 0 || words2.size === 0) return false;
+
+        const intersection = new Set([...words1].filter(w => words2.has(w)));
+        const union = new Set([...words1, ...words2]);
+
+        const similarity = intersection.size / union.size;
+
+        // At least 50% word overlap
+        return similarity >= 0.5;
     }
 
     // Check if description appears sparse/incomplete (likely a remix)
@@ -1995,7 +2068,7 @@ ${content}`;
 
             if (videoData.description) {
                 try {
-                    const linkedRecipe = await this.tryRecipeLinksFromDescription(videoData.description);
+                    const linkedRecipe = await this.tryRecipeLinksFromDescription(videoData.description, videoData.title);
 
                     if (linkedRecipe && linkedRecipe.isValid &&
                         linkedRecipe.ingredients && linkedRecipe.ingredients.length >= 3) {
@@ -2115,9 +2188,21 @@ ${captions.substring(0, 10000)}`;
                 recipe.instructions = [];
                 recipe.isValid = true; // Valid because we have ingredients
             } else {
-                console.error('Could not extract recipe from any source.');
-                recipe.isValid = false;
+                console.error('Could not extract recipe from any source (description, links, or captions).');
+                // Return invalid with helpful message
+                return {
+                    isValid: false,
+                    error: 'No recipe found in video description, linked pages, or captions. This video may not contain a recipe.',
+                    title: videoData.title,
+                    source: url
+                };
             }
+        }
+
+        // At this point, we have a valid recipe (either complete or with video embed)
+        // Ensure isValid is set
+        if (!recipe.isValid && (recipe.ingredients?.length >= 3 || recipe.embedVideoId)) {
+            recipe.isValid = true;
         }
 
         // FINAL STEP: Check if captions are available for optional timestamp feature
