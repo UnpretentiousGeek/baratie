@@ -1635,9 +1635,9 @@ ${text.substring(0, 15000)}`;
     // Fetch YouTube video captions/transcript with timestamps
     async fetchYouTubeCaptions(videoId, withTimestamps = false) {
         try {
-            // Call Vercel serverless function for caption extraction
-            // Uses youtube-transcript-plus (Node.js compatible)
-            const response = await fetch('/api/youtube-captions', {
+            // Call Render-hosted Python caption server
+            // Uses youtube-transcript-api for reliable caption extraction
+            const response = await fetch('https://baratie-caption-server.onrender.com/api/youtube-captions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
