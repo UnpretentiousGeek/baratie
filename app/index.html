@@ -14,31 +14,46 @@
             <p class="tagline">Your AI-Powered Recipe Assistant</p>
         </header>
 
-        <!-- Stage 1: URL Capture -->
+        <!-- Stage 1: Chat Interface -->
         <div id="stage-capture" class="stage active">
             <div class="capture-container">
                 <h2>Start Your Cooking Journey</h2>
-                <p class="subtitle">Paste any recipe URL from blogs, YouTube, or recipe websites</p>
+                <p class="subtitle">Share a recipe URL or ask me to modify a recipe</p>
 
-                <div class="input-group">
-                    <input
-                        type="url"
-                        id="recipe-url"
-                        placeholder="https://www.example.com/best-pasta-recipe"
-                        aria-label="Recipe URL"
-                    >
-                    <button id="process-btn" class="btn-primary">Process Recipe</button>
+                <!-- Chat Interface -->
+                <div class="chat-container">
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-message chat-message-assistant">
+                            <div class="message-content">
+                                <p>Hi! I can help you extract recipes from URLs or modify existing recipes. Try saying:</p>
+                                <ul class="chat-examples">
+                                    <li>"https://example.com/recipe"</li>
+                                    <li>"Make this recipe vegetarian: https://example.com/recipe"</li>
+                                    <li>"Make this recipe gluten-free: [url]"</li>
+                                    <li>"Double the servings for: [url]"</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <textarea
+                            id="chat-input"
+                            class="chat-input"
+                            placeholder="Paste a recipe URL or ask me to modify a recipe..."
+                            rows="2"
+                            aria-label="Recipe chat input"
+                        ></textarea>
+                        <button id="chat-send-btn" class="btn-primary chat-send-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="status-message" class="status-message"></div>
-
-                <div class="examples">
-                    <p class="examples-title">Supported sources:</p>
-                    <ul>
-                        <li>Recipe blogs and websites</li>
-                        <li>YouTube cooking videos (including Shorts)</li>
-                    </ul>
-                </div>
             </div>
         </div>
 
@@ -125,16 +140,6 @@
 
                 <!-- Recipe Tab Content -->
                 <div id="recipe-tab" class="tab-content active">
-                    <!-- Video Timestamp Toggle (only visible for YouTube videos with captions) -->
-                    <div id="timestamp-toggle-container" class="timestamp-toggle-container" style="display: none;">
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="timestamp-toggle" />
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="toggle-label">Show video timestamps in instructions</span>
-                        <span class="toggle-badge">YouTube</span>
-                    </div>
-
                     <!-- Ingredients Section -->
                     <div class="ingredients-section">
                         <h3>Ingredients</h3>
@@ -259,13 +264,13 @@
                         <span>=� Ask Me Anything</span>
                         <button id="toggle-chat" class="btn-icon"></button>
                     </div>
-                    <div id="chat-messages" class="chat-messages"></div>
+                    <div id="cooking-chat-messages" class="chat-messages"></div>
                     <div class="chat-input-container">
                         <input
                             type="text"
-                            id="chat-input"
+                            id="cooking-chat-input"
                             placeholder="Ask about substitutions, techniques, or timing..."
-                            aria-label="Chat input"
+                            aria-label="Cooking chat input"
                         >
                         <button id="send-chat" class="btn-primary">Send</button>
                     </div>

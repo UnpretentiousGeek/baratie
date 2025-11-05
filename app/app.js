@@ -978,8 +978,7 @@ class RecipeManager {
         // Bind event listeners
         this.bindEventListeners();
 
-        // Initialize chat
-        this.initializeChat();
+        // Don't initialize cooking chat here - it will be initialized when starting cooking
 
         // Check for browser extension data
         this.checkExtensionData();
@@ -989,10 +988,14 @@ class RecipeManager {
     }
 
     bindEventListeners() {
-        // Stage 1: URL Processing
-        document.getElementById('process-btn').addEventListener('click', () => this.processRecipeURL());
-        document.getElementById('recipe-url').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.processRecipeURL();
+        // Stage 1: Chat Interface
+        document.getElementById('chat-send-btn').addEventListener('click', () => this.handleChatMessage());
+        const chatInput = document.getElementById('chat-input');
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.handleChatMessage();
+            }
         });
 
         // Stage 2: Preview Navigation
@@ -1003,12 +1006,25 @@ class RecipeManager {
         document.getElementById('back-to-start').addEventListener('click', () => this.resetAndGoToStart());
         document.getElementById('download-pdf').addEventListener('click', () => this.downloadPDF());
 
-        // Chat
-        document.getElementById('toggle-chat').addEventListener('click', () => this.toggleChat());
-        document.getElementById('send-chat').addEventListener('click', () => this.sendChatMessage());
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendChatMessage();
-        });
+        // Cooking Assistant Chat (different from URL capture chat)
+        const toggleChatBtn = document.getElementById('toggle-chat');
+        const sendChatBtn = document.getElementById('send-chat');
+        const cookingChatInput = document.getElementById('cooking-chat-input');
+        
+        if (toggleChatBtn) {
+            toggleChatBtn.addEventListener('click', () => this.toggleChat());
+        }
+        if (sendChatBtn) {
+            sendChatBtn.addEventListener('click', () => this.sendChatMessage());
+        }
+        if (cookingChatInput) {
+            cookingChatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendChatMessage();
+                }
+            });
+        }
 
         // Tabs
         document.querySelectorAll('.tab-button').forEach(button => {
@@ -1026,8 +1042,6 @@ class RecipeManager {
         // Macros recalculation
         document.getElementById('recalculate-macros')?.addEventListener('click', () => this.calculateMacros());
 
-        // Timestamp toggle for YouTube videos
-        document.getElementById('timestamp-toggle')?.addEventListener('change', (e) => this.toggleTimestamps(e.target.checked));
     }
 
     // ==========================================
@@ -1054,51 +1068,255 @@ class RecipeManager {
     // Stage 1: URL Processing & AI Extraction
     // ==========================================
 
-    async processRecipeURL() {
-        const urlInput = document.getElementById('recipe-url');
-        const url = urlInput.value.trim();
+    // Parse chat message to extract URL and modifications
+    parseChatMessage(message) {
+        const urlPattern = /(https?:\/\/[^\s]+)/gi;
+        const urls = message.match(urlPattern) || [];
+        const url = urls[0] || null;
 
-        if (!url) {
-            this.showStatus('Please enter a valid URL', 'error');
+        // Extract modification instructions
+        const modifications = [];
+        
+        // Check for common modification patterns
+        const modificationPatterns = [
+            { pattern: /make.*vegetarian/i, type: 'vegetarian' },
+            { pattern: /make.*vegan/i, type: 'vegan' },
+            { pattern: /make.*gluten[- ]free/i, type: 'gluten-free' },
+            { pattern: /make.*dairy[- ]free/i, type: 'dairy-free' },
+            { pattern: /make.*halal/i, type: 'halal' },
+            { pattern: /make.*kosher/i, type: 'kosher' },
+            { pattern: /(?:double|2x|twice).*servings/i, type: 'double-servings' },
+            { pattern: /(?:half|1\/2|0\.5x).*servings/i, type: 'half-servings' },
+            { pattern: /(?:make|reduce|cut).*calories/i, type: 'reduce-calories' },
+            { pattern: /(?:make|increase|add).*protein/i, type: 'increase-protein' },
+            { pattern: /(?:make|remove|no).*nuts/i, type: 'nut-free' },
+            { pattern: /(?:make|remove|no).*eggs/i, type: 'egg-free' },
+            { pattern: /(?:make|remove|no).*soy/i, type: 'soy-free' },
+            { pattern: /(?:make|spicy|add.*spice)/i, type: 'spicy' },
+            { pattern: /(?:make|less.*spicy|mild)/i, type: 'mild' },
+        ];
+
+        for (const { pattern, type } of modificationPatterns) {
+            if (pattern.test(message)) {
+                modifications.push(type);
+            }
+        }
+
+        // If no specific pattern matches but user mentions modifications, try to extract
+        if (modifications.length === 0 && /modify|change|adjust|adapt|convert|make/i.test(message)) {
+            // Extract any custom modification from the message
+            const customMod = message.replace(urlPattern, '').trim();
+            if (customMod.length > 10) {
+                modifications.push({ custom: customMod });
+            }
+        }
+
+        return { url, modifications, originalMessage: message };
+    }
+
+    // Add message to chat
+    addChatMessage(message, isUser = false) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) {
+            console.error('Chat messages container not found');
             return;
         }
 
-        if (!this.isValidURL(url)) {
-            this.showStatus('Please enter a valid URL format', 'error');
+        // Ensure message is a string
+        const messageText = typeof message === 'string' ? message : String(message);
+        
+        console.log('Adding chat message:', { messageText, isUser });
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${isUser ? 'chat-message-user' : 'chat-message-assistant'}`;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        // Always create a paragraph for text
+        const p = document.createElement('p');
+        p.textContent = messageText;
+        contentDiv.appendChild(p);
+        
+        messageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(messageDiv);
+        
+        // Scroll to bottom after a brief delay to ensure DOM is updated
+        setTimeout(() => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, 10);
+    }
+
+    // Handle chat message submission
+    async handleChatMessage() {
+        const chatInput = document.getElementById('chat-input');
+        const message = chatInput.value.trim();
+
+        if (!message) {
             return;
         }
+
+        // Add user message to chat (make sure it's displayed)
+        console.log('Adding user message:', message);
+        this.addChatMessage(message, true);
+        
+        // Clear input
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        
+        // Force a small delay to ensure message is rendered
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Disable input while processing
+        const sendBtn = document.getElementById('chat-send-btn');
+        sendBtn.disabled = true;
+        chatInput.disabled = true;
 
         try {
-            this.showStatus('Processing recipe... This may take a moment.', 'loading');
-            document.getElementById('process-btn').disabled = true;
+            // Parse the message
+            const { url, modifications, originalMessage } = this.parseChatMessage(message);
 
-            // Simulate AI extraction (in production, this would call your AI API)
-            const recipe = await this.extractRecipeFromURL(url);
-
-            if (!recipe.isValid) {
-                // Show specific error message if provided, otherwise sarcastic message
-                const errorMessage = recipe.error || this.getSarcasticErrorMessage(url);
-                this.showStatus(errorMessage, 'error');
-                document.getElementById('process-btn').disabled = false;
+            if (!url) {
+                // No URL found - ask user to provide one
+                this.addChatMessage("I need a recipe URL to work with. Please share a recipe URL, or ask me to modify a recipe with a URL like: 'Make this recipe vegetarian: https://example.com/recipe'");
+                sendBtn.disabled = false;
+                chatInput.disabled = false;
                 return;
             }
 
+            // Validate URL
+            if (!this.isValidURL(url)) {
+                this.addChatMessage("That doesn't look like a valid URL. Please provide a proper recipe URL.");
+                sendBtn.disabled = false;
+                chatInput.disabled = false;
+                return;
+            }
+
+            // Show processing message
+            this.addChatMessage(modifications.length > 0 
+                ? `Processing recipe and applying modifications...` 
+                : `Processing recipe from ${url}...`);
+
+            // Extract recipe
+            let recipe = await this.extractRecipeFromURL(url);
+
+            if (!recipe.isValid) {
+                const errorMessage = recipe.error || this.getSarcasticErrorMessage(url);
+                this.addChatMessage(`Sorry, I couldn't extract a recipe from that URL. ${errorMessage}`);
+                sendBtn.disabled = false;
+                chatInput.disabled = false;
+                return;
+            }
+
+            // Apply modifications if any
+            if (modifications.length > 0) {
+                this.addChatMessage(`Applying modifications: ${modifications.join(', ')}...`);
+                try {
+                    const modifiedRecipe = await this.modifyRecipe(recipe, modifications);
+                    if (modifiedRecipe && modifiedRecipe.modified) {
+                        recipe = modifiedRecipe;
+                        this.addChatMessage(`Successfully modified the recipe!`);
+                    } else {
+                        this.addChatMessage(`Could not apply modifications, using original recipe.`);
+                    }
+                } catch (modError) {
+                    console.error('Error modifying recipe:', modError);
+                    this.addChatMessage(`Error applying modifications: ${modError.message}. Using original recipe.`);
+                }
+            }
+
+            // Store recipe
             this.currentRecipe = recipe;
             this.originalServings = recipe.servings;
             this.currentServings = recipe.servings;
 
-            this.showStatus('Recipe extracted successfully!', 'success');
+            // Show success message
+            const modText = modifications.length > 0 
+                ? ` with your modifications applied` 
+                : '';
+            this.addChatMessage(`Recipe extracted successfully${modText}! Taking you to the recipe preview...`);
 
+            // Move to preview stage
             setTimeout(() => {
                 this.displayRecipePreview();
                 this.goToStage('preview');
-                document.getElementById('process-btn').disabled = false;
+                sendBtn.disabled = false;
+                chatInput.disabled = false;
             }, 1000);
 
         } catch (error) {
-            console.error('Error processing recipe:', error);
-            this.showStatus('An error occurred while processing the recipe. Please try again.', 'error');
-            document.getElementById('process-btn').disabled = false;
+            console.error('Error processing chat message:', error);
+            this.addChatMessage('An error occurred while processing your request. Please try again.');
+            sendBtn.disabled = false;
+            chatInput.disabled = false;
+        }
+    }
+
+    // Modify recipe based on user requests
+    async modifyRecipe(recipe, modifications) {
+        if (!modifications || modifications.length === 0) {
+            return recipe;
+        }
+
+        try {
+            // Build modification prompt
+            const modificationDescriptions = modifications.map(mod => {
+                if (typeof mod === 'object' && mod.custom) {
+                    return mod.custom;
+                }
+                return mod.replace(/-/g, ' ');
+            }).join(', ');
+
+            const prompt = `You are a recipe modification expert. Modify the following recipe to be: ${modificationDescriptions}
+
+IMPORTANT RULES:
+- Keep the same recipe structure and format
+- Replace non-compliant ingredients with suitable alternatives
+- Maintain the same number of instructions
+- Adjust ingredient amounts proportionally if needed
+- Keep the recipe title but note the modifications
+- Ensure all modifications are clearly applied
+
+Recipe to modify:
+Title: ${recipe.title}
+Servings: ${recipe.servings}
+Ingredients:
+${recipe.ingredients.map(ing => `- ${ing.text}`).join('\n')}
+
+Instructions:
+${recipe.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}
+
+Return ONLY valid JSON (no markdown, no code fences):
+{
+  "title": "Modified recipe title",
+  "servings": ${recipe.servings},
+  "ingredients": [
+    { "text": "modified ingredient", "amount": 2, "unit": "cups", "name": "ingredient name" }
+  ],
+  "instructions": ["Step 1...", "Step 2..."]
+}`;
+
+            const response = await this.callGeminiAPI(prompt);
+            
+            console.log('Modify recipe response:', response);
+            
+            if (response && typeof response === 'object' && response.ingredients && response.instructions) {
+                // Merge modifications with original recipe
+                return {
+                    ...recipe,
+                    title: response.title || `${recipe.title} (${modificationDescriptions})`,
+                    ingredients: response.ingredients,
+                    instructions: response.instructions,
+                    modified: true,
+                    modifications: modifications
+                };
+            }
+
+            console.warn('Modification failed, using original recipe');
+            return recipe; // Return original if modification failed
+        } catch (error) {
+            console.error('Error modifying recipe:', error);
+            return recipe; // Return original recipe on error
         }
     }
 
@@ -1196,16 +1414,16 @@ ${focused}`;
 
         // MODE 1: URL-only capture (no text selection)
         if (url && !text && !storageId) {
-            // Auto-fill the URL input and trigger normal extraction
-            document.getElementById('recipe-url').value = url;
-            this.showStatus('Extension captured URL. Processing...', 'loading');
-
-            // Trigger normal URL processing after a short delay
-            setTimeout(() => {
-                this.processRecipeURL();
-                // Clear URL params after processing
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }, 500);
+            // Add URL to chat and process
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.value = url;
+                setTimeout(() => {
+                    this.handleChatMessage();
+                    // Clear URL params after processing
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }, 500);
+            }
             return;
         }
 
@@ -1226,14 +1444,14 @@ ${focused}`;
         try {
             // Show loading status
             this.showStatus('Processing captured recipe text...', 'loading');
-            document.getElementById('process-btn').disabled = true;
+            // Chat interface handles processing
 
             // Extract recipe from captured text
             const recipe = await this.extractRecipeFromText(recipeText, sourceUrl);
 
             if (!recipe.isValid) {
                 this.showStatus('Could not extract a valid recipe from captured text.', 'error');
-                document.getElementById('process-btn').disabled = false;
+                // Chat interface handles state
                 return;
             }
 
@@ -1247,7 +1465,7 @@ ${focused}`;
             setTimeout(() => {
                 this.displayRecipePreview();
                 this.goToStage('preview');
-                document.getElementById('process-btn').disabled = false;
+                // Chat interface handles state
 
                 // Clear URL params after processing (clean up browser history)
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -1538,8 +1756,26 @@ ${text.substring(0, 15000)}`;
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`YouTube API error: ${errorData.error?.message || response.statusText}`);
+                let errorMsg = response.statusText;
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMsg = errorData.error?.message || errorMsg;
+                    } else {
+                        const text = await response.text();
+                        errorMsg = text || errorMsg;
+                    }
+                } catch (e) {
+                    // If parsing fails, use status text
+                }
+                throw new Error(`YouTube API error: ${errorMsg}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Response: ${text.substring(0, 100)}`);
             }
 
             const data = await response.json();
@@ -1632,124 +1868,6 @@ ${text.substring(0, 15000)}`;
         }
     }
 
-    // Fetch YouTube video captions/transcript with timestamps
-    async fetchYouTubeCaptions(videoId, withTimestamps = false) {
-        try {
-            // Call local/Vercel caption API (youtube-transcript-plus)
-            // Will use /api/captions endpoint (works locally and on Vercel)
-            const apiUrl = `${window.location.origin}/api/captions?videoId=${encodeURIComponent(videoId)}&lang=en`;
-
-            const response = await fetch(apiUrl);
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.warn(`Captions API returned ${response.status}:`, errorData.error || 'Unknown error');
-                return withTimestamps ? null : null;
-            }
-
-            const data = await response.json();
-
-            if (!data.success || !data.transcript || data.transcript.length === 0) {
-                console.warn('No captions found for this video:', data.error || 'Unknown reason');
-                return withTimestamps ? null : null;
-            }
-
-            if (withTimestamps) {
-                // Return array of {text, start, duration, end} objects
-                // Convert from youtube-transcript-plus format (offset in ms) to expected format (seconds)
-                return data.transcript.map(cap => ({
-                    text: cap.text,
-                    start: cap.offset / 1000,  // Convert ms to seconds
-                    duration: cap.duration,
-                    end: (cap.offset / 1000) + cap.duration
-                }));
-            } else {
-                // Return plain text (backward compatibility)
-                return data.transcript.map(cap => cap.text).join(' ');
-            }
-
-        } catch (error) {
-            console.warn('Error fetching YouTube captions:', error);
-            return withTimestamps ? null : null;
-        }
-    }
-
-    // Match recipe instructions to video timestamps using captions
-    async matchInstructionsToTimestamps(instructions, videoId) {
-        try {
-            // Fetch captions with timestamps
-            const captions = await this.fetchYouTubeCaptions(videoId, true);
-
-            if (!captions || captions.length === 0) {
-                console.warn('No captions available for timestamp matching');
-                return instructions.map(inst => ({ text: inst, timestamp: null }));
-            }
-
-            // Build caption text with markers for Gemini
-            const captionText = captions.map(cap =>
-                `[${this.formatTimestamp(cap.start)}] ${cap.text}`
-            ).join('\n');
-
-            // Use Gemini AI to match instructions to captions
-            const prompt = `You are a video timestamp expert. Match each recipe instruction to the most relevant timestamp from the video captions.
-
-INSTRUCTIONS (to match):
-${instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}
-
-VIDEO CAPTIONS (with timestamps):
-${captionText.substring(0, 8000)}
-
-For each instruction, find the timestamp where that step is demonstrated or explained in the video.
-If no good match exists, return null for that instruction.
-
-Response format (JSON only, no markdown):
-{
-  "matches": [
-    { "instruction_index": 0, "timestamp_seconds": 45.5, "confidence": "high" },
-    { "instruction_index": 1, "timestamp_seconds": null, "confidence": "none" }
-  ]
-}`;
-
-            const response = await this.callGeminiAPIForChat(prompt);
-
-            // Parse Gemini response
-            let matches;
-            try {
-                // Remove markdown code fences if present
-                const cleanResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                matches = JSON.parse(cleanResponse);
-            } catch (parseError) {
-                console.warn('Failed to parse Gemini timestamp response:', parseError);
-                return instructions.map(inst => ({ text: inst, timestamp: null }));
-            }
-
-            // Build result array
-            return instructions.map((inst, idx) => {
-                const match = matches.matches?.find(m => m.instruction_index === idx);
-                return {
-                    text: inst,
-                    timestamp: match?.timestamp_seconds || null,
-                    confidence: match?.confidence || 'none'
-                };
-            });
-
-        } catch (error) {
-            console.error('Error matching timestamps:', error);
-            return instructions.map(inst => ({ text: inst, timestamp: null }));
-        }
-    }
-
-    // Format seconds to MM:SS or HH:MM:SS
-    formatTimestamp(seconds) {
-        const hrs = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-
-        if (hrs > 0) {
-            return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
 
     // Extract source video ID from YouTube Short description
     extractSourceVideoId(description) {
@@ -2076,126 +2194,34 @@ ${content}`;
                         console.log('Successfully extracted recipe from description link!');
                         return this.normalizeExtractedRecipe(linkedRecipe);
                     } else {
-                        console.warn('Description links did not yield valid recipe. Will try captions next.');
+                        console.warn('Description links did not yield valid recipe.');
                     }
                 } catch (linkError) {
                     console.warn('Error trying description links:', linkError.message);
-                    // Continue to caption fallback
                 }
             }
         }
 
-        // TIER 3: If still no valid recipe OR missing instructions, try captions
+        // If still no valid recipe OR missing instructions, try embedding video as fallback
         const hasIngredients = recipe.ingredients && recipe.ingredients.length >= 3;
         const hasInstructions = recipe.instructions && recipe.instructions.length >= 2;
-        const needsCaptionFallback = !recipe.isValid || !hasIngredients || !hasInstructions;
 
-        if (needsCaptionFallback) {
-            console.warn('Recipe incomplete or invalid. Trying to extract from video captions...');
-            this.showStatus('Extracting recipe from video captions...', 'loading');
-
-            // Try to fetch video captions/transcript
-            const captions = await this.fetchYouTubeCaptions(videoId);
-
-            console.log(`Caption fetch result: ${captions ? `${captions.length} characters` : 'null/failed'}`);
-
-            if (captions && captions.length > 100) {  // Reduced from 200 to 100
-                console.log('Captions found! Attempting to extract recipe from captions.');
-
-                // Determine what to extract based on what's missing
-                let captionPrompt;
-                if (!hasIngredients) {
-                    // Need full recipe from captions
-                    captionPrompt = `You are a recipe extraction expert. Extract the complete recipe from the following video transcript/captions.
-
-Rules:
-- Respond with ONLY JSON (no markdown, no comments, no code fences).
-- If ingredients (≥ 3 items) AND instructions (≥ 2 steps) are clearly present, set "isValid": true.
-- Extract ALL ingredients with amounts and ALL cooking instructions
-- Ignore non-cooking dialogue, introductions, outros, product promotions
-- If servings are missing, infer a reasonable integer from context (2–8 typical)
-- For each ingredient, provide the text field with the full ingredient text
-
-Response shape (exact keys):
-{
-  "isValid": true,
-  "title": "${videoData.title}",
-  "servings": 4,
-  "ingredients": [
-    { "text": "2 cups flour", "amount": 2, "unit": "cups", "name": "flour" }
-  ],
-  "instructions": ["Step 1...", "Step 2..."]
-}
-
-If this is NOT a recipe or insufficient information, return {"isValid": false}.
-
-Video Title: ${videoData.title}
-
-CAPTIONS/TRANSCRIPT:
-${captions.substring(0, 10000)}`;
-                } else {
-                    // Only need instructions (already have ingredients)
-                    captionPrompt = `You are a recipe instruction expert. Extract ONLY the cooking instructions from the following video transcript/captions.
-
-Rules:
-- Extract step-by-step cooking instructions ONLY
-- Ignore non-cooking dialogue, introductions, outros, product promotions
-- Format as clear, actionable steps
-- Return as JSON array of instruction strings
-- Minimum 2 instructions required
-
-Response format:
-{
-  "instructions": ["Step 1 text", "Step 2 text", ...]
-}
-
-Video Title: ${videoData.title}
-
-CAPTIONS/TRANSCRIPT:
-${captions.substring(0, 10000)}`;
-                }
-
-                try {
-                    const captionResult = await this.callGeminiAPI(captionPrompt);
-
-                    if (!hasIngredients && captionResult.isValid &&
-                        captionResult.ingredients && captionResult.ingredients.length >= 3 &&
-                        captionResult.instructions && captionResult.instructions.length >= 2) {
-                        // Successfully extracted full recipe from captions!
-                        captionResult.title = videoData.title;
-                        console.log('Successfully extracted full recipe from video captions.');
-                        return this.normalizeExtractedRecipe(captionResult);
-                    } else if (hasIngredients && captionResult.instructions && captionResult.instructions.length >= 2) {
-                        // Successfully extracted instructions from captions!
-                        recipe.instructions = captionResult.instructions;
-                        recipe.isValid = true;
-                        console.log('Successfully extracted instructions from video captions.');
-                        return this.normalizeExtractedRecipe(recipe);
-                    } else {
-                        console.warn('Caption extraction did not yield sufficient recipe data.');
-                    }
-                } catch (error) {
-                    console.warn('Failed to extract from captions:', error);
-                }
-            } else {
-                console.warn(`Captions unavailable or too short (${captions ? captions.length : 0} characters). Minimum 100 characters required.`);
-            }
-
-            // Last resort - embed video
-            // Only do this if we have some ingredients (partial recipe)
+        // If recipe is incomplete, try to embed video as last resort
+        if (!recipe.isValid || !hasIngredients || !hasInstructions) {
+            // Last resort - embed video if we have some ingredients (partial recipe)
             if (hasIngredients) {
-                console.warn('Could not extract instructions from captions. Embedding video as last resort.');
+                console.warn('Could not extract complete recipe. Embedding video as last resort.');
                 recipe.embedVideoId = videoId;
                 recipe.embedVideoTitle = videoData.title;
                 recipe.embedInInstructions = true;
                 recipe.instructions = [];
                 recipe.isValid = true; // Valid because we have ingredients
             } else {
-                console.error('Could not extract recipe from any source (description, links, or captions).');
+                console.error('Could not extract recipe from any source (description, linked pages).');
                 // Return invalid with helpful message
                 return {
                     isValid: false,
-                    error: 'No recipe found in video description, linked pages, or captions. This video may not contain a recipe.',
+                    error: 'No recipe found in video description or linked pages. This video may not contain a recipe.',
                     title: videoData.title,
                     source: `https://www.youtube.com/watch?v=${videoId}`
                 };
@@ -2208,27 +2234,6 @@ ${captions.substring(0, 10000)}`;
             recipe.isValid = true;
         }
 
-        // FINAL STEP: Check if captions are available for optional timestamp feature
-        // Don't automatically add timestamps - let user toggle them on via UI
-        if (recipe.instructions && recipe.instructions.length > 0) {
-            console.log('Checking caption availability for optional timestamp feature...');
-            try {
-                const captionCheck = await this.fetchYouTubeCaptions(videoId, true);
-
-                if (captionCheck && captionCheck.length > 0) {
-                    // Store video ID and caption availability flag
-                    recipe.youtubeVideoId = videoId;
-                    recipe.hasCaptions = true;
-                    console.log('Captions available - user can toggle timestamps on if desired');
-                } else {
-                    recipe.hasCaptions = false;
-                    console.log('No captions available for this video');
-                }
-            } catch (error) {
-                console.warn('Failed to check caption availability:', error);
-                recipe.hasCaptions = false;
-            }
-        }
 
         return this.normalizeExtractedRecipe(recipe);
     }
@@ -2536,9 +2541,26 @@ ${captions.substring(0, 10000)}`;
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            const errorMsg = errorData.error || response.statusText;
+            let errorMsg = response.statusText;
+            try {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } else {
+                    const text = await response.text();
+                    errorMsg = text || errorMsg;
+                }
+            } catch (e) {
+                // If parsing fails, use status text
+            }
             throw new Error(`API error (${response.status}): ${errorMsg}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Response: ${text.substring(0, 100)}`);
         }
 
         const data = await response.json();
@@ -2608,6 +2630,9 @@ ${captions.substring(0, 10000)}`;
         this.displayCookingInterface();
         this.goToStage('cooking');
 
+        // Initialize cooking assistant chat
+        this.initializeChat();
+
         // Show cooking timer
         if (this.cookingTimer) {
             this.cookingTimer.show();
@@ -2637,19 +2662,6 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('macros-servings-input').value = this.macrosServingSize;
         document.getElementById('recipe-total-servings').textContent = this.currentServings;
 
-        // Show/hide timestamp toggle based on caption availability
-        const toggleContainer = document.getElementById('timestamp-toggle-container');
-        const timestampToggle = document.getElementById('timestamp-toggle');
-
-        if (recipe.youtubeVideoId && recipe.hasCaptions) {
-            toggleContainer.style.display = 'flex';
-            // Reset toggle state (timestamps off by default)
-            timestampToggle.checked = false;
-            this.timestampsEnabled = false;
-        } else {
-            toggleContainer.style.display = 'none';
-            this.timestampsEnabled = false;
-        }
 
         // Ingredients
         this.updateIngredientsList();
@@ -2786,15 +2798,8 @@ ${captions.substring(0, 10000)}`;
             return; // Don't show any other instructions
         }
 
-        // Normal instructions with checkboxes and optional timestamps
-        // Only show timestamps if toggle is enabled AND timestamps are available
-        const showTimestamps = this.timestampsEnabled && recipe.instructionsWithTimestamps;
-        const instructionsData = showTimestamps
-            ? recipe.instructionsWithTimestamps
-            : recipe.instructions.map(text => ({ text, timestamp: null }));
-        const videoId = recipe.youtubeVideoId;
-
-        instructionsData.forEach((instruction, index) => {
+        // Normal instructions with checkboxes
+        recipe.instructions.forEach((instruction, index) => {
             const div = document.createElement('div');
             div.className = 'instruction-item';
             if (this.completedSteps.has(index)) {
@@ -2816,24 +2821,7 @@ ${captions.substring(0, 10000)}`;
 
             const text = document.createElement('div');
             text.className = 'instruction-text';
-            text.textContent = instruction.text || instruction;
-
-            // Add timestamp badge ONLY if timestamps are enabled via toggle
-            if (showTimestamps && instruction.timestamp && videoId) {
-                const timestampBadge = document.createElement('a');
-                timestampBadge.className = 'timestamp-badge';
-                timestampBadge.href = `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(instruction.timestamp)}s`;
-                timestampBadge.target = '_blank';
-                timestampBadge.rel = 'noopener noreferrer';
-                timestampBadge.innerHTML = `
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    ${this.formatTimestamp(instruction.timestamp)}
-                `;
-                timestampBadge.title = 'Watch this step in the video';
-                number.appendChild(timestampBadge);
-            }
+            text.textContent = instruction;
 
             content.appendChild(number);
             content.appendChild(text);
@@ -2865,59 +2853,6 @@ ${captions.substring(0, 10000)}`;
         document.getElementById('progress-fill').style.width = `${percentage}%`;
     }
 
-    // Toggle timestamps on/off for YouTube videos
-    async toggleTimestamps(enabled) {
-        const recipe = this.currentRecipe;
-
-        if (!recipe.youtubeVideoId || !recipe.hasCaptions) {
-            console.warn('Cannot toggle timestamps: no video ID or captions unavailable');
-            return;
-        }
-
-        this.timestampsEnabled = enabled;
-
-        if (enabled) {
-            // Check if we already have timestamps
-            if (recipe.instructionsWithTimestamps) {
-                console.log('Using cached timestamps');
-                this.displayInstructions();
-                return;
-            }
-
-            // Show loading state
-            this.showStatus('Loading video timestamps...', 'loading');
-
-            try {
-                // Fetch and match timestamps
-                const instructionsWithTimestamps = await this.matchInstructionsToTimestamps(
-                    recipe.instructions,
-                    recipe.youtubeVideoId
-                );
-
-                // Cache the results
-                recipe.instructionsWithTimestamps = instructionsWithTimestamps;
-
-                // Refresh display
-                this.displayInstructions();
-
-                const matchedCount = instructionsWithTimestamps.filter(i => i.timestamp).length;
-                this.showStatus(`Matched ${matchedCount}/${recipe.instructions.length} instructions to video timestamps`, 'success');
-                setTimeout(() => this.hideStatus(), 3000);
-
-            } catch (error) {
-                console.error('Failed to match timestamps:', error);
-                this.showStatus('Failed to load timestamps. Please try again.', 'error');
-                setTimeout(() => this.hideStatus(), 3000);
-
-                // Reset toggle on error
-                document.getElementById('timestamp-toggle').checked = false;
-                this.timestampsEnabled = false;
-            }
-        } else {
-            // Timestamps disabled - just refresh display without timestamps
-            this.displayInstructions();
-        }
-    }
 
     // ==========================================
     // Tab Management
@@ -3403,7 +3338,22 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
     // ==========================================
 
     initializeChat() {
-        this.addChatMessage('assistant',
+        // This is for the cooking assistant chat (different from URL chat)
+        // The cooking assistant chat uses a different interface
+        const messagesContainer = document.getElementById('cooking-chat-messages');
+        if (!messagesContainer) {
+            // Cooking chat not available yet (not in cooking stage)
+            return;
+        }
+
+        // Reset chat history for new recipe
+        this.chatHistory = [];
+        
+        // Clear existing messages
+        messagesContainer.innerHTML = '';
+        
+        // Add welcome message
+        this.addCookingChatMessage('assistant',
             "Hi! I'm your cooking assistant. Ask me anything about the recipe - substitutions, techniques, timing, or any other cooking questions!");
     }
 
@@ -3411,38 +3361,77 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         const chat = document.querySelector('.chat-assistant');
         const button = document.getElementById('toggle-chat');
 
-        if (chat.classList.contains('minimized')) {
+        if (chat && chat.classList.contains('minimized')) {
             chat.classList.remove('minimized');
             button.textContent = '−';
-        } else {
+        } else if (chat) {
             chat.classList.add('minimized');
             button.textContent = '+';
         }
     }
 
     async sendChatMessage() {
-        const input = document.getElementById('chat-input');
+        const input = document.getElementById('cooking-chat-input');
+        if (!input) {
+            console.warn('Cooking chat input not found');
+            return;
+        }
+        
         const message = input.value.trim();
-
         if (!message) return;
 
-        // Add user message
-        this.addChatMessage('user', message);
+        // Add user message (for cooking assistant chat)
+        this.addCookingChatMessage('user', message);
         input.value = '';
 
-        // Get AI response
-        const response = await this.getChatResponse(message);
-        this.addChatMessage('assistant', response);
+        // Disable input while processing
+        input.disabled = true;
+        const sendBtn = document.getElementById('send-chat');
+        if (sendBtn) sendBtn.disabled = true;
+
+        try {
+            // Get AI response
+            const response = await this.getChatResponse(message);
+            this.addCookingChatMessage('assistant', response);
+        } catch (error) {
+            console.error('Error getting chat response:', error);
+            this.addCookingChatMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+        } finally {
+            input.disabled = false;
+            if (sendBtn) sendBtn.disabled = false;
+            input.focus();
+        }
     }
 
-    addChatMessage(role, content) {
-        const messagesContainer = document.getElementById('chat-messages');
+    // Separate function for cooking assistant chat (different from URL capture chat)
+    addCookingChatMessage(role, content) {
+        const messagesContainer = document.getElementById('cooking-chat-messages');
+        if (!messagesContainer) {
+            console.warn('Cooking chat messages container not found');
+            return;
+        }
+        
         const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-message ${role}`;
-        messageDiv.textContent = content;
+        messageDiv.className = `chat-message chat-message-${role}`;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        const p = document.createElement('p');
+        p.textContent = content;
+        contentDiv.appendChild(p);
+        
+        messageDiv.appendChild(contentDiv);
         messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // Scroll to bottom
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 10);
 
+        if (!this.chatHistory) {
+            this.chatHistory = [];
+        }
         this.chatHistory.push({ role, content });
     }
 
@@ -3638,9 +3627,26 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    const errorMsg = errorData.error || response.statusText;
+                    let errorMsg = response.statusText;
+                    try {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            const errorData = await response.json();
+                            errorMsg = errorData.error || errorMsg;
+                        } else {
+                            const text = await response.text();
+                            errorMsg = text || errorMsg;
+                        }
+                    } catch (e) {
+                        // If parsing fails, use status text
+                    }
                     throw new Error(`API error (${response.status}): ${errorMsg}`);
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Response: ${text.substring(0, 100)}`);
                 }
 
                 const data = await response.json();
@@ -3927,9 +3933,26 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             this.cookingTimer.reset();
         }
 
-        document.getElementById('recipe-url').value = '';
-        document.getElementById('chat-messages').innerHTML = '';
-        this.initializeChat();
+        const chatInput = document.getElementById('chat-input');
+        if (chatInput) chatInput.value = '';
+        
+        // Reset chat messages and show welcome message
+        const chatMessages = document.getElementById('chat-messages');
+        if (chatMessages) {
+            chatMessages.innerHTML = `
+                <div class="chat-message chat-message-assistant">
+                    <div class="message-content">
+                        <p>Hi! I can help you extract recipes from URLs or modify existing recipes. Try saying:</p>
+                        <ul class="chat-examples">
+                            <li>"https://example.com/recipe"</li>
+                            <li>"Make this recipe vegetarian: https://example.com/recipe"</li>
+                            <li>"Make this recipe gluten-free: [url]"</li>
+                            <li>"Double the servings for: [url]"</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
 
         this.goToStage('capture');
     }
