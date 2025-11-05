@@ -38,31 +38,74 @@ const createFetchConfig = (lang) => ({
                     console.log('[videoFetch] Found ytInitialPlayerResponse in HTML');
                     // Try to extract caption tracks from ytInitialPlayerResponse
                     // YouTube embeds this data in the page, which the library should use
-                    const ytInitialMatch = html.match(/var ytInitialPlayerResponse = ({.+?});/);
-                    if (ytInitialMatch) {
-                        try {
-                            const playerData = JSON.parse(ytInitialMatch[1]);
-                            if (playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
-                                const tracks = playerData.captions.playerCaptionsTracklistRenderer.captionTracks;
-                                console.log('[videoFetch] Found caption tracks in HTML:', tracks.length);
-                                console.log('[videoFetch] Track languages:', tracks.map(t => t.languageCode).join(', '));
-                                console.log('[videoFetch] First track baseUrl:', tracks[0]?.baseUrl?.substring(0, 100));
-                            } else {
-                                console.log('[videoFetch] No caption tracks in ytInitialPlayerResponse');
-                                // Check alternative paths
-                                if (playerData?.captions) {
-                                    console.log('[videoFetch] Captions object exists, keys:', Object.keys(playerData.captions));
+                    // Try multiple patterns as YouTube changes the format
+                    let playerData = null;
+                    const patterns = [
+                        /var ytInitialPlayerResponse = ({.+?});/s,
+                        /ytInitialPlayerResponse" = ({.+?});/s,
+                        /"ytInitialPlayerResponse":\s*({.+?}),/s,
+                        /ytInitialPlayerResponse\s*=\s*({.+?});/s
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        const match = html.match(pattern);
+                        if (match) {
+                            try {
+                                playerData = JSON.parse(match[1]);
+                                console.log('[videoFetch] Successfully parsed ytInitialPlayerResponse');
+                                break;
+                            } catch (parseErr) {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    if (playerData) {
+                        // Check for caption tracks in various possible locations
+                        const captionPaths = [
+                            ['captions', 'playerCaptionsTracklistRenderer', 'captionTracks'],
+                            ['captions', 'captionTracks'],
+                            ['captions', 'playerCaptionsRenderer', 'captionTracks'],
+                            ['captions']
+                        ];
+                        
+                        let foundTracks = null;
+                        for (const path of captionPaths) {
+                            let current = playerData;
+                            for (const key of path) {
+                                if (current && typeof current === 'object' && key in current) {
+                                    current = current[key];
+                                } else {
+                                    current = null;
+                                    break;
                                 }
                             }
-                        } catch (parseErr) {
-                            console.log('[videoFetch] Could not parse ytInitialPlayerResponse:', parseErr.message);
+                            if (current && Array.isArray(current) && current.length > 0) {
+                                foundTracks = current;
+                                console.log('[videoFetch] Found caption tracks via path:', path.join(' -> '));
+                                break;
+                            }
+                        }
+                        
+                        if (foundTracks) {
+                            console.log('[videoFetch] Found caption tracks in HTML:', foundTracks.length);
+                            console.log('[videoFetch] Track languages:', foundTracks.map(t => t.languageCode || t.language || 'unknown').join(', '));
+                            if (foundTracks[0]?.baseUrl) {
+                                console.log('[videoFetch] First track baseUrl:', foundTracks[0].baseUrl.substring(0, 100));
+                            }
+                        } else {
+                            console.log('[videoFetch] No caption tracks found in any expected location');
+                            // Log what captions object contains if it exists
+                            if (playerData?.captions) {
+                                console.log('[videoFetch] Captions object exists:', JSON.stringify(Object.keys(playerData.captions)).substring(0, 200));
+                            }
+                            // Check if video might not have captions
+                            if (playerData?.playabilityStatus?.status === 'OK') {
+                                console.log('[videoFetch] Video is playable, but no captions found');
+                            }
                         }
                     } else {
-                        // Try alternative pattern
-                        const altMatch = html.match(/ytInitialPlayerResponse" = ({.+?});/);
-                        if (altMatch) {
-                            console.log('[videoFetch] Found ytInitialPlayerResponse with alternative pattern');
-                        }
+                        console.log('[videoFetch] Could not parse ytInitialPlayerResponse from HTML');
                     }
                 } else {
                     console.log('[videoFetch] WARNING: ytInitialPlayerResponse not found in HTML');
