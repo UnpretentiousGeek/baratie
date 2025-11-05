@@ -2,7 +2,7 @@
 // Uses youtube-transcript-plus library
 // Reference: https://github.com/ericmmartin/youtube-transcript-plus
 
-import { fetchTranscript } from 'youtube-transcript-plus';
+import { fetchTranscript, getTranscript } from 'youtube-transcript-plus';
 
 // Realistic browser user agent to avoid detection
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -27,6 +27,20 @@ const createFetchConfig = (lang) => ({
                 }
             });
             console.log('[videoFetch] Response status:', response.status);
+            
+            // Check if response contains ytInitialPlayerResponse (YouTube's embedded data)
+            const clonedResponse = response.clone();
+            try {
+                const html = await clonedResponse.text();
+                if (html.includes('ytInitialPlayerResponse')) {
+                    console.log('[videoFetch] Found ytInitialPlayerResponse in HTML');
+                } else {
+                    console.log('[videoFetch] WARNING: ytInitialPlayerResponse not found in HTML');
+                }
+            } catch (inspectError) {
+                console.log('[videoFetch] Could not inspect HTML:', inspectError.message);
+            }
+            
             return response;
         } catch (error) {
             console.error('[videoFetch] Error:', error.message);
@@ -50,6 +64,31 @@ const createFetchConfig = (lang) => ({
                 body
             });
             console.log('[playerFetch] Response status:', response.status);
+            
+            // Clone response to inspect body without consuming it
+            const clonedResponse = response.clone();
+            try {
+                const responseText = await clonedResponse.text();
+                const responseData = JSON.parse(responseText);
+                
+                // Log caption tracks info if available
+                if (responseData?.captions?.playerCaptionsTracklistRenderer) {
+                    const tracks = responseData.captions.playerCaptionsTracklistRenderer.captionTracks || [];
+                    console.log('[playerFetch] Found caption tracks:', tracks.length);
+                    if (tracks.length > 0) {
+                        console.log('[playerFetch] Track languages:', tracks.map(t => t.languageCode).join(', '));
+                    }
+                } else if (responseData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+                    const tracks = responseData.captions.playerCaptionsTracklistRenderer.captionTracks;
+                    console.log('[playerFetch] Found caption tracks (alt path):', tracks.length);
+                } else {
+                    console.log('[playerFetch] No caption tracks found in response structure');
+                    console.log('[playerFetch] Response keys:', Object.keys(responseData || {}).slice(0, 10));
+                }
+            } catch (parseError) {
+                console.log('[playerFetch] Could not parse response for inspection:', parseError.message);
+            }
+            
             return response;
         } catch (error) {
             console.error('[playerFetch] Error:', error.message);
@@ -134,7 +173,16 @@ export default async function handler(req, res) {
                 console.log(`[API] Success with custom fetch config!`);
             } catch (customError) {
                 console.error(`[API] Custom fetch also failed:`, customError.message);
-                throw firstError; // Throw original error
+                
+                // Last resort: try getTranscript (alternative function from library)
+                try {
+                    console.log(`[API] Trying getTranscript as fallback...`);
+                    transcript = await getTranscript(videoId);
+                    console.log(`[API] Success with getTranscript!`);
+                } catch (getTranscriptError) {
+                    console.error(`[API] getTranscript also failed:`, getTranscriptError.message);
+                    throw firstError; // Throw original error
+                }
             }
         }
         
