@@ -1,9 +1,14 @@
 // Simple Express server to fetch YouTube captions
 // Uses youtube-transcript-plus library
 
-const express = require('express');
-const cors = require('cors');
-const { fetchTranscript } = require('youtube-transcript-plus');
+import express from 'express';
+import cors from 'cors';
+import { fetchTranscript } from 'youtube-transcript-plus';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;

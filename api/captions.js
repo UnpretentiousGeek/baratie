@@ -1,9 +1,9 @@
 // Vercel serverless function to fetch YouTube captions
 // Uses youtube-transcript-plus library
 
-const { fetchTranscript } = require('youtube-transcript-plus');
+import { fetchTranscript } from 'youtube-transcript-plus';
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
