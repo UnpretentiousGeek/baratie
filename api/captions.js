@@ -23,7 +23,9 @@ const createFetchConfig = (lang) => ({
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                     'Accept-Language': lang ? `${lang},en-US,en;q=0.9` : 'en-US,en;q=0.9',
                     'Referer': 'https://www.youtube.com/',
-                    'Origin': 'https://www.youtube.com'
+                    'Origin': 'https://www.youtube.com',
+                    // Add cookies to make request look more like a browser session
+                    'Cookie': 'CONSENT=YES+; YSC=dQw4w9WgXcQ; PREF=f4=4000000'
                 }
             });
             console.log('[videoFetch] Response status:', response.status);
@@ -34,6 +36,34 @@ const createFetchConfig = (lang) => ({
                 const html = await clonedResponse.text();
                 if (html.includes('ytInitialPlayerResponse')) {
                     console.log('[videoFetch] Found ytInitialPlayerResponse in HTML');
+                    // Try to extract caption tracks from ytInitialPlayerResponse
+                    // YouTube embeds this data in the page, which the library should use
+                    const ytInitialMatch = html.match(/var ytInitialPlayerResponse = ({.+?});/);
+                    if (ytInitialMatch) {
+                        try {
+                            const playerData = JSON.parse(ytInitialMatch[1]);
+                            if (playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+                                const tracks = playerData.captions.playerCaptionsTracklistRenderer.captionTracks;
+                                console.log('[videoFetch] Found caption tracks in HTML:', tracks.length);
+                                console.log('[videoFetch] Track languages:', tracks.map(t => t.languageCode).join(', '));
+                                console.log('[videoFetch] First track baseUrl:', tracks[0]?.baseUrl?.substring(0, 100));
+                            } else {
+                                console.log('[videoFetch] No caption tracks in ytInitialPlayerResponse');
+                                // Check alternative paths
+                                if (playerData?.captions) {
+                                    console.log('[videoFetch] Captions object exists, keys:', Object.keys(playerData.captions));
+                                }
+                            }
+                        } catch (parseErr) {
+                            console.log('[videoFetch] Could not parse ytInitialPlayerResponse:', parseErr.message);
+                        }
+                    } else {
+                        // Try alternative pattern
+                        const altMatch = html.match(/ytInitialPlayerResponse" = ({.+?});/);
+                        if (altMatch) {
+                            console.log('[videoFetch] Found ytInitialPlayerResponse with alternative pattern');
+                        }
+                    }
                 } else {
                     console.log('[videoFetch] WARNING: ytInitialPlayerResponse not found in HTML');
                 }
@@ -49,6 +79,13 @@ const createFetchConfig = (lang) => ({
     },
     playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
         console.log('[playerFetch] Fetching:', url, 'Method:', method);
+        
+        // Log request body to see what parameters are being sent
+        // Note: We can't read the body here as it's a stream, but we can log its presence
+        if (body) {
+            console.log('[playerFetch] Request body present, type:', typeof body);
+        }
+        
         try {
             const response = await fetch(url, {
                 method,
@@ -59,6 +96,8 @@ const createFetchConfig = (lang) => ({
                     'Accept-Language': lang ? `${lang},en-US,en;q=0.9` : 'en-US,en;q=0.9',
                     'Origin': 'https://www.youtube.com',
                     'Referer': 'https://www.youtube.com/',
+                    'X-YouTube-Client-Name': '1',
+                    'X-YouTube-Client-Version': '2.0',
                     ...headers
                 },
                 body
@@ -84,6 +123,12 @@ const createFetchConfig = (lang) => ({
                 } else {
                     console.log('[playerFetch] No caption tracks found in response structure');
                     console.log('[playerFetch] Response keys:', Object.keys(responseData || {}).slice(0, 10));
+                    
+                    // Check if captions might be in a different location
+                    if (responseData?.captions) {
+                        console.log('[playerFetch] Captions object exists but structure differs');
+                        console.log('[playerFetch] Captions keys:', Object.keys(responseData.captions));
+                    }
                 }
             } catch (parseError) {
                 console.log('[playerFetch] Could not parse response for inspection:', parseError.message);
