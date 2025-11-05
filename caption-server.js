@@ -31,28 +31,79 @@ app.get('/api/captions', async (req, res) => {
             });
         }
 
-        console.log(`Fetching captions for video: ${videoId}, language: ${lang || 'default'}`);
+        const requestedLang = lang || 'en';
+        console.log(`Fetching captions for video: ${videoId}, language: ${requestedLang}`);
 
-        // Fetch transcript with optional language
-        const options = {};
-        if (lang) {
-            options.lang = lang;
+        // Try requested language first
+        let transcript = null;
+        let usedLang = requestedLang;
+
+        try {
+            transcript = await fetchTranscript(videoId, { lang: requestedLang });
+        } catch (firstError) {
+            console.log(`Language '${requestedLang}' not available, trying fallback languages...`);
+
+            // Fallback language order
+            const fallbackLangs = ['en', 'en-US', 'en-GB'];
+
+            // Remove requested language from fallbacks to avoid duplicate attempts
+            const langsToTry = fallbackLangs.filter(l => l !== requestedLang);
+
+            for (const fallbackLang of langsToTry) {
+                try {
+                    console.log(`Trying fallback language: ${fallbackLang}`);
+                    transcript = await fetchTranscript(videoId, { lang: fallbackLang });
+                    usedLang = fallbackLang;
+                    console.log(`Successfully fetched captions in ${fallbackLang}`);
+                    break;
+                } catch (fallbackError) {
+                    // Continue to next fallback
+                    continue;
+                }
+            }
+
+            // If all fallbacks failed, try without language specification (gets default)
+            if (!transcript) {
+                console.log('Trying to fetch default language captions...');
+                try {
+                    transcript = await fetchTranscript(videoId);
+                    usedLang = 'auto-detected';
+                    console.log('Successfully fetched default language captions');
+                } catch (finalError) {
+                    throw firstError; // Throw original error with better message
+                }
+            }
         }
 
-        const transcript = await fetchTranscript(videoId, options);
+        if (!transcript || transcript.length === 0) {
+            return res.status(404).json({
+                error: 'No captions found for this video',
+                videoId
+            });
+        }
 
         res.json({
             success: true,
             videoId,
-            language: lang || 'en',
+            language: usedLang,
+            requestedLanguage: requestedLang,
             totalEntries: transcript.length,
             transcript
         });
 
     } catch (error) {
         console.error('Error fetching captions:', error);
-        res.status(500).json({
-            error: error.message || 'Failed to fetch captions'
+
+        // Provide more helpful error messages
+        const errorMessage = error.message || 'Failed to fetch captions';
+        const isUnavailable = errorMessage.includes('not available') || errorMessage.includes('No transcripts');
+
+        res.status(isUnavailable ? 404 : 500).json({
+            error: errorMessage,
+            videoId: req.query.videoId,
+            details: isUnavailable
+                ? 'This video does not have captions available, or captions are disabled'
+                : 'An error occurred while fetching captions'
         });
     }
 });

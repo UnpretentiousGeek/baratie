@@ -156,6 +156,34 @@ If you need to rollback:
 
 **Not recommended** - ES modules are the better approach.
 
+## Additional Improvements
+
+### Language Fallback System
+
+Added automatic language fallback to handle cases where requested language is not available:
+
+1. **Try requested language** (e.g., `en`)
+2. **Fallback to common English variants** (`en-US`, `en-GB`)
+3. **Auto-detect default language** (no language specified)
+
+This ensures maximum caption availability and handles edge cases gracefully.
+
+**Response now includes:**
+```json
+{
+  "language": "en",
+  "requestedLanguage": "en"
+}
+```
+
+Shows which language was actually used vs requested.
+
+### Better Error Handling
+
+- **404** for videos without captions (not 500)
+- **Detailed error messages** explaining why captions failed
+- **Helpful hints** in error responses
+
 ## Success Indicators
 
 You'll know it's working when:
@@ -165,9 +193,11 @@ You'll know it's working when:
 3. ✅ Production API endpoint returns caption data
 4. ✅ Vercel function logs show successful executions
 5. ✅ Main app successfully extracts YouTube recipes with captions
+6. ✅ Videos with non-English captions fallback to English
+7. ✅ Clear error messages for videos without captions
 
 ---
 
-**Fixed by:** Converting to ES modules
+**Fixed by:** Converting to ES modules + language fallback
 **Date:** 2025-11-05
-**Status:** ✅ Resolved
+**Status:** ✅ Resolved and Enhanced
