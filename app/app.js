@@ -948,6 +948,7 @@ class RecipeManager {
         this.currentMacros = null; // Store calculated total recipe macros
         this.macrosServingSize = 1; // Number of portions to divide recipe into for nutrition display
         this.cookingTimer = null; // Cooking timer instance
+        this.attachedFiles = []; // Store attached files for chat (multiple files support)
 
         // Gemini API configuration (Serverless)
         this.geminiApiEndpoint = CONFIG.GEMINI_API_ENDPOINT || '/api/gemini';
@@ -988,7 +989,7 @@ class RecipeManager {
     }
 
     bindEventListeners() {
-        // Stage 1: Chat Interface
+        // Stage 1: Chat Interface (URL Capture)
         document.getElementById('chat-send-btn').addEventListener('click', () => this.handleChatMessage());
         const chatInput = document.getElementById('chat-input');
         chatInput.addEventListener('keypress', (e) => {
@@ -997,6 +998,34 @@ class RecipeManager {
                 this.handleChatMessage();
             }
         });
+
+        // URL Chat file attachment handlers
+        const urlAttachFileBtn = document.getElementById('url-attach-file-btn');
+        const urlChatFileInput = document.getElementById('url-chat-file-input');
+        const urlRemoveAttachmentBtn = document.getElementById('url-remove-attachment');
+
+        if (urlAttachFileBtn && urlChatFileInput) {
+            urlAttachFileBtn.addEventListener('click', () => {
+                urlChatFileInput.click();
+            });
+
+            urlChatFileInput.addEventListener('change', (e) => {
+                this.handleURLChatFileAttachment(Array.from(e.target.files));
+            });
+
+        // Handle paste events for file attachments
+        if (chatInput) {
+            chatInput.addEventListener('paste', (e) => {
+                this.handlePasteFiles(e);
+            });
+        }
+        }
+
+        if (urlRemoveAttachmentBtn) {
+            urlRemoveAttachmentBtn.addEventListener('click', () => {
+                this.removeURLChatAttachment();
+            });
+        }
 
         // Stage 2: Preview Navigation
         document.getElementById('back-to-capture').addEventListener('click', () => this.goToStage('capture'));
@@ -1010,7 +1039,10 @@ class RecipeManager {
         const toggleChatBtn = document.getElementById('toggle-chat');
         const sendChatBtn = document.getElementById('send-chat');
         const cookingChatInput = document.getElementById('cooking-chat-input');
-        
+        const attachFileBtn = document.getElementById('attach-file-btn');
+        const chatFileInput = document.getElementById('chat-file-input');
+        const removeAttachmentBtn = document.getElementById('remove-attachment');
+
         if (toggleChatBtn) {
             toggleChatBtn.addEventListener('click', () => this.toggleChat());
         }
@@ -1023,6 +1055,23 @@ class RecipeManager {
                     e.preventDefault();
                     this.sendChatMessage();
                 }
+            });
+        }
+
+        // File attachment handlers
+        if (attachFileBtn && chatFileInput) {
+            attachFileBtn.addEventListener('click', () => {
+                chatFileInput.click();
+            });
+
+            chatFileInput.addEventListener('change', (e) => {
+                this.handleFileAttachment(e.target.files[0]);
+            });
+        }
+
+        if (removeAttachmentBtn) {
+            removeAttachmentBtn.addEventListener('click', () => {
+                this.removeAttachment();
             });
         }
 
@@ -1147,18 +1196,141 @@ class RecipeManager {
         }, 10);
     }
 
+    // Handle paste events for file attachments
+    async handlePasteFiles(e, chatType = 'url') {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        const files = [];
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.kind === 'file') {
+                const file = item.getAsFile();
+                if (file) {
+                    files.push(file);
+                }
+            }
+        }
+
+        if (files.length > 0) {
+            e.preventDefault(); // Prevent pasting file names as text
+            if (chatType === 'cooking') {
+                await this.handleFileAttachment(files);
+            } else {
+                await this.handleURLChatFileAttachment(files);
+            }
+        }
+    }
+
+    // Process and validate multiple files
+    async processFiles(files) {
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+        const maxSize = 10 * 1024 * 1024; // 10MB per file
+        const processedFiles = [];
+
+        for (const file of files) {
+            // Validate file type
+            if (!validTypes.includes(file.type)) {
+                this.addChatMessage(`Skipping ${file.name}: Only images (JPG, PNG, GIF, WebP) or PDF files are supported.`, false);
+                continue;
+            }
+
+            // Validate file size
+            if (file.size > maxSize) {
+                this.addChatMessage(`Skipping ${file.name}: File is too large. Please use files smaller than 10MB.`, false);
+                continue;
+            }
+
+            try {
+                const base64Data = await this.fileToBase64(file);
+                processedFiles.push({
+                    name: file.name,
+                    type: file.type,
+                    data: base64Data
+                });
+            } catch (error) {
+                console.error('Error processing file:', file.name, error);
+                this.addChatMessage(`Error processing ${file.name}. Please try again.`, false);
+            }
+        }
+
+        return processedFiles;
+    }
+
+    // Handle URL chat file attachment (multiple files)
+    async handleURLChatFileAttachment(files) {
+        if (!files || files.length === 0) return;
+
+        const processedFiles = await this.processFiles(files);
+        if (processedFiles.length === 0) return;
+
+        // Add to existing attachments
+        this.attachedFiles.push(...processedFiles);
+
+        // Update preview
+        this.updateURLChatAttachmentPreview();
+    }
+
+    updateURLChatAttachmentPreview() {
+        const preview = document.getElementById('url-attached-file-preview');
+        const fileName = document.getElementById('url-attached-file-name');
+        
+        if (!preview || !fileName) return;
+
+        if (this.attachedFiles.length === 0) {
+            preview.style.display = 'none';
+            return;
+        }
+
+        // Show all attached files
+        const fileList = this.attachedFiles.map((file, index) => 
+            `<span data-file-index="${index}" class="attached-file-item">📎 ${file.name} <button class="btn-remove-attachment-inline" data-index="${index}" onclick="event.stopPropagation(); window.recipeManager.removeURLChatFileByIndex(${index})">✕</button></span>`
+        ).join('');
+
+        fileName.innerHTML = fileList;
+        preview.style.display = 'flex';
+    }
+
+    removeURLChatFileByIndex(index) {
+        if (index >= 0 && index < this.attachedFiles.length) {
+            this.attachedFiles.splice(index, 1);
+            this.updateURLChatAttachmentPreview();
+        }
+    }
+
+    removeURLChatAttachment() {
+        this.attachedFiles = [];
+
+        // Hide preview
+        const preview = document.getElementById('url-attached-file-preview');
+        if (preview) {
+            preview.style.display = 'none';
+        }
+
+        // Clear file input
+        const fileInput = document.getElementById('url-chat-file-input');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+
     // Handle chat message submission
     async handleChatMessage() {
         const chatInput = document.getElementById('chat-input');
         const message = chatInput.value.trim();
 
-        if (!message) {
+        if (!message && this.attachedFiles.length === 0) {
             return;
         }
 
         // Add user message to chat (make sure it's displayed)
-        console.log('Adding user message:', message);
-        this.addChatMessage(message, true);
+        let displayMessage = message;
+        if (this.attachedFiles.length > 0) {
+            const fileNames = this.attachedFiles.map(f => f.name).join(', ');
+            displayMessage = message ? `${message}\n📎 ${this.attachedFiles.length} file(s): ${fileNames}` : `📎 ${this.attachedFiles.length} file(s): ${fileNames}`;
+        }
+        console.log('Adding user message:', displayMessage);
+        this.addChatMessage(displayMessage, true);
         
         // Clear input
         chatInput.value = '';
@@ -1173,55 +1345,98 @@ class RecipeManager {
         chatInput.disabled = true;
 
         try {
+            // If there are attached files but no URL, try to extract recipe from the files
+            if (this.attachedFiles.length > 0 && !message.match(/https?:\/\/[^\s]+/i)) {
+                this.addChatMessage(`Extracting recipe from ${this.attachedFiles.length} attached file(s)...`, false);
+                
+                // Extract recipe from image/PDF
+                let recipe = await this.extractRecipeFromFiles(this.attachedFiles);
+                
+                if (!recipe.isValid) {
+                    const errorMessage = recipe.error || 'Could not extract a recipe from the file.';
+                    this.addChatMessage(`Sorry, I couldn't extract a recipe from that file. ${errorMessage}`, false);
+                    sendBtn.disabled = false;
+                    chatInput.disabled = false;
+                    this.removeURLChatAttachment();
+                    return;
+                }
+
+                // Store recipe
+                this.currentRecipe = recipe;
+                this.originalServings = recipe.servings;
+                this.currentServings = recipe.servings;
+
+                this.addChatMessage('Recipe extracted successfully from the file! Taking you to the recipe preview...', false);
+                
+                // Move to preview stage
+                setTimeout(() => {
+                    this.displayRecipePreview();
+                    this.goToStage('preview');
+                    sendBtn.disabled = false;
+                    chatInput.disabled = false;
+                    this.removeURLChatAttachment();
+                }, 1000);
+                return;
+            }
+
             // Parse the message
             const { url, modifications, originalMessage } = this.parseChatMessage(message);
 
-            if (!url) {
+            if (!url && this.attachedFiles.length === 0) {
                 // No URL found - ask user to provide one
-                this.addChatMessage("I need a recipe URL to work with. Please share a recipe URL, or ask me to modify a recipe with a URL like: 'Make this recipe vegetarian: https://example.com/recipe'");
+                this.addChatMessage("I need a recipe URL or file to work with. Please share a recipe URL, attach an image/PDF, or ask me to modify a recipe with a URL like: 'Make this recipe vegetarian: https://example.com/recipe'", false);
                 sendBtn.disabled = false;
                 chatInput.disabled = false;
                 return;
             }
 
-            // Validate URL
-            if (!this.isValidURL(url)) {
-                this.addChatMessage("That doesn't look like a valid URL. Please provide a proper recipe URL.");
+            // If URL exists, validate it
+            if (url && !this.isValidURL(url)) {
+                this.addChatMessage("That doesn't look like a valid URL. Please provide a proper recipe URL.", false);
                 sendBtn.disabled = false;
                 chatInput.disabled = false;
                 return;
             }
 
             // Show processing message
-            this.addChatMessage(modifications.length > 0 
-                ? `Processing recipe and applying modifications...` 
-                : `Processing recipe from ${url}...`);
+            if (url) {
+                this.addChatMessage(modifications.length > 0 
+                    ? `Processing recipe and applying modifications...` 
+                    : `Processing recipe from ${url}...`, false);
+            }
 
             // Extract recipe
-            let recipe = await this.extractRecipeFromURL(url);
+            let recipe;
+            if (url) {
+                recipe = await this.extractRecipeFromURL(url);
+            } else {
+                // Extract from files if no URL
+                recipe = await this.extractRecipeFromFiles(this.attachedFiles);
+            }
 
             if (!recipe.isValid) {
-                const errorMessage = recipe.error || this.getSarcasticErrorMessage(url);
-                this.addChatMessage(`Sorry, I couldn't extract a recipe from that URL. ${errorMessage}`);
+                const errorMessage = recipe.error || (url ? this.getSarcasticErrorMessage(url) : 'Could not extract a recipe from the file.');
+                this.addChatMessage(`Sorry, I couldn't extract a recipe. ${errorMessage}`, false);
                 sendBtn.disabled = false;
                 chatInput.disabled = false;
+                this.removeURLChatAttachment();
                 return;
             }
 
             // Apply modifications if any
             if (modifications.length > 0) {
-                this.addChatMessage(`Applying modifications: ${modifications.join(', ')}...`);
+                this.addChatMessage(`Applying modifications: ${modifications.join(', ')}...`, false);
                 try {
                     const modifiedRecipe = await this.modifyRecipe(recipe, modifications);
                     if (modifiedRecipe && modifiedRecipe.modified) {
                         recipe = modifiedRecipe;
-                        this.addChatMessage(`Successfully modified the recipe!`);
+                        this.addChatMessage(`Successfully modified the recipe!`, false);
                     } else {
-                        this.addChatMessage(`Could not apply modifications, using original recipe.`);
+                        this.addChatMessage(`Could not apply modifications, using original recipe.`, false);
                     }
                 } catch (modError) {
                     console.error('Error modifying recipe:', modError);
-                    this.addChatMessage(`Error applying modifications: ${modError.message}. Using original recipe.`);
+                    this.addChatMessage(`Error applying modifications: ${modError.message}. Using original recipe.`, false);
                 }
             }
 
@@ -1234,7 +1449,7 @@ class RecipeManager {
             const modText = modifications.length > 0 
                 ? ` with your modifications applied` 
                 : '';
-            this.addChatMessage(`Recipe extracted successfully${modText}! Taking you to the recipe preview...`);
+            this.addChatMessage(`Recipe extracted successfully${modText}! Taking you to the recipe preview...`, false);
 
             // Move to preview stage
             setTimeout(() => {
@@ -1242,13 +1457,107 @@ class RecipeManager {
                 this.goToStage('preview');
                 sendBtn.disabled = false;
                 chatInput.disabled = false;
+                this.removeURLChatAttachment();
             }, 1000);
 
         } catch (error) {
             console.error('Error processing chat message:', error);
-            this.addChatMessage('An error occurred while processing your request. Please try again.');
+            this.addChatMessage('An error occurred while processing your request. Please try again.', false);
             sendBtn.disabled = false;
             chatInput.disabled = false;
+            this.removeURLChatAttachment();
+        }
+    }
+
+    // Extract recipe from multiple files (images or PDFs)
+    async extractRecipeFromFiles(files) {
+        if (!files || files.length === 0) {
+            return {
+                isValid: false,
+                error: 'No files provided.'
+            };
+        }
+
+        try {
+            // Build prompt for Gemini Vision API
+            let prompt = `You are a recipe extraction expert. Analyze ${files.length > 1 ? `these ${files.length} images` : 'this image'} and extract the complete recipe information.
+
+CRITICAL INSTRUCTIONS:
+1. ${files.length > 1 ? 'Look at ALL images provided - they may show different parts of the recipe (ingredients, instructions, etc.)' : 'Look carefully at the image and identify if it contains a recipe'}
+2. Extract: title, servings, ingredients (with amounts), and step-by-step instructions
+3. ${files.length > 1 ? 'COMBINE information from all images into ONE complete recipe' : 'Extract all visible recipe information'}
+4. Return ONLY valid JSON - no markdown, no code blocks, no extra text
+5. If instructions are visible in any image, extract them completely
+
+Required JSON format (return NOTHING else):
+{
+  "title": "Recipe Name Here",
+  "servings": 4,
+  "ingredients": [
+    {"text": "2 cups flour", "amount": 2, "unit": "cups", "name": "flour"}
+  ],
+  "instructions": ["Step 1: First instruction", "Step 2: Second instruction", "Step 3: Third instruction"]
+}
+
+${files.length > 1 ? `IMPORTANT: You are analyzing ${files.length} images. Combine all information into one recipe.` : ''}
+
+REMEMBER: Return ONLY the JSON object above, nothing else.`;
+
+            console.log(`Extracting recipe from ${files.length} file(s):`, files.map(f => f.name).join(', '));
+
+            // For multiple files, we need to send them all together
+            // Gemini API supports multiple inline_data parts
+            const parsedResponse = await this.callGeminiWithFallbackMultiFile(prompt, 'extraction', null, files);
+
+            console.log('Parsed response from Gemini:', parsedResponse);
+            
+            // Validate required fields
+            if (!parsedResponse) {
+                console.error('Parsed response is null or undefined');
+                return {
+                    isValid: false,
+                    error: 'Could not extract recipe data. The response was empty.'
+                };
+            }
+            
+            if (!parsedResponse.ingredients) {
+                console.error('Response missing ingredients:', parsedResponse);
+                return {
+                    isValid: false,
+                    error: 'Could not extract recipe ingredients from the file. The image might not contain a recipe, or the format is unclear.'
+                };
+            }
+            
+            if (!parsedResponse.instructions || !Array.isArray(parsedResponse.instructions)) {
+                console.warn('Response missing or invalid instructions:', parsedResponse.instructions);
+                // If instructions are missing, create a placeholder
+                parsedResponse.instructions = ['Recipe instructions not available in the image. Please refer to the original source.'];
+            }
+
+            // Ensure ingredients is an array
+            if (!Array.isArray(parsedResponse.ingredients)) {
+                console.error('Ingredients is not an array:', parsedResponse.ingredients);
+                return {
+                    isValid: false,
+                    error: 'Recipe ingredients were not in the expected format.'
+                };
+            }
+
+            // If instructions array is empty, add placeholder
+            if (parsedResponse.instructions.length === 0) {
+                console.warn('Instructions array is empty, adding placeholder');
+                parsedResponse.instructions = ['Recipe instructions not visible in the image. Please refer to the original source or recipe card.'];
+            }
+
+            parsedResponse.source = `Uploaded ${files.length} file(s)`;
+            return this.normalizeExtractedRecipe(parsedResponse);
+
+        } catch (error) {
+            console.error('Error extracting recipe from files:', error);
+            return {
+                isValid: false,
+                error: error.message || 'Failed to process the files.'
+            };
         }
     }
 
@@ -2431,8 +2740,13 @@ ${content}`;
      * Main method for calling Gemini API with multi-model support
      * Includes caching, quota tracking, automatic fallback, and retry logic
      */
-    async callGeminiWithFallback(prompt, taskType = 'extraction', cacheKey = null) {
-        // Check cache first (if cacheKey provided)
+    async callGeminiWithFallback(prompt, taskType = 'extraction', cacheKey = null, fileData = null) {
+        // Don't use cache if file is attached (files should be processed fresh)
+        if (fileData) {
+            cacheKey = null;
+        }
+
+        // Check cache first (if cacheKey provided and no file)
         if (cacheKey) {
             const cached = this.cache.get(cacheKey);
             if (cached) {
@@ -2456,7 +2770,33 @@ ${content}`;
         }
 
         // Select optimal model with load balancing
-        let selectedModel = this.modelRouter.selectBalancedModel(taskType);
+        // If file is attached, prefer vision-capable models
+        let selectedModel;
+
+         if (fileData) {
+             // For files (images/PDFs), use vision-capable models
+             // All Gemini models are multimodal per https://ai.google.dev/gemini-api/docs/vision
+             const visionModels = Object.entries(CONFIG.GEMINI_MODELS)
+                 .filter(([_, config]) => config.vision)
+                 .sort((a, b) => a[1].priority - b[1].priority)
+                 .map(([model, _]) => model);
+
+             for (const model of visionModels) {
+                 if (this.quotaTracker.canUseModel(model)) {
+                     selectedModel = model;
+                     console.log(`Selected vision-capable model for file: ${selectedModel} (priority ${CONFIG.GEMINI_MODELS[model].priority})`);
+                     break;
+                 }
+             }
+
+             // If no vision model available, try any available model (shouldn't happen if config is correct)
+             if (!selectedModel) {
+                 selectedModel = this.modelRouter.selectBalancedModel(taskType);
+                 console.warn(`No vision-capable model available, using: ${selectedModel} (may not support vision)`);
+             }
+         } else {
+             selectedModel = this.modelRouter.selectBalancedModel(taskType);
+         }
 
         if (!selectedModel) {
             throw new Error('No available models for this request. Please try again later.');
@@ -2469,9 +2809,9 @@ ${content}`;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                console.log(`Attempt ${attempt + 1}/${maxRetries} with model: ${selectedModel}`);
+                console.log(`Attempt ${attempt + 1}/${maxRetries} with model: ${selectedModel}${fileData ? ' (with file attachment)' : ''}`);
 
-                const result = await this.callGeminiAPIRaw(prompt, selectedModel);
+                const result = await this.callGeminiAPIRaw(prompt, selectedModel, fileData);
 
                 // Success - record request and cache result
                 this.quotaTracker.recordRequest(selectedModel);
@@ -2523,14 +2863,92 @@ ${content}`;
     }
 
     /**
+     * Multi-file version of callGeminiWithFallback for handling multiple images
+     */
+    async callGeminiWithFallbackMultiFile(prompt, taskType = 'extraction', cacheKey = null, files = []) {
+        // Don't use cache for multi-file requests
+        cacheKey = null;
+
+        // Select vision-capable model by priority
+        let selectedModel;
+        const visionModels = Object.entries(CONFIG.GEMINI_MODELS)
+            .filter(([_, config]) => config.vision)
+            .sort((a, b) => a[1].priority - b[1].priority)
+            .map(([model, _]) => model);
+
+        for (const model of visionModels) {
+            if (this.quotaTracker.canUseModel(model)) {
+                selectedModel = model;
+                console.log(`Selected vision-capable model for ${files.length} files: ${selectedModel} (priority ${CONFIG.GEMINI_MODELS[model].priority})`);
+                break;
+            }
+        }
+
+        if (!selectedModel) {
+            throw new Error('No available vision models for processing multiple images.');
+        }
+
+        // Try with retries
+        let lastError = null;
+        const maxRetries = 3;
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                console.log(`Attempt ${attempt + 1}/${maxRetries} with model: ${selectedModel} (${files.length} files)`);
+
+                const result = await this.callGeminiAPIRawMultiFile(prompt, selectedModel, files);
+
+                // Success - record request
+                this.quotaTracker.recordRequest(selectedModel);
+                this.updateQuotaUI();
+
+                return result;
+
+            } catch (error) {
+                lastError = error;
+                console.error(`Attempt ${attempt + 1} failed:`, error.message);
+
+                // Check if it's a 429 (rate limit) error
+                const is429 = error.message.includes('429') || error.message.includes('rate limit');
+
+                if (is429) {
+                    console.log('Rate limit detected, trying fallback model');
+                    const fallbackModel = this.modelRouter.getNextFallback(selectedModel, taskType);
+                    if (fallbackModel) {
+                        selectedModel = fallbackModel;
+                        continue;
+                    }
+                }
+
+                // Exponential backoff before retry
+                if (attempt < maxRetries - 1) {
+                    const delay = 1000 * Math.pow(2, attempt);
+                    console.log(`Waiting ${delay}ms before retry...`);
+                    await this.delay(delay);
+                }
+            }
+        }
+
+        throw new Error(`Multi-file request failed after ${maxRetries} attempts: ${lastError.message}`);
+    }
+
+    /**
      * Raw Gemini API call (used by callGeminiWithFallback)
      */
-    async callGeminiAPIRaw(prompt, model) {
+    async callGeminiAPIRaw(prompt, model, fileData = null) {
         const requestBody = {
             prompt: prompt,
             method: 'generateContent',
             model: model
         };
+
+        // Add file data if provided (for vision models with images or PDFs)
+        if (fileData) {
+            requestBody.fileData = {
+                mimeType: fileData.type,
+                data: fileData.data
+            };
+        }
 
         const response = await fetch(this.geminiApiEndpoint, {
             method: 'POST',
@@ -2595,9 +3013,83 @@ ${content}`;
         return parsedResponse;
     }
 
+    /**
+     * Raw Gemini API call for multiple files
+     */
+    async callGeminiAPIRawMultiFile(prompt, model, files = []) {
+        const requestBody = {
+            prompt: prompt,
+            method: 'generateContent',
+            model: model,
+            filesData: files.map(file => ({
+                mimeType: file.type,
+                data: file.data
+            }))
+        };
+
+        const response = await fetch(this.geminiApiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            let errorMsg = response.statusText;
+            try {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } else {
+                    const text = await response.text();
+                    errorMsg = text || errorMsg;
+                }
+            } catch (e) {
+                // If parsing fails, use status text
+            }
+            throw new Error(`API error (${response.status}): ${errorMsg}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Response: ${text.substring(0, 100)}`);
+        }
+
+        const data = await response.json();
+        const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedText) {
+            throw new Error('No response from Gemini API');
+        }
+
+        // Clean up and parse JSON
+        let cleanedText = generatedText.trim();
+        cleanedText = cleanedText
+            .replace(/^```\s*json\s*/i, '')
+            .replace(/^```/i, '')
+            .replace(/```\s*$/i, '')
+            .trim();
+
+        let parsedResponse;
+        try {
+            parsedResponse = JSON.parse(cleanedText);
+        } catch (e) {
+            const match = cleanedText.match(/\{[\s\S]*\}/);
+            if (match) {
+                parsedResponse = JSON.parse(match[0]);
+            } else {
+                throw e;
+            }
+        }
+        return parsedResponse;
+    }
+
     // Legacy method - now uses multi-model system
-    async callGeminiAPI(prompt) {
-        return await this.callGeminiWithFallback(prompt, 'extraction');
+    async callGeminiAPI(prompt, fileData = null) {
+        return await this.callGeminiWithFallback(prompt, 'extraction', null, fileData);
     }
 
     // ==========================================
@@ -3370,18 +3862,126 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         }
     }
 
+    async handleFileAttachment(files) {
+        if (!files || files.length === 0) return;
+
+        const processedFiles = await this.processFilesForCookingChat(files);
+        if (processedFiles.length === 0) return;
+
+        // Add to existing attachments
+        this.attachedFiles.push(...processedFiles);
+
+        // Update preview
+        this.updateCookingChatAttachmentPreview();
+    }
+
+    async processFilesForCookingChat(files) {
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+        const maxSize = 10 * 1024 * 1024; // 10MB per file
+        const processedFiles = [];
+
+        for (const file of files) {
+            // Validate file type
+            if (!validTypes.includes(file.type)) {
+                this.addCookingChatMessage('assistant', `Skipping ${file.name}: Only images (JPG, PNG, GIF, WebP) or PDF files are supported.`);
+                continue;
+            }
+
+            // Validate file size
+            if (file.size > maxSize) {
+                this.addCookingChatMessage('assistant', `Skipping ${file.name}: File is too large. Please use files smaller than 10MB.`);
+                continue;
+            }
+
+            try {
+                const base64Data = await this.fileToBase64(file);
+                processedFiles.push({
+                    name: file.name,
+                    type: file.type,
+                    data: base64Data
+                });
+            } catch (error) {
+                console.error('Error processing file:', file.name, error);
+                this.addCookingChatMessage('assistant', `Error processing ${file.name}. Please try again.`);
+            }
+        }
+
+        return processedFiles;
+    }
+
+    updateCookingChatAttachmentPreview() {
+        const preview = document.getElementById('attached-file-preview');
+        const fileName = document.getElementById('attached-file-name');
+        
+        if (!preview || !fileName) return;
+
+        if (this.attachedFiles.length === 0) {
+            preview.style.display = 'none';
+            return;
+        }
+
+        // Show all attached files
+        const fileList = this.attachedFiles.map((file, index) => 
+            `<span data-file-index="${index}" class="attached-file-item">📎 ${file.name} <button class="btn-remove-attachment-inline" data-index="${index}" onclick="event.stopPropagation(); window.recipeManager.removeCookingChatFileByIndex(${index})">✕</button></span>`
+        ).join('');
+
+        fileName.innerHTML = fileList;
+        preview.style.display = 'flex';
+    }
+
+    removeCookingChatFileByIndex(index) {
+        if (index >= 0 && index < this.attachedFiles.length) {
+            this.attachedFiles.splice(index, 1);
+            this.updateCookingChatAttachmentPreview();
+        }
+    }
+
+    fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Remove data URL prefix to get just the base64 data
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    removeAttachment() {
+        this.attachedFiles = [];
+
+        // Hide preview
+        const preview = document.getElementById('attached-file-preview');
+        if (preview) {
+            preview.style.display = 'none';
+        }
+
+        // Clear file input
+        const fileInput = document.getElementById('chat-file-input');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+
     async sendChatMessage() {
         const input = document.getElementById('cooking-chat-input');
         if (!input) {
             console.warn('Cooking chat input not found');
             return;
         }
-        
-        const message = input.value.trim();
-        if (!message) return;
 
-        // Add user message (for cooking assistant chat)
-        this.addCookingChatMessage('user', message);
+        const message = input.value.trim();
+        if (!message && this.attachedFiles.length === 0) return;
+
+        // Add user message with attachment indicator if present
+        let displayMessage = message;
+        if (this.attachedFiles.length > 0) {
+            const fileNames = this.attachedFiles.map(f => f.name).join(', ');
+            displayMessage = message ? `${message}\n📎 ${this.attachedFiles.length} file(s): ${fileNames}` : `📎 ${this.attachedFiles.length} file(s): ${fileNames}`;
+        }
+        this.addCookingChatMessage('user', displayMessage || `📎 ${this.attachedFiles.length} file(s)`);
         input.value = '';
 
         // Disable input while processing
@@ -3390,9 +3990,12 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         if (sendBtn) sendBtn.disabled = true;
 
         try {
-            // Get AI response
-            const response = await this.getChatResponse(message);
+            // Get AI response (with files if attached)
+            const response = await this.getChatResponse(message, this.attachedFiles.length > 0 ? this.attachedFiles[0] : null);
             this.addCookingChatMessage('assistant', response);
+
+            // Clear attachment after sending
+            this.removeAttachment();
         } catch (error) {
             console.error('Error getting chat response:', error);
             this.addCookingChatMessage('assistant', 'Sorry, I encountered an error. Please try again.');
@@ -3435,7 +4038,7 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
         this.chatHistory.push({ role, content });
     }
 
-    async getChatResponse(userMessage) {
+    async getChatResponse(userMessage, attachedFile = null) {
         // Check if recipe is loaded
         if (!this.currentRecipe) {
             return "Please load a recipe first, and I'll be happy to help you with it!";
@@ -3455,7 +4058,7 @@ Instructions:
 ${this.currentRecipe.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}
 `;
 
-            const prompt = `You are an interactive cooking assistant with the ability to modify recipes. You can help the user adjust their recipe in real-time.
+            let prompt = `You are an interactive cooking assistant with the ability to modify recipes. You can help the user adjust their recipe in real-time.
 
 IMPORTANT CAPABILITIES:
 1. You can change the serving size by responding with: ACTION:SET_SERVINGS:X (where X is the new number of servings)
@@ -3464,6 +4067,7 @@ IMPORTANT CAPABILITIES:
 
 IMPORTANT:
 - Only answer cooking-related questions. If the user asks about non-cooking topics, politely redirect them to cooking questions.
+- When a user attaches an image or PDF, analyze it in the context of the current recipe. They might be asking about ingredient labels, cooking techniques shown in photos, or comparing their results to images.
 
 When responding with actions:
 - For serving adjustments: If user says "change to 6 servings", "make it for 6", or "update recipe for 6 servings", respond with "ACTION:SET_SERVINGS:6" followed by a friendly message
@@ -3477,11 +4081,16 @@ ${recipeContext}
 Conversation History:
 ${this.chatHistory.slice(-6).map(msg => `${msg.role}: ${msg.content}`).join('\n')}
 
-User Question: ${userMessage}
+User Question: ${userMessage}`;
 
-Provide a helpful response. If the user wants to modify the recipe, include the appropriate ACTION commands, then explain what you changed.`;
+            if (attachedFile) {
+                prompt += `\n\nThe user has attached a file (${attachedFile.name}). Please analyze it in the context of their question and the current recipe.`;
+            }
 
-            const response = await this.callGeminiAPIForChat(prompt);
+            prompt += `\n\nProvide a helpful response. If the user wants to modify the recipe, include the appropriate ACTION commands, then explain what you changed.`;
+
+            // Call Gemini with file if attached
+            const response = await this.callGeminiAPIForChat(prompt, attachedFile);
 
             // Process any actions in the response
             const processedResponse = await this.processRecipeActions(response);
@@ -3589,8 +4198,11 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
     }
 
     // Call Gemini API for chat (text-only response, with caching)
-    async callGeminiAPIForChat(prompt, cacheKey = null) {
-        // Check cache first
+    async callGeminiAPIForChat(prompt, attachedFile = null) {
+        // Don't cache if there's an attached file (files should be processed fresh each time)
+        const cacheKey = attachedFile ? null : prompt.substring(0, 100);
+
+        // Check cache first (only if no file attached)
         if (cacheKey) {
             const cached = this.cache.get(cacheKey);
             if (cached) {
@@ -3599,8 +4211,32 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
             }
         }
 
-        // Select model for chat
+        // Select model for chat - use vision-capable model if file is attached
+        const hasFile = attachedFile && (attachedFile.type.startsWith('image/') || attachedFile.type === 'application/pdf');
         let selectedModel = this.modelRouter.selectBalancedModel('chat');
+
+        // For file/image analysis, prefer models that support vision
+        // Valid models per https://ai.google.dev/gemini-api/docs/image-understanding:
+        // gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
+        if (hasFile) {
+            // Try vision-capable models in order of preference
+            const visionModels = [
+                'gemini-2.5-flash',      // Best for vision (enhanced segmentation)
+                'gemini-2.0-flash',      // Enhanced object detection
+                'gemini-1.5-pro',        // Reliable vision model
+                'gemini-1.5-flash',      // Fast vision model
+                'gemini-2.5-flash-lite', // Fallback
+                'gemini-2.0-flash-lite'  // Fallback
+            ];
+            for (const model of visionModels) {
+                if (this.quotaTracker.canUseModel(model)) {
+                    selectedModel = model;
+                    console.log(`Selected vision-capable model for file: ${model}`);
+                    break;
+                }
+            }
+            // If no vision model available, selectedModel will be the default from selectBalancedModel
+        }
 
         if (!selectedModel) {
             throw new Error('No available models for chat. Please try again later.');
@@ -3617,6 +4253,19 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
                     method: 'generateContent',
                     model: selectedModel
                 };
+
+                // Add file data if attached
+                if (attachedFile) {
+                    requestBody.fileData = {
+                        mimeType: attachedFile.type,
+                        data: attachedFile.data
+                    };
+                    console.log('Sending file to API:', {
+                        name: attachedFile.name,
+                        type: attachedFile.type,
+                        dataLength: attachedFile.data.length
+                    });
+                }
 
                 const response = await fetch(this.geminiApiEndpoint, {
                     method: 'POST',
@@ -3925,6 +4574,7 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
         this.completedSteps.clear();
         this.chatHistory = [];
         this.currentMacros = null;
+        this.attachedFiles = []; // Clear any attached files
         sessionStorage.removeItem('baratie_session');
 
         // Hide and reset cooking timer
@@ -3936,18 +4586,21 @@ Provide a helpful response. If the user wants to modify the recipe, include the 
         const chatInput = document.getElementById('chat-input');
         if (chatInput) chatInput.value = '';
         
+        // Clear URL chat attachment
+        this.removeURLChatAttachment();
+        
         // Reset chat messages and show welcome message
         const chatMessages = document.getElementById('chat-messages');
         if (chatMessages) {
             chatMessages.innerHTML = `
                 <div class="chat-message chat-message-assistant">
                     <div class="message-content">
-                        <p>Hi! I can help you extract recipes from URLs or modify existing recipes. Try saying:</p>
+                        <p>Hi! I can help you extract recipes from URLs, images, PDFs, or modify existing recipes. Try saying:</p>
                         <ul class="chat-examples">
                             <li>"https://example.com/recipe"</li>
                             <li>"Make this recipe vegetarian: https://example.com/recipe"</li>
+                            <li>Attach an image or PDF of a recipe</li>
                             <li>"Make this recipe gluten-free: [url]"</li>
-                            <li>"Double the servings for: [url]"</li>
                         </ul>
                     </div>
                 </div>
