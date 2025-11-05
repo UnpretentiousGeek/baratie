@@ -9,7 +9,8 @@ An intelligent web application that transforms messy online recipes into structu
 - **AI Chat Assistant**: Get cooking tips, substitutions, and technique advice
 - **Browser Extension**: Capture recipes directly from any webpage (Chrome, Edge, and Firefox)
 - **Session Persistence**: Your cooking progress is automatically saved
-- **YouTube Integration**: Extract recipes from video descriptions and captions
+- **YouTube Integration**: Extract recipes from video descriptions, captions, and comments
+- **Caption Extraction**: Standalone tool to fetch and download YouTube captions
 - **Nutrition Calculation**: AI-powered macro and nutrition information
 
 ## 📁 Project Structure
@@ -22,6 +23,9 @@ baratie/
 │   ├── config.js          # API keys (not committed)
 │   ├── config.js.template  # Template for setup
 │   └── styles.css
+│
+├── api/                    # Vercel serverless functions
+│   └── captions.js         # YouTube caption fetching API
 │
 ├── chrome-extension/       # Chrome/Edge extension (ready to install)
 │   ├── manifest.json       # Chrome Manifest V3
@@ -49,9 +53,13 @@ baratie/
 │   ├── CROSS_BROWSER.md    # Extension technical documentation
 │   ├── SETUP_GUIDE.md
 │   ├── YOUTUBE_SETUP.md
-│   └── ...
+│   ├── CAPTION_SETUP.md    # Caption server local setup
+│   ├── CAPTION_INTEGRATION.md  # Caption integration guide
+│   └── VERCEL_CAPTIONS_DEPLOY.md  # Vercel deployment
 │
-├── .gitignore
+├── captions.html          # Standalone caption fetcher tool
+├── caption-server.js      # Local development server (Express)
+├── package.json           # Node.js dependencies
 ├── vercel.json            # Vercel deployment config
 └── README.md
 ```
@@ -66,15 +74,25 @@ baratie/
    cd baratie
    ```
 
-2. **Set up API Keys**
+2. **Install dependencies** (for caption server)
+   ```bash
+   npm install
+   ```
+
+3. **Set up API Keys**
    - Copy `app/config.js.template` to `app/config.js`
    - Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Get your YouTube API key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
    - Add your keys to `app/config.js`
 
-3. **Open the app**
-   - Open `app/index.html` in your browser
-   - Or use a local server: `python -m http.server 8000` then visit `http://localhost:8000`
+4. **Start the caption server** (optional but recommended for YouTube recipes)
+   ```bash
+   npm run caption-server
+   ```
+
+5. **Open the app**
+   - Navigate to `http://localhost:3000/app/index.html`
+   - Or for standalone caption fetcher: `http://localhost:3000/captions.html`
 
 ### Vercel Deployment
 
@@ -88,11 +106,15 @@ baratie/
 2. **Deploy to Vercel**
    - Go to [vercel.com](https://vercel.com)
    - Import your GitHub repository
-   - Set **Root Directory** to `app`
-   - Add environment variables (optional, see below)
+   - Vercel will auto-detect the configuration
    - Deploy!
 
-3. **Update Extension**
+3. **Features on Vercel**
+   - Main app: `https://YOUR-PROJECT.vercel.app`
+   - Caption API: `https://YOUR-PROJECT.vercel.app/api/captions`
+   - Standalone caption fetcher: `https://YOUR-PROJECT.vercel.app/captions.html`
+
+4. **Update Extension** (optional)
    - Edit `extension/popup.js` and `extension/background.js`
    - Update `DEFAULT_VERCEL_PATH` with your Vercel URL
    - Or let users configure it in extension settings
@@ -178,6 +200,9 @@ Both share identical JavaScript code with cross-browser compatibility built-in.
 
 - [Setup Guide](docs/SETUP_GUIDE.md) - Detailed setup instructions
 - [YouTube Feature](docs/YOUTUBE_FEATURE.md) - YouTube integration details
+- [Caption Setup](docs/CAPTION_SETUP.md) - Local caption server setup
+- [Caption Integration](docs/CAPTION_INTEGRATION.md) - How captions work in the app
+- [Vercel Caption Deployment](docs/VERCEL_CAPTIONS_DEPLOY.md) - Deploy caption API to Vercel
 - [Extension Guide](docs/README_EXTENSION.md) - Browser extension documentation
 
 ## 🛠️ Development
@@ -185,6 +210,8 @@ Both share identical JavaScript code with cross-browser compatibility built-in.
 ### Tech Stack
 
 - **Frontend**: Vanilla JavaScript (no frameworks)
+- **Backend**: Node.js serverless functions (Vercel)
+- **Caption API**: youtube-transcript-plus library
 - **Styling**: CSS3 with CSS Grid/Flexbox
 - **AI**: Google Gemini API
 - **Hosting**: Vercel
@@ -192,12 +219,14 @@ Both share identical JavaScript code with cross-browser compatibility built-in.
 
 ### Key Files
 
-- `app/app.js` - Main application logic (1444 lines)
+- `app/app.js` - Main application logic
 - `app/config.js` - API configuration (not committed)
+- `api/captions.js` - Caption API serverless function
+- `caption-server.js` - Local development server (Express)
+- `captions.html` - Standalone caption fetcher tool
 - `extension/popup.js` - Extension popup interface (cross-browser)
 - `extension/background.js` - Extension background script (cross-browser)
 - `extension/manifest.json` - Active manifest (Chrome V3 or Firefox V2)
-- `extension/build.js` - Helper script to switch between browsers
 
 ## 🚨 Important Notes
 
@@ -233,6 +262,7 @@ Free to use and modify for personal or commercial projects.
 
 - **Gemini AI** - Recipe extraction and chat assistance
 - **YouTube Data API** - Video recipe extraction
+- **youtube-transcript-plus** - Caption fetching library
 - **AllOrigins** - CORS proxy service
 
 ---

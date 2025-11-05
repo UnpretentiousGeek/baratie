@@ -1635,40 +1635,37 @@ ${text.substring(0, 15000)}`;
     // Fetch YouTube video captions/transcript with timestamps
     async fetchYouTubeCaptions(videoId, withTimestamps = false) {
         try {
-            // Call Render-hosted Python caption server
-            // Uses youtube-transcript-api for reliable caption extraction
-            const response = await fetch('https://baratie-caption-server.onrender.com/api/youtube-captions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ videoId })
-            });
+            // Call local/Vercel caption API (youtube-transcript-plus)
+            // Will use /api/captions endpoint (works locally and on Vercel)
+            const apiUrl = `${window.location.origin}/api/captions?videoId=${encodeURIComponent(videoId)}&lang=en`;
+
+            const response = await fetch(apiUrl);
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.warn(`Captions API returned ${response.status}: ${errorText}`);
+                const errorData = await response.json().catch(() => ({}));
+                console.warn(`Captions API returned ${response.status}:`, errorData.error || 'Unknown error');
                 return withTimestamps ? null : null;
             }
 
             const data = await response.json();
 
-            if (!data.success || !data.captions || data.captions.length === 0) {
+            if (!data.success || !data.transcript || data.transcript.length === 0) {
                 console.warn('No captions found for this video:', data.error || 'Unknown reason');
                 return withTimestamps ? null : null;
             }
 
             if (withTimestamps) {
                 // Return array of {text, start, duration, end} objects
-                return data.captions.map(cap => ({
+                // Convert from youtube-transcript-plus format (offset in ms) to expected format (seconds)
+                return data.transcript.map(cap => ({
                     text: cap.text,
-                    start: cap.start,
+                    start: cap.offset / 1000,  // Convert ms to seconds
                     duration: cap.duration,
-                    end: cap.start + cap.duration
+                    end: (cap.offset / 1000) + cap.duration
                 }));
             } else {
                 // Return plain text (backward compatibility)
-                return data.captions.map(cap => cap.text).join(' ');
+                return data.transcript.map(cap => cap.text).join(' ');
             }
 
         } catch (error) {

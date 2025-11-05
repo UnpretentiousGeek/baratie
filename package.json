@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "build": "echo 'No build step required for static site'",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "caption-server": "node caption-server.js"
   },
   "keywords": [
     "recipe",
@@ -21,6 +22,8 @@
     "node": ">=18.x"
   },
   "dependencies": {
-    "youtube-transcript-plus": "^1.1.1"
+    "youtube-transcript-plus": "^1.1.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
   }
 }

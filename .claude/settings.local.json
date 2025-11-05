@@ -19,7 +19,9 @@
       "Bash(dir /b \"d:\\Vibe Coding Projects\\Baratie\\api\")",
       "Bash(python caption-server.py:*)",
       "Bash(npm uninstall:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
