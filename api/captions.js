@@ -2,7 +2,7 @@
 // Uses youtube-transcript-plus library
 // Reference: https://github.com/ericmmartin/youtube-transcript-plus
 
-import { fetchTranscript, getTranscript } from 'youtube-transcript-plus';
+import { fetchTranscript } from 'youtube-transcript-plus';
 
 // Realistic browser user agent to avoid detection
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -173,16 +173,7 @@ export default async function handler(req, res) {
                 console.log(`[API] Success with custom fetch config!`);
             } catch (customError) {
                 console.error(`[API] Custom fetch also failed:`, customError.message);
-                
-                // Last resort: try getTranscript (alternative function from library)
-                try {
-                    console.log(`[API] Trying getTranscript as fallback...`);
-                    transcript = await getTranscript(videoId);
-                    console.log(`[API] Success with getTranscript!`);
-                } catch (getTranscriptError) {
-                    console.error(`[API] getTranscript also failed:`, getTranscriptError.message);
-                    throw firstError; // Throw original error
-                }
+                throw firstError; // Throw original error
             }
         }
         
