@@ -2789,10 +2789,25 @@ ${content}`;
                  }
              }
 
-             // If no vision model available, try any available model (shouldn't happen if config is correct)
+             // If no vision model available, reset quota and try again
              if (!selectedModel) {
-                 selectedModel = this.modelRouter.selectBalancedModel(taskType);
-                 console.warn(`No vision-capable model available, using: ${selectedModel} (may not support vision)`);
+                 console.warn('All vision models quota exhausted. Resetting quota tracker...');
+                 this.quotaTracker.resetDailyCounts();
+
+                 // Try again after reset
+                 for (const model of visionModels) {
+                     if (this.quotaTracker.canUseModel(model)) {
+                         selectedModel = model;
+                         console.log(`Selected vision-capable model after reset: ${selectedModel}`);
+                         break;
+                     }
+                 }
+
+                 // Last resort - use any available model
+                 if (!selectedModel) {
+                     selectedModel = this.modelRouter.selectBalancedModel(taskType);
+                     console.warn(`No vision-capable model available, using: ${selectedModel} (may not support vision)`);
+                 }
              }
          } else {
              selectedModel = this.modelRouter.selectBalancedModel(taskType);
@@ -2876,8 +2891,12 @@ ${content}`;
             .sort((a, b) => a[1].priority - b[1].priority)
             .map(([model, _]) => model);
 
+        console.log('Available vision models:', visionModels);
+
         for (const model of visionModels) {
-            if (this.quotaTracker.canUseModel(model)) {
+            const canUse = this.quotaTracker.canUseModel(model);
+            console.log(`  Checking ${model}: ${canUse ? 'AVAILABLE' : 'QUOTA EXCEEDED'}`);
+            if (canUse) {
                 selectedModel = model;
                 console.log(`Selected vision-capable model for ${files.length} files: ${selectedModel} (priority ${CONFIG.GEMINI_MODELS[model].priority})`);
                 break;
@@ -2885,7 +2904,22 @@ ${content}`;
         }
 
         if (!selectedModel) {
-            throw new Error('No available vision models for processing multiple images.');
+            // All models exhausted - reset quota and try again
+            console.warn('All vision models quota exhausted. Resetting quota tracker...');
+            this.quotaTracker.resetDailyCounts();
+
+            // Try again after reset
+            for (const model of visionModels) {
+                if (this.quotaTracker.canUseModel(model)) {
+                    selectedModel = model;
+                    console.log(`Selected vision-capable model after reset: ${selectedModel}`);
+                    break;
+                }
+            }
+
+            if (!selectedModel) {
+                throw new Error('No available vision models for processing multiple images. Please check your API configuration.');
+            }
         }
 
         // Try with retries
