@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash' } = req.body;
+    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData } = req.body;
 
     // Validate request
     if (!prompt) {
@@ -36,12 +36,62 @@ export default async function handler(req, res) {
     }
 
     // Build Gemini API URL
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/${model}:${method}?key=${apiKey}`;
+    // According to Gemini API docs: https://ai.google.dev/gemini-api/docs/image-understanding
+    // Vision models use v1beta API: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
+    let modelName = model;
+    let apiVersion = 'v1beta'; // Vision models use v1beta according to documentation
+
+    // Use model name exactly as provided - no modifications needed
+    // Valid vision models: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:${method}?key=${apiKey}`;
+    console.log('Calling Gemini API:', {
+      requestedModel: model,
+      actualModel: modelName,
+      apiVersion: apiVersion,
+      hasFile: !!fileData,
+      hasMultipleFiles: !!filesData,
+      fileCount: filesData ? filesData.length : (fileData ? 1 : 0),
+      url: geminiUrl.replace(apiKey, 'HIDDEN')
+    });
 
     // Prepare request body for Gemini
+    const parts = [{ text: prompt }];
+
+    // Add multiple files if provided
+    if (filesData && Array.isArray(filesData) && filesData.length > 0) {
+      console.log(`Adding ${filesData.length} files to request`);
+      filesData.forEach((file, index) => {
+        if (file.data && file.mimeType) {
+          console.log(`  File ${index + 1}: ${file.mimeType}, ${file.data.length} bytes`);
+          parts.push({
+            inline_data: {
+              mime_type: file.mimeType,
+              data: file.data
+            }
+          });
+        }
+      });
+    }
+    // Add single file if provided (backwards compatibility)
+    else if (fileData && fileData.data && fileData.mimeType) {
+      console.log('Adding single file to request:', {
+        mimeType: fileData.mimeType,
+        dataLength: fileData.data.length,
+        model: model
+      });
+
+      parts.push({
+        inline_data: {
+          mime_type: fileData.mimeType,
+          data: fileData.data
+        }
+      });
+    }
+
     const geminiRequestBody = {
       contents: [{
-        parts: [{ text: prompt }]
+        parts: parts
       }]
     };
 
@@ -58,6 +108,28 @@ export default async function handler(req, res) {
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
       console.error('Gemini API error:', geminiResponse.status, errorText);
+      console.error('Request details:', {
+        requestedModel: model,
+        actualModel: modelName,
+        apiVersion: apiVersion,
+        hasFile: !!fileData,
+        fileType: fileData?.mimeType,
+        url: geminiUrl.replace(apiKey, 'HIDDEN')
+      });
+      
+      // If 404, suggest trying different model or API version
+      if (geminiResponse.status === 404) {
+        let suggestion = 'Try using a different model like gemini-2.5-flash or gemini-2.0-flash';
+        if (model.includes('1.5')) {
+          suggestion = 'Gemini 1.5 models may not be available. Try using gemini-2.5-flash or gemini-2.0-flash instead.';
+        }
+        return res.status(404).json({
+          error: 'Model not found',
+          details: `The model "${modelName}" was not found in ${apiVersion}. This might be due to an incorrect model name or the model may not be available in your region/API version.`,
+          suggestion: suggestion
+        });
+      }
+      
       return res.status(geminiResponse.status).json({
         error: 'Gemini API request failed',
         details: errorText

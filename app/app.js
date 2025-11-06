@@ -274,17 +274,22 @@ class QuotaTracker {
         this.cleanOldTimestamps(modelName);
 
         const limits = this.modelLimits[modelName];
-        if (!limits) return false;
+        if (!limits) {
+            console.warn(`QuotaTracker: Model "${modelName}" not found in modelLimits. Available models:`, Object.keys(this.modelLimits));
+            return false;
+        }
 
         // Check RPM (requests per minute)
         const recentRequests = (this.requestTimestamps[modelName] || []).length;
         if (recentRequests >= limits.rpm) {
+            console.log(`QuotaTracker: ${modelName} RPM exceeded (${recentRequests}/${limits.rpm})`);
             return false;
         }
 
         // Check RPD (requests per day)
         const dailyCount = this.dailyCounts[modelName] || 0;
         if (dailyCount >= limits.rpd) {
+            console.log(`QuotaTracker: ${modelName} RPD exceeded (${dailyCount}/${limits.rpd})`);
             return false;
         }
 
@@ -958,6 +963,7 @@ class RecipeManager {
         this.youtubeApiEndpoint = CONFIG.YOUTUBE_API_ENDPOINT || '/api/youtube';
 
         // Initialize multi-model routing system
+        console.log('Initializing RecipeManager with CONFIG.GEMINI_MODELS:', CONFIG.GEMINI_MODELS);
         this.cache = new ResponseCache();
         this.quotaTracker = new QuotaTracker(CONFIG.GEMINI_MODELS || {});
         this.requestQueue = new RequestQueue();
@@ -1549,7 +1555,29 @@ REMEMBER: Return ONLY the JSON object above, nothing else.`;
                 parsedResponse.instructions = ['Recipe instructions not visible in the image. Please refer to the original source or recipe card.'];
             }
 
+            // Validate that we have the minimum required data
+            const hasIngredients = parsedResponse.ingredients && parsedResponse.ingredients.length > 0;
+            const hasInstructions = parsedResponse.instructions && parsedResponse.instructions.length > 0;
+            
+            if (!hasIngredients) {
+                console.error('No ingredients found in parsed response');
+                return {
+                    isValid: false,
+                    error: 'Could not extract recipe ingredients from the file. The image might not contain a recipe, or the format is unclear.'
+                };
+            }
+
+            // Set isValid to true if we have ingredients (instructions can be placeholder)
+            parsedResponse.isValid = true;
             parsedResponse.source = `Uploaded ${files.length} file(s)`;
+            
+            console.log('Recipe extracted successfully:', {
+                title: parsedResponse.title,
+                ingredientsCount: parsedResponse.ingredients?.length,
+                instructionsCount: parsedResponse.instructions?.length,
+                isValid: parsedResponse.isValid
+            });
+            
             return this.normalizeExtractedRecipe(parsedResponse);
 
         } catch (error) {
@@ -2886,8 +2914,14 @@ ${content}`;
 
         // Select vision-capable model by priority
         let selectedModel;
+        console.log('CONFIG.GEMINI_MODELS:', CONFIG.GEMINI_MODELS);
+        console.log('All models:', Object.keys(CONFIG.GEMINI_MODELS));
+
         const visionModels = Object.entries(CONFIG.GEMINI_MODELS)
-            .filter(([_, config]) => config.vision)
+            .filter(([modelName, config]) => {
+                console.log(`  Model ${modelName}: vision=${config.vision}, priority=${config.priority}`);
+                return config.vision;
+            })
             .sort((a, b) => a[1].priority - b[1].priority)
             .map(([model, _]) => model);
 
@@ -3802,6 +3836,15 @@ Base your estimates on standard nutritional databases. Be realistic and conserva
 
     normalizeExtractedRecipe(recipe) {
         const safe = { ...recipe };
+        
+        // Preserve isValid flag if it exists
+        if (safe.isValid === undefined) {
+            // If isValid not set, validate based on data
+            const hasIngredients = safe.ingredients && Array.isArray(safe.ingredients) && safe.ingredients.length > 0;
+            const hasInstructions = safe.instructions && Array.isArray(safe.instructions) && safe.instructions.length > 0;
+            safe.isValid = hasIngredients && hasInstructions;
+        }
+        
         // Default/clean servings
         if (!Number.isFinite(safe.servings) || safe.servings <= 0) {
             safe.servings = 4;

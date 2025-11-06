@@ -805,7 +805,31 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
-#chat-input {
+.btn-attach {
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-attach:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.btn-attach:active {
+    transform: translateY(0);
+}
+
+#chat-input,
+#cooking-chat-input {
     flex: 1;
     padding: 0.75rem;
     border: 2px solid var(--border-color);
@@ -813,9 +837,73 @@ body {
     font-size: 0.95rem;
 }
 
-#chat-input:focus {
+#chat-input:focus,
+#cooking-chat-input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+.attached-file-preview {
+    padding: 0.5rem 1rem;
+    background: var(--bg-light);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+#attached-file-name,
+#url-attached-file-name {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.attached-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.5rem;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.btn-remove-attachment-inline {
+    background: transparent;
+    border: none;
+    color: var(--error-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.125rem 0.25rem;
+    margin-left: 0.5rem;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.btn-remove-attachment-inline:hover {
+    background: var(--error-color);
+    color: white;
+}
+
+.btn-remove-attachment {
+    background: transparent;
+    border: none;
+    color: var(--error-color);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-remove-attachment:hover {
+    background: var(--error-color);
+    color: white;
 }
 
 /* Buttons */
@@ -1237,6 +1325,7 @@ body {
     overflow-y: auto;
     z-index: 999;
     transition: all 0.3s ease;
+    display: none; /* Hidden for now */
 }
 
 .quota-tracker.minimized {

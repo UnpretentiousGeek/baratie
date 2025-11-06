@@ -37,6 +37,15 @@
                     </div>
 
                     <div class="chat-input-container">
+                        <input
+                            type="file"
+                            id="url-chat-file-input"
+                            accept="image/*,.pdf"
+                            multiple
+                            style="display: none;"
+                            aria-label="Attach files"
+                        >
+                        <button id="url-attach-file-btn" class="btn-attach" title="Attach image or PDF">📎</button>
                         <textarea
                             id="chat-input"
                             class="chat-input"
@@ -50,6 +59,9 @@
                                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                             </svg>
                         </button>
+                    </div>
+                    <div id="url-attached-file-preview" class="attached-file-preview" style="display: none;">
+                        <span id="url-attached-file-name"></span>
                     </div>
                 </div>
 
@@ -267,12 +279,24 @@
                     <div id="cooking-chat-messages" class="chat-messages"></div>
                     <div class="chat-input-container">
                         <input
+                            type="file"
+                            id="chat-file-input"
+                            accept="image/*,.pdf"
+                            multiple
+                            style="display: none;"
+                            aria-label="Attach files"
+                        >
+                        <button id="attach-file-btn" class="btn-attach" title="Attach image or PDF">📎</button>
+                        <input
                             type="text"
                             id="cooking-chat-input"
                             placeholder="Ask about substitutions, techniques, or timing..."
                             aria-label="Cooking chat input"
                         >
                         <button id="send-chat" class="btn-primary">Send</button>
+                    </div>
+                    <div id="attached-file-preview" class="attached-file-preview" style="display: none;">
+                        <span id="attached-file-name"></span>
                     </div>
                 </div>
 
