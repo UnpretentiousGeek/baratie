@@ -1,239 +1,86 @@
-# 🍳 Baratie - AI-Powered Recipe Manager
+# Baratie - AI Recipe Manager
 
-An intelligent web application that transforms messy online recipes into structured, interactive cooking guides. Built with vanilla JavaScript, powered by Google's Gemini AI.
+AI-powered recipe manager with Gemini integration, built with React, TypeScript, and Vite.
 
-## 🌟 Features
+## Features
 
-- **Smart Recipe Extraction**: Paste any recipe URL (blogs, YouTube videos, and recipe websites) and let AI extract structured recipe data
-- **Interactive Cooking Interface**: Step-by-step guidance with progress tracking and ingredient scaling
-- **AI Chat Assistant**: Get cooking tips, substitutions, and technique advice
-- **Browser Extension**: Capture recipes directly from any webpage (Chrome, Edge, and Firefox)
-- **Session Persistence**: Your cooking progress is automatically saved
-- **YouTube Integration**: Extract recipes from video descriptions and comments
-- **Nutrition Calculation**: AI-powered macro and nutrition information
+- 🍳 Extract recipes from images, PDFs, and URLs
+- 📝 Interactive cooking guide
+- 🎨 Beautiful, modern UI with Framer Motion animations
+- 📱 Responsive design
+- ⚡ Fast development with Vite
 
-## 📁 Project Structure
+## Getting Started
 
-```
-baratie/
-├── app/                    # Web application (deployed to Vercel)
-│   ├── index.html
-│   ├── app.js
-│   ├── config.js          # API keys (not committed)
-│   ├── config.js.template  # Template for setup
-│   └── styles.css
-│
-├── chrome-extension/       # Chrome/Edge extension (ready to install)
-│   ├── manifest.json       # Chrome Manifest V3
-│   ├── background.js
-│   ├── popup.js
-│   ├── popup.html
-│   ├── content-script.js
-│   ├── INSTALL.txt         # Installation guide
-│   ├── README.md
-│   ├── styles/
-│   └── icons/
-│
-├── firefox-extension/      # Firefox extension (ready to install)
-│   ├── manifest.json       # Firefox Manifest V2
-│   ├── background.js
-│   ├── popup.js
-│   ├── popup.html
-│   ├── content-script.js
-│   ├── INSTALL.txt         # Installation guide
-│   ├── README.md
-│   ├── styles/
-│   └── icons/
-│
-├── docs/                   # Documentation
-│   ├── CROSS_BROWSER.md    # Extension technical documentation
-│   ├── SETUP_GUIDE.md
-│   └── YOUTUBE_SETUP.md
-│
-├── package.json           # Project metadata
-├── vercel.json            # Vercel deployment config
-└── README.md
+### Prerequisites
+
+- Node.js >= 18.x
+- Yarn (install with `npm install -g yarn`)
+
+### Installation
+
+```bash
+yarn install
 ```
 
-## 🚀 Quick Start
+### Development
 
-### Local Development
+```bash
+yarn dev
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/baratie.git
-   cd baratie
-   ```
+The app will be available at `http://localhost:3000`
 
-2. **Set up API Keys**
-   - Copy `app/config.js.template` to `app/config.js`
-   - Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Get your YouTube API key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-   - Add your keys to `app/config.js`
+### Build
 
-3. **Open the app**
-   - Open `app/index.html` in your browser
-   - Or use a local server: `python -m http.server 8000` then visit `http://localhost:8000/app`
+```bash
+yarn build
+```
 
-### Vercel Deployment
+### Preview Production Build
 
-1. **Push to GitHub**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
+```bash
+yarn preview
+```
 
-2. **Deploy to Vercel**
-   - Go to [vercel.com](https://vercel.com)
-   - Import your GitHub repository
-   - Vercel will auto-detect the configuration
-   - Deploy!
+## Project Structure
 
-3. **Update Extension** (optional)
-   - Edit `extension/popup.js` and `extension/background.js`
-   - Update `DEFAULT_VERCEL_PATH` with your Vercel URL
-   - Or let users configure it in extension settings
+```
+src/
+├── components/          # React components
+│   ├── AttachedFiles.tsx
+│   ├── BackgroundBlobs.tsx
+│   ├── ChatInput.tsx
+│   ├── Header.tsx
+│   └── Hero.tsx
+├── context/            # React Context providers
+│   └── RecipeContext.tsx
+├── types/              # TypeScript type definitions
+│   └── index.ts
+├── utils/              # Utility functions
+│   ├── api.ts
+│   └── recipeManager.ts
+├── App.tsx             # Main App component
+├── main.tsx            # Entry point
+└── index.css           # Global styles
+```
 
-## 🔧 Configuration
+## Environment Variables
 
-### API Keys
+Create a `.env` file in the root directory:
 
-The app requires two API keys:
+```
+VITE_GEMINI_API_ENDPOINT=/api/gemini
+VITE_YOUTUBE_API_ENDPOINT=/api/youtube
+```
 
-1. **Gemini API Key** (Required)
-   - Get from: https://makersuite.google.com/app/apikey
-   - Used for: Recipe extraction and chat assistant
+## Technologies
 
-2. **YouTube API Key** (Optional but recommended)
-   - Get from: https://console.cloud.google.com/apis/credentials
-   - Used for: YouTube video recipe extraction
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Framer Motion** - Animation library
 
-### Environment Variables (Vercel)
+## License
 
-If deploying to Vercel, you can use environment variables instead of `config.js`:
-
-- `GEMINI_API_KEY`
-- `YOUTUBE_API_KEY`
-
-Note: Since this is a client-side app, environment variables are limited. Consider using `config.js` or a serverless function proxy.
-
-## 📱 Browser Extension
-
-Two separate folders for easy installation - just pick your browser!
-
-### Chrome/Edge Installation
-
-📁 Use the **`chrome-extension/`** folder
-
-1. Open `chrome://extensions` (or `edge://extensions`)
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `chrome-extension/` folder
-5. Enable "Allow access to file URLs" in extension details
-
-**See `chrome-extension/INSTALL.txt` for detailed instructions.**
-
-### Firefox Installation
-
-📁 Use the **`firefox-extension/`** folder
-
-**Temporary (Quick Testing):**
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click "Load Temporary Add-on..."
-3. Select `firefox-extension/manifest.json`
-
-**Permanent:**
-- Use Firefox Developer Edition (see `firefox-extension/INSTALL.txt`)
-- Or sign the extension at addons.mozilla.org (free)
-
-**See `firefox-extension/INSTALL.txt` for detailed instructions.**
-
-### Why Two Folders?
-
-Chrome uses **Manifest V3**, Firefox uses **Manifest V2**. Separate folders means:
-- ✅ No manual switching needed
-- ✅ Ready to install out-of-the-box
-- ✅ Clear installation per browser
-- ✅ Same functionality, different manifests
-
-Both share identical JavaScript code with cross-browser compatibility built-in.
-
-### Configuration
-
-1. Click the extension icon
-2. Click "Settings" (⚙️)
-3. Enter your Baratie URL:
-   - Vercel: `https://baratie-piece.vercel.app` (default)
-   - Local: `file:///path/to/Baratie/app/index.html`
-
-### Usage
-
-- **Capture Recipe Text**: Select text on any webpage, right-click, choose "Capture Recipe with Baratie"
-- **Capture Recipe URL**: Click extension icon, then "Capture Recipe" button
-
-## 📚 Documentation
-
-- [Setup Guide](docs/SETUP_GUIDE.md) - Detailed setup instructions
-- [YouTube Feature](docs/YOUTUBE_FEATURE.md) - YouTube integration details
-- [Extension Guide](docs/README_EXTENSION.md) - Browser extension documentation
-
-## 🛠️ Development
-
-### Tech Stack
-
-- **Frontend**: Vanilla JavaScript (no frameworks)
-- **Styling**: CSS3 with CSS Grid/Flexbox
-- **AI**: Google Gemini API
-- **Hosting**: Vercel
-- **Extension**: Cross-browser compatible (Chrome Manifest V3, Firefox Manifest V2)
-
-### Key Files
-
-- `app/app.js` - Main application logic
-- `app/config.js` - API configuration (not committed)
-- `extension/popup.js` - Extension popup interface (cross-browser)
-- `extension/background.js` - Extension background script (cross-browser)
-- `extension/manifest.json` - Active manifest (Chrome V3 or Firefox V2)
-
-## 🚨 Important Notes
-
-### Security
-
-- **Never commit `app/config.js`** - It contains your API keys
-- The `.gitignore` file is configured to exclude sensitive files
-- Use `config.js.template` as a reference
-
-### API Limits
-
-- Gemini Free Tier: 15 requests/minute (Flash), 2 requests/minute (Pro)
-- YouTube API: 10,000 units/day (free tier)
-
-### CORS Proxy
-
-The app uses AllOrigins CORS proxy to fetch recipe content. This is a third-party service and may have rate limits.
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
-
-Free to use and modify for personal or commercial projects.
-
-## 🙏 Credits
-
-- **Gemini AI** - Recipe extraction and chat assistance
-- **YouTube Data API** - Video recipe extraction
-- **AllOrigins** - CORS proxy service
-
----
-
-**Baratie** - Named after the famous floating restaurant from One Piece! 🍳
-
-For questions or issues, please open an issue on GitHub.
+MIT

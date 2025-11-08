@@ -1,7 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "echo 'No build step needed - static files'",
-  "outputDirectory": "app",
+  "buildCommand": "yarn build",
+  "installCommand": "yarn install",
+  "outputDirectory": "dist",
+  "framework": null,
   "rewrites": [
     {
       "source": "/api/(.*)",

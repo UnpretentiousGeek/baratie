@@ -1,47 +1,34 @@
-# API Keys (NEVER COMMIT THESE!)
-app/config.js
-config.js
-*.env
-.env.local
-CLAUDE.md
-
-# Node modules (if you add dependencies later)
-node_modules/
-package-lock.json
-yarn.lock
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.sublime-*
-
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
-
-# Build outputs
-dist/
-build/
-.next/
-.vercel/
-
 # Logs
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
+# Package manager lock files (using yarn)
+package-lock.json
 
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+.env
+.env.local
+.env.production.local
+.env.development.local
 .vercel

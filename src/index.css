@@ -1,0 +1,75 @@
+/* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+*:not(.instruction-item.completed .instruction-text) {
+    text-decoration: none;
+}
+
+:root {
+    /* Brand Colors */
+    --brand-default: #fcc0b9;
+    --brand-light: #fef5f4;
+    --brand-primary: #f08b7d;
+
+    /* Background Colors */
+    --background-primary: #ffffff;
+    --background-light: #fef5f4;
+
+    /* Text Colors */
+    --text-primary: #000000;
+    --text-secondary: #5a544e;
+    --text-faint: #8f8782;
+
+    /* Stroke/Border Colors */
+    --stroke-default: #e5e1dd;
+
+    /* Button Colors */
+    --button-primary-default: #f08b7d;
+    --button-secondary-default: #ffffff;
+
+    /* Legacy colors (for other stages) */
+    --primary-color: #f08b7d;
+    --secondary-color: #004e89;
+    --accent-color: #f7b801;
+    --success-color: #2ecc71;
+    --error-color: #e74c3c;
+    --text-dark: #2c3e50;
+    --text-light: #7f8c8d;
+    --bg-light: #f8f9fa;
+    --bg-white: #ffffff;
+    --border-color: #e0e0e0;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
+
+    /* Spacing */
+    --spacing-2: 4px;
+    --spacing-3: 8px;
+    --spacing-5: 16px;
+    --spacing-6: 20px;
+    --spacing-7: 24px;
+    --spacing-8: 28px;
+    --spacing-9: 32px;
+    --spacing-13: 48px;
+    --spacing-15: 56px;
+}
+
+body {
+    font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #ffffff;
+    min-height: 100vh;
+    padding: 0;
+    color: var(--text-primary);
+    position: relative;
+    overflow-x: hidden;
+}
+
+#root {
+    min-height: 100vh;
+    position: relative;
+}
+
