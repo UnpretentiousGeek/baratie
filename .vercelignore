@@ -1,4 +1,4 @@
-# Ignore yarn if it exists
-yarn.lock
+# Yarn cache (if using Yarn 2+)
 .yarn/
+.pnp.*
 

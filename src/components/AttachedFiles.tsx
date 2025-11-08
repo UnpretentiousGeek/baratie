@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import './AttachedFiles.css';
@@ -6,8 +6,6 @@ import './AttachedFiles.css';
 const AttachedFiles: React.FC = () => {
   const { attachedFiles, removeFile } = useRecipe();
   const [isEditMode, setIsEditMode] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (attachedFiles.length === 0) {
@@ -21,15 +19,9 @@ const AttachedFiles: React.FC = () => {
     }
 
     if (!isEditMode) {
-      setIsTransitioning(true);
       setIsEditMode(true);
-      setTimeout(() => setIsTransitioning(false), 650);
     } else {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setIsEditMode(false);
-        setIsTransitioning(false);
-      }, 50);
+      setIsEditMode(false);
     }
   };
 
@@ -100,7 +92,6 @@ interface AttachedFileFanItemProps {
 
 const AttachedFileFanItem: React.FC<AttachedFileFanItemProps> = ({ file, index, onRemove, delay }) => {
   const isImage = file.type?.startsWith('image/');
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
   const positions = [
     { left: 63, top: 11, rotate: 0 },
@@ -170,7 +161,6 @@ interface AttachedFileListItemProps {
 
 const AttachedFileListItem: React.FC<AttachedFileListItemProps> = ({ file, index, onRemove, delay }) => {
   const isImage = file.type?.startsWith('image/');
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
   return (
     <motion.div
