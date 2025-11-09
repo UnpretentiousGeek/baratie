@@ -1,9 +1,9 @@
 .background-blobs {
     position: absolute;
-    right: -129.055px;
-    bottom: -235.633px;
-    width: 1441.055px;
-    height: 1243.633px;
+    left: -32px;
+    top: -176px;
+    width: 1441.06px;
+    height: 1243.63px;
     pointer-events: none;
     z-index: 0;
     overflow: visible;

@@ -1,16 +1,18 @@
 .app-header-new {
     display: flex;
-    width: 1280px;
-    padding: var(--spacing-7) var(--spacing-8);
+    width: 100%;
+    padding: var(--7) var(--8);
     margin: 0 auto;
     justify-content: space-between;
     align-items: center;
+    box-sizing: border-box;
 }
 
 .logo {
     font-family: 'Manrope', sans-serif;
-    font-weight: 700;
-    font-size: 24px;
+    font-weight: 600;
+    font-size: 33px;
+    line-height: 1.1;
     color: var(--text-primary);
     margin: 0;
 }
@@ -19,14 +21,15 @@
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: var(--spacing-9);
+    gap: var(--9);
 }
 
 .nav-link {
     font-family: 'Sora', sans-serif;
     font-weight: 400;
     font-size: 16px;
-    color: var(--text-primary);
+    line-height: 1.5;
+    color: var(--text-secondary);
     text-decoration: none;
     transition: color 0.2s ease;
 }

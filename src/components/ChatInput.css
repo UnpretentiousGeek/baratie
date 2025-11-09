@@ -1,6 +1,6 @@
 .chat-input-wrapper {
     width: 100%;
-    max-width: 590px;
+    max-width: 720px;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -18,17 +18,18 @@
 
 .chat-input-box {
     background: var(--background-primary);
-    border: none !important;
-    border-radius: var(--spacing-3);
-    padding: var(--spacing-5);
+    border: 1px solid var(--stroke-default);
+    border-radius: var(--3);
+    padding: var(--5);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-9);
+    gap: var(--9);
     align-items: flex-start;
     width: 100%;
-    max-width: 590px;
+    max-width: 720px;
+    height: 116px;
+    min-height: 116px;
     box-sizing: border-box;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     position: relative;
     outline: none !important;
     z-index: 2;
@@ -66,53 +67,55 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    gap: var(--spacing-9);
+    gap: var(--9);
 }
 
 .btn-add-media {
     display: inline-flex;
-    padding: var(--spacing-2);
+    padding: 1px 4px;
     align-items: center;
-    gap: 8px;
-    border-radius: var(--spacing-2);
+    justify-content: center;
+    gap: var(--3);
+    border-radius: var(--2);
     background: var(--button-secondary-default);
     width: 28px;
     height: auto;
+    min-height: 28px;
     border: none;
     cursor: pointer;
     overflow: hidden;
+    color: var(--text-primary);
 }
 
-.btn-add-media svg {
+.btn-add-media > div,
+.btn-send-arrow > div {
     width: 20px;
     height: 20px;
-    display: block;
-    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-send-arrow {
     display: inline-flex;
-    padding: 0;
+    padding: var(--2);
     align-items: center;
-    gap: 8px;
-    border-radius: var(--spacing-2);
+    justify-content: center;
+    gap: var(--3);
+    border-radius: var(--2);
     background: var(--button-primary-default);
-    width: 20px;
-    height: 20px;
-    aspect-ratio: 1/1;
+    width: auto;
+    height: auto;
+    min-width: 28px;
+    min-height: 28px;
     border: none;
     cursor: pointer;
+    color: var(--button-primary-foreground);
 }
 
 .btn-send-arrow:disabled {
     opacity: 0.5;
     background: var(--button-primary-default);
     cursor: not-allowed;
-}
-
-.btn-send-arrow svg {
-    width: 20px;
-    height: 20px;
-    display: block;
 }
 

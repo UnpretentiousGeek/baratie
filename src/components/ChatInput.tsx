@@ -2,6 +2,7 @@ import React, { useState, useRef, KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import AttachedFiles from './AttachedFiles';
+import { PlusIcon, ArrowUpIcon } from './icons';
 import './ChatInput.css';
 
 const ChatInput: React.FC = () => {
@@ -69,10 +70,9 @@ const ChatInput: React.FC = () => {
         style={{ display: 'none' }}
         aria-label="Attach files"
       />
-      
-      <AttachedFiles />
 
       <div className="chat-input-container-inner">
+        <AttachedFiles />
         <motion.div
           className="chat-input-box"
           whileHover={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
@@ -98,10 +98,7 @@ const ChatInput: React.FC = () => {
               title="Add media"
               type="button"
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="20" height="20" rx="10" fill="none"/>
-                <path d="M10 5V15M5 10H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              <PlusIcon size={20} />
             </motion.button>
             <motion.button
               className="btn-send-arrow"
@@ -111,10 +108,7 @@ const ChatInput: React.FC = () => {
               whileTap={{ scale: 0.95 }}
               type="button"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 16.875V3.125" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M4.375 8.75L10 3.125L15.625 8.75" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <ArrowUpIcon size={20} />
             </motion.button>
           </div>
         </motion.div>
