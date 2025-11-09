@@ -112,7 +112,7 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps> = ({ file, index, 
 
   // Rotations from Figma: 300°, 315°, 330°, 345°, 0° (or -60°, -45°, -30°, -15°, 0°)
   // All cards rotate counter-clockwise from 0°, decreasing by 15° each
-  const getRotationAndPosition = (idx: number, total: number) => {
+  const getRotationAndPosition = (idx: number) => {
     const rotations = [300, 315, 330, 345, 0]; // Figma rotations
     const leftPositions = [0, 14, 32, 48, 63]; // Figma left positions
     const topPositions = [14.16, 5.47, 0, 6.09, 11]; // Figma top positions
@@ -124,7 +124,7 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps> = ({ file, index, 
     return { rotation, left, top };
   };
 
-  const { rotation, left, top } = getRotationAndPosition(index, totalFiles);
+  const { rotation, left, top } = getRotationAndPosition(index);
 
   // Hover effects: left 2 cards move top+left, middle moves top only, right 2 move top+right
   const getHoverOffset = (idx: number, total: number) => {
