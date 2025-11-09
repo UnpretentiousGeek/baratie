@@ -209,12 +209,18 @@ const AttachedFileListItem: React.FC<AttachedFileListItemProps> = ({ file, index
       className={`attached-file-item-list ${isImage ? 'image' : 'pdf'}`}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      whileHover={{ backgroundColor: 'var(--brand-default)', borderColor: 'var(--brand-default)' }}
+      whileHover={{ 
+        backgroundColor: 'var(--brand-default)', 
+        borderColor: 'var(--brand-default)',
+        transition: { duration: 0.2, ease: 'easeInOut' }
+      }}
       whileTap={{ scale: 0.98 }}
       transition={{ 
         delay: index * 0.1, 
         duration: 0.3,
-        layout: { duration: 0.5, ease: [0.4, 0, 0.2, 1] }
+        layout: { duration: 0.5, ease: [0.4, 0, 0.2, 1] },
+        backgroundColor: { duration: 0.2, ease: 'easeInOut' },
+        borderColor: { duration: 0.2, ease: 'easeInOut' }
       }}
       layout
       layoutId={`file-attachment-${index}`}

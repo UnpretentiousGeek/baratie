@@ -148,7 +148,6 @@
     width: 100%;
     max-width: 330px;
     flex-shrink: 0;
-    transition: all 0.2s ease;
     cursor: pointer;
     overflow: hidden;
     margin: 0;
