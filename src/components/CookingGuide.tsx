@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import './CookingGuide.css';
@@ -50,6 +50,7 @@ const CookingGuide: React.FC = () => {
     <div className="cooking-guide">
       <div className="cooking-header">
         <button
+          type="button"
           className="back-button"
           onClick={() => setStage('preview')}
         >
@@ -65,6 +66,7 @@ const CookingGuide: React.FC = () => {
       <div className="cooking-content">
         <div className="step-navigation">
           <button
+            type="button"
             className="nav-button"
             onClick={goToPreviousStep}
             disabled={currentStep === 0}
@@ -86,6 +88,7 @@ const CookingGuide: React.FC = () => {
             </motion.div>
 
             <button
+              type="button"
               className={`step-complete-btn ${completedSteps.has(currentStep) ? 'completed' : ''}`}
               onClick={() => toggleStepComplete(currentStep)}
             >
@@ -95,6 +98,7 @@ const CookingGuide: React.FC = () => {
           </div>
 
           <button
+            type="button"
             className="nav-button"
             onClick={goToNextStep}
             disabled={currentStep === totalSteps - 1}
@@ -119,6 +123,7 @@ const CookingGuide: React.FC = () => {
             <div className="steps-list">
               {instructions.map((instruction, index) => (
                 <button
+                  type="button"
                   key={index}
                   className={`step-item ${index === currentStep ? 'active' : ''} ${completedSteps.has(index) ? 'completed' : ''}`}
                   onClick={() => setCurrentStep(index)}
@@ -142,6 +147,7 @@ const CookingGuide: React.FC = () => {
           <h3>🎉 All Steps Completed!</h3>
           <p>Great job! Your {recipe.title} is ready.</p>
           <button
+            type="button"
             className="finish-button"
             onClick={handleComplete}
           >

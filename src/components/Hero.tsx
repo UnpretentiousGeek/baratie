@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import ChatInput from './ChatInput';
@@ -7,6 +7,14 @@ import './Hero.css';
 
 const Hero: React.FC = () => {
   const { currentStage, recipe, setStage } = useRecipe();
+
+  // Handle case where stage is 'cooking' but recipe is null
+  useEffect(() => {
+    if (currentStage === 'cooking' && !recipe) {
+      console.warn('Stage is cooking but recipe is null, resetting to capture');
+      setStage('capture');
+    }
+  }, [currentStage, recipe, setStage]);
 
   // Show completion screen when stage is 'complete'
   if (currentStage === 'complete' && recipe) {
@@ -25,6 +33,7 @@ const Hero: React.FC = () => {
           <p className="hero-subtitle">Your {recipe.title} is ready to enjoy!</p>
           <div className="completion-actions">
             <motion.button
+              type="button"
               className="start-cooking-btn"
               onClick={() => setStage('preview')}
               whileHover={{ scale: 1.05 }}
@@ -33,6 +42,7 @@ const Hero: React.FC = () => {
               View Recipe Again
             </motion.button>
             <motion.button
+              type="button"
               className="new-recipe-btn"
               onClick={() => {
                 setStage('capture');
@@ -90,8 +100,18 @@ const Hero: React.FC = () => {
             </div>
 
             <motion.button
+              type="button"
               className="start-cooking-btn"
-              onClick={() => setStage('cooking')}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (recipe) {
+                  console.log('Setting stage to cooking, recipe exists:', recipe.title);
+                  setStage('cooking');
+                } else {
+                  console.error('Recipe is null when trying to start cooking');
+                }
+              }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               initial={{ opacity: 0, y: 20 }}
