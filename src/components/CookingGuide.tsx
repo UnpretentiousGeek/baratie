@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
+import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import './CookingGuide.css';
 
@@ -13,7 +14,8 @@ const CookingGuide: React.FC = () => {
     return null;
   }
 
-  const instructions = recipe.instructions;
+  const instructions = normalizeInstructions(recipe.instructions);
+  const ingredients = normalizeIngredients(recipe.ingredients);
   const totalSteps = instructions.length;
 
   const toggleStepComplete = (stepIndex: number) => {
@@ -112,7 +114,7 @@ const CookingGuide: React.FC = () => {
           <div className="ingredients-panel">
             <h3>Ingredients</h3>
             <ul>
-              {recipe.ingredients.map((ingredient, index) => (
+              {ingredients.map((ingredient, index) => (
                 <li key={index}>{ingredient}</li>
               ))}
             </ul>

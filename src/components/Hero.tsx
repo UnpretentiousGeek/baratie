@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
+import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import ChatInput from './ChatInput';
 import CookingGuide from './CookingGuide';
 import './Hero.css';
@@ -84,7 +85,7 @@ const Hero: React.FC = () => {
             <div className="recipe-section">
               <h3>Ingredients</h3>
               <ul>
-                {recipe.ingredients.map((ingredient, index) => (
+                {normalizeIngredients(recipe.ingredients).map((ingredient, index) => (
                   <li key={index}>{ingredient}</li>
                 ))}
               </ul>
@@ -93,7 +94,7 @@ const Hero: React.FC = () => {
             <div className="recipe-section">
               <h3>Instructions</h3>
               <ol>
-                {recipe.instructions.map((instruction, index) => (
+                {normalizeInstructions(recipe.instructions).map((instruction, index) => (
                   <li key={index}>{instruction}</li>
                 ))}
               </ol>

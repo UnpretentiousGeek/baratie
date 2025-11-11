@@ -6,10 +6,15 @@ export interface AttachedFile {
   preview?: string;
 }
 
+export interface RecipeSection {
+  title?: string; // e.g., "For the Chicken Rice", "To Make the Omelettes"
+  items: string[];
+}
+
 export interface Recipe {
   title: string;
-  ingredients: string[];
-  instructions: string[];
+  ingredients: string[] | RecipeSection[]; // Support both flat array and sections
+  instructions: string[] | RecipeSection[]; // Support both flat array and sections
   servings?: number;
   prepTime?: string;
   cookTime?: string;
