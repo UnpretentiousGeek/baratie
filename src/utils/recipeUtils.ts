@@ -1,4 +1,4 @@
-import { Recipe, RecipeSection } from '../types';
+import { RecipeSection } from '../types';
 
 /**
  * Normalizes recipe ingredients to always return a flat array
