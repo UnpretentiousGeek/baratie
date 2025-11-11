@@ -2,10 +2,57 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import ChatInput from './ChatInput';
+import CookingGuide from './CookingGuide';
 import './Hero.css';
 
 const Hero: React.FC = () => {
   const { currentStage, recipe, setStage } = useRecipe();
+
+  // Show completion screen when stage is 'complete'
+  if (currentStage === 'complete' && recipe) {
+    return (
+      <div className="hero-section">
+        <div className="hero-content">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', duration: 0.5 }}
+            className="completion-icon"
+          >
+            🎉
+          </motion.div>
+          <h2 className="hero-title">Recipe Complete!</h2>
+          <p className="hero-subtitle">Your {recipe.title} is ready to enjoy!</p>
+          <div className="completion-actions">
+            <motion.button
+              className="start-cooking-btn"
+              onClick={() => setStage('preview')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              View Recipe Again
+            </motion.button>
+            <motion.button
+              className="new-recipe-btn"
+              onClick={() => {
+                setStage('capture');
+                // Optionally clear the recipe here
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Start New Recipe
+            </motion.button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show cooking guide when stage is 'cooking'
+  if (currentStage === 'cooking' && recipe) {
+    return <CookingGuide />;
+  }
 
   // Show recipe preview when stage is 'preview'
   if (currentStage === 'preview' && recipe) {

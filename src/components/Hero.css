@@ -124,3 +124,46 @@
     }
 }
 
+.completion-icon {
+    font-size: 80px;
+    margin-bottom: 24px;
+}
+
+.completion-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.new-recipe-btn {
+    padding: 16px 48px;
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: white;
+    border: 2px solid rgba(45, 41, 37, 0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.new-recipe-btn:hover {
+    border-color: rgba(45, 41, 37, 0.4);
+    background: rgba(45, 41, 37, 0.05);
+}
+
+@media (max-width: 768px) {
+    .completion-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .new-recipe-btn,
+    .start-cooking-btn {
+        width: 100%;
+    }
+}
+
