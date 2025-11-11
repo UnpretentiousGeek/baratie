@@ -133,26 +133,67 @@ export default async function handler(req, res) {
     let finalPrompt = prompt || '';
     if (url) {
       try {
-        console.log('Fetching content from URL:', url);
-        const urlResponse = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        // Check if it's a YouTube URL
+        const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const youtubeMatch = url.match(youtubeRegex);
+        
+        if (youtubeMatch) {
+          // It's a YouTube URL - use YouTube API instead
+          const videoId = youtubeMatch[1];
+          console.log('Detected YouTube video ID:', videoId);
+          
+          const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+          if (!youtubeApiKey) {
+            return res.status(400).json({ 
+              error: 'YouTube API key not configured. Cannot extract recipe from YouTube videos.' 
+            });
           }
-        });
-        
-        if (!urlResponse.ok) {
-          throw new Error(`Failed to fetch URL: ${urlResponse.status}`);
+          
+          // Fetch video metadata from YouTube API
+          const youtubeApiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${youtubeApiKey}&part=snippet,contentDetails`;
+          const youtubeResponse = await fetch(youtubeApiUrl);
+          
+          if (!youtubeResponse.ok) {
+            throw new Error(`YouTube API error: ${youtubeResponse.status}`);
+          }
+          
+          const youtubeData = await youtubeResponse.json();
+          
+          if (!youtubeData.items || youtubeData.items.length === 0) {
+            throw new Error('Video not found');
+          }
+          
+          const video = youtubeData.items[0];
+          const videoTitle = video.snippet.title;
+          const videoDescription = video.snippet.description;
+          
+          // Combine video info with prompt
+          finalPrompt = `Extract the recipe from this YouTube video:\n\nTitle: ${videoTitle}\n\nDescription:\n${videoDescription}\n\n${prompt || 'Please extract the recipe including title, ingredients, and instructions in a structured format. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+          
+          console.log('Extracted YouTube video info - Title:', videoTitle);
+        } else {
+          // Regular URL - fetch and scrape HTML
+          console.log('Fetching content from URL:', url);
+          const urlResponse = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          });
+          
+          if (!urlResponse.ok) {
+            throw new Error(`Failed to fetch URL: ${urlResponse.status}`);
+          }
+          
+          const html = await urlResponse.text();
+          
+          // Extract main content from HTML
+          const content = extractRecipeContent(html);
+          
+          // Combine URL content with prompt
+          finalPrompt = `Extract the recipe from this webpage content:\n\n${content}\n\n${prompt || 'Please extract the recipe including title, ingredients, and instructions in a structured format.'}`;
+          
+          console.log('Extracted content length:', content.length);
         }
-        
-        const html = await urlResponse.text();
-        
-        // Extract main content from HTML
-        const content = extractRecipeContent(html);
-        
-        // Combine URL content with prompt
-        finalPrompt = `Extract the recipe from this webpage content:\n\n${content}\n\n${prompt || 'Please extract the recipe including title, ingredients, and instructions in a structured format.'}`;
-        
-        console.log('Extracted content length:', content.length);
       } catch (urlError) {
         console.error('Error fetching URL:', urlError);
         return res.status(400).json({ 
