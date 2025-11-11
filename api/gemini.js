@@ -4,59 +4,98 @@
 
 // Helper function to extract recipe content from HTML
 function extractRecipeContent(html) {
-  // Remove script and style tags
-  let content = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-  content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  // Remove script and style tags first
+  let cleanHtml = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  cleanHtml = cleanHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   
-  // Try to find recipe-specific content areas
+  // Try to find recipe-specific content areas with more comprehensive selectors
   const recipeSelectors = [
+    // Try JSON-LD first (most reliable)
+    /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i,
+    // Common recipe site patterns
     /<article[^>]*>([\s\S]*?)<\/article>/i,
     /<div[^>]*class="[^"]*recipe[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*id="[^"]*recipe[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
     /<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
     /<div[^>]*class="[^"]*post-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
     /<div[^>]*class="[^"]*article-body[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*class="[^"]*post-body[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
     /<main[^>]*>([\s\S]*?)<\/main>/i,
+    /<section[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/section>/i,
   ];
   
   let extractedContent = '';
+  let bestMatch = null;
+  let bestLength = 0;
+  
+  // Try all selectors and pick the one with the most content (likely the main content area)
   for (const selector of recipeSelectors) {
-    const match = html.match(selector);
-    if (match && match[1]) {
-      extractedContent = match[1];
-      break;
+    const matches = cleanHtml.matchAll(new RegExp(selector.source, 'gi'));
+    for (const match of matches) {
+      if (match && match[1]) {
+        const content = match[1];
+        // Prefer longer content (more likely to be the main article)
+        if (content.length > bestLength) {
+          bestLength = content.length;
+          bestMatch = content;
+        }
+      }
     }
   }
   
-  // If no specific recipe area found, use body content
-  if (!extractedContent) {
-    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bestMatch) {
+    extractedContent = bestMatch;
+  } else {
+    // If no specific recipe area found, use body content
+    const bodyMatch = cleanHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     if (bodyMatch) {
       extractedContent = bodyMatch[1];
     } else {
-      extractedContent = html;
+      extractedContent = cleanHtml;
     }
   }
   
-  // Remove HTML tags but preserve structure
+  // Remove common non-recipe elements that might interfere
+  extractedContent = extractedContent.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
+  extractedContent = extractedContent.replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '');
+  extractedContent = extractedContent.replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+  extractedContent = extractedContent.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '');
+  extractedContent = extractedContent.replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '');
+  
+  // Remove HTML tags but preserve structure - be more careful with instruction content
   let text = extractedContent
-    .replace(/<h[1-6][^>]*>/gi, '\n### ')
-    .replace(/<\/h[1-6]>/gi, '\n')
-    .replace(/<p[^>]*>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '\n- ')
-    .replace(/<\/li>/gi, '')
-    .replace(/<ul[^>]*>/gi, '\n')
-    .replace(/<\/ul>/gi, '\n')
+    // Preserve numbered lists and steps
     .replace(/<ol[^>]*>/gi, '\n')
     .replace(/<\/ol>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    // Preserve headings
+    .replace(/<h[1-6][^>]*>/gi, '\n### ')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    // Preserve paragraphs
+    .replace(/<p[^>]*>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    // Preserve divs and spans (might contain important text)
+    .replace(/<div[^>]*>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<span[^>]*>/gi, ' ')
+    .replace(/<\/span>/gi, ' ')
+    // Preserve line breaks
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '') // Remove all remaining HTML tags
+    // Remove other HTML tags
+    .replace(/<[^>]+>/g, ' ')
+    // Decode HTML entities
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '...');
   
   // Clean up whitespace
   text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
@@ -64,8 +103,11 @@ function extractRecipeContent(html) {
   text = text.trim();
   
   // Try to extract JSON-LD structured data if available
-  const jsonLdMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
-  if (jsonLdMatch) {
+  // But don't use it if it doesn't have complete instructions
+  const jsonLdMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+  let jsonLdRecipeText = '';
+  
+  for (const jsonLdMatch of jsonLdMatches) {
     try {
       const jsonLd = JSON.parse(jsonLdMatch[1]);
       const items = Array.isArray(jsonLd) ? jsonLd : (jsonLd['@graph'] || [jsonLd]);
@@ -73,6 +115,7 @@ function extractRecipeContent(html) {
       for (const item of items) {
         if (item['@type'] === 'Recipe' || item['@type'] === 'https://schema.org/Recipe') {
           let recipeText = `RECIPE: ${item.name || ''}\n\n`;
+          let hasInstructions = false;
           
           if (item.recipeIngredient) {
             recipeText += 'INGREDIENTS:\n';
@@ -83,21 +126,39 @@ function extractRecipeContent(html) {
             recipeText += 'INSTRUCTIONS:\n';
             if (Array.isArray(item.recipeInstructions)) {
               item.recipeInstructions.forEach((step, i) => {
-                const stepText = typeof step === 'string' ? step : (step.text || step.name || '');
-                recipeText += `${i + 1}. ${stepText}\n`;
+                let stepText = '';
+                if (typeof step === 'string') {
+                  stepText = step;
+                } else if (step['@type'] === 'HowToStep' || step.text) {
+                  stepText = step.text || step.name || '';
+                } else {
+                  stepText = step.name || '';
+                }
+                if (stepText && stepText.length > 10) {
+                  recipeText += `${i + 1}. ${stepText}\n`;
+                  hasInstructions = true;
+                }
               });
             }
           }
           
-          // Prefer structured data over scraped text
-          if (recipeText.length > 50) {
-            return recipeText;
+          // Only use JSON-LD if it has substantial instructions (at least 3 steps or detailed content)
+          if (hasInstructions && recipeText.length > 200) {
+            jsonLdRecipeText = recipeText;
+            break; // Use first good recipe found
           }
         }
       }
     } catch (e) {
       // If JSON-LD parsing fails, continue with scraped text
+      console.log('JSON-LD parse error:', e.message);
     }
+  }
+  
+  // If we have good JSON-LD data, combine it with scraped text for completeness
+  if (jsonLdRecipeText) {
+    // Combine JSON-LD with scraped text to ensure we have everything
+    return `${jsonLdRecipeText}\n\n--- Additional content from page ---\n${text}`;
   }
   
   // Limit content length (Gemini has token limits)
@@ -245,10 +306,18 @@ export default async function handler(req, res) {
           // Extract main content from HTML
           const content = extractRecipeContent(html);
           
-          // Combine URL content with prompt
-          finalPrompt = `Extract the recipe from this webpage content:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array.'}`;
-          
+          // Log content preview for debugging
+          const contentPreview = content.substring(0, 500);
+          console.log('Extracted content preview:', contentPreview);
           console.log('Extracted content length:', content.length);
+          
+          // If content seems too short, warn
+          if (content.length < 500) {
+            console.warn('Warning: Extracted content seems very short. The page might require JavaScript to load content.');
+          }
+          
+          // Combine URL content with prompt
+          finalPrompt = `Extract the recipe from this webpage content. The content below contains the full recipe text from the webpage:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. IMPORTANT: The content above contains the full recipe - extract all numbered steps with their complete descriptions.'}`;
         }
       } catch (urlError) {
         console.error('Error fetching URL:', urlError);
