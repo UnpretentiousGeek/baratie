@@ -167,10 +167,66 @@ export default async function handler(req, res) {
           const videoTitle = video.snippet.title;
           const videoDescription = video.snippet.description;
           
-          // Combine video info with prompt
-          finalPrompt = `Extract the recipe from this YouTube video:\n\nTitle: ${videoTitle}\n\nDescription:\n${videoDescription}\n\n${prompt || 'Please extract the recipe including title, ingredients, and instructions in a structured format. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+          // Check if description contains recipe links
+          const urlPattern = /(https?:\/\/[^\s\)]+)/g;
+          const urls = videoDescription.match(urlPattern) || [];
           
-          console.log('Extracted YouTube video info - Title:', videoTitle);
+          let recipeContent = '';
+          let recipeLinks = [];
+          
+          // Filter for recipe-related URLs (common recipe site patterns)
+          const recipeSitePatterns = [
+            /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|cookieandkate|smittenkitchen|pinchofyum|halfbakedharvest|damndelicious|gimmesomeoven|recipegirl|twopeasandtheirpod|reciperunner|chefsteps|serious|recipe|food|kitchen|cookbook|cuisine|dish|meal/i
+          ];
+          
+          for (const url of urls) {
+            const cleanUrl = url.replace(/[.,;!?]+$/, ''); // Remove trailing punctuation
+            if (recipeSitePatterns.some(pattern => pattern.test(cleanUrl))) {
+              recipeLinks.push(cleanUrl);
+            }
+          }
+          
+          // Fetch recipe content from linked websites
+          if (recipeLinks.length > 0) {
+            console.log('Found recipe links in description:', recipeLinks);
+            
+            for (const recipeUrl of recipeLinks.slice(0, 3)) { // Limit to first 3 links
+              try {
+                console.log('Fetching recipe from link:', recipeUrl);
+                const linkResponse = await fetch(recipeUrl, {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                  }
+                });
+                
+                if (linkResponse.ok) {
+                  const html = await linkResponse.text();
+                  const content = extractRecipeContent(html);
+                  
+                  if (content && content.length > 100) {
+                    recipeContent += `\n\n--- Recipe from ${recipeUrl} ---\n${content}`;
+                    console.log('Successfully extracted recipe content from link');
+                    break; // Use first successful extraction
+                  }
+                }
+              } catch (linkError) {
+                console.error('Error fetching recipe link:', linkError);
+                // Continue to next link or description
+              }
+            }
+          }
+          
+          // Combine video info with recipe content and prompt
+          let combinedContent = `YouTube Video:\nTitle: ${videoTitle}\n\nDescription:\n${videoDescription}`;
+          
+          if (recipeContent) {
+            combinedContent += `\n\n${recipeContent}`;
+            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Please extract the complete recipe including title, ingredients, and instructions in a structured format.'}`;
+          } else {
+            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Please extract the recipe including title, ingredients, and instructions in a structured format. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+          }
+          
+          console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
         } else {
           // Regular URL - fetch and scrape HTML
           console.log('Fetching content from URL:', url);
