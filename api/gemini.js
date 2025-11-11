@@ -221,9 +221,9 @@ export default async function handler(req, res) {
           
           if (recipeContent) {
             combinedContent += `\n\n${recipeContent}`;
-            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. IMPORTANT: For instructions, extract ALL numbered steps from ALL sections (e.g., "To Make the Chicken Rice", "To Make the Omelettes", etc.). Include the FULL step-by-step instructions for each section, not just the section headings. Each instruction should be a complete sentence or paragraph describing what to do. If there are multiple instruction sections, combine all steps into a single sequential array. Format as: ["Step 1 description", "Step 2 description", ...]. For ingredients, if there are multiple sections, combine all ingredients into a single array.'}`;
+            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array.'}`;
           } else {
-            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. IMPORTANT: For instructions, extract ALL numbered steps from ALL sections. Include the FULL step-by-step instructions for each section, not just the section headings. Each instruction should be a complete sentence or paragraph describing what to do. If there are multiple instruction sections, combine all steps into a single sequential array. Format as: ["Step 1 description", "Step 2 description", ...]. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
           }
           
           console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
@@ -246,7 +246,7 @@ export default async function handler(req, res) {
           const content = extractRecipeContent(html);
           
           // Combine URL content with prompt
-          finalPrompt = `Extract the recipe from this webpage content:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. IMPORTANT: For instructions, extract ALL numbered steps from ALL sections (e.g., "To Make the Chicken Rice", "To Make the Omelettes", etc.). Include the FULL step-by-step instructions for each section, not just the section headings. Each instruction should be a complete sentence or paragraph describing what to do. If there are multiple instruction sections, combine all steps into a single sequential array. Format as: ["Step 1 description", "Step 2 description", ...]. For ingredients, combine all ingredients from all sections into a single array.'}`;
+          finalPrompt = `Extract the recipe from this webpage content:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array.'}`;
           
           console.log('Extracted content length:', content.length);
         }
@@ -404,7 +404,20 @@ export default async function handler(req, res) {
             recipe.ingredients = parsed.ingredients;
           }
           if (parsed.instructions && Array.isArray(parsed.instructions)) {
-            recipe.instructions = parsed.instructions;
+            // Filter out section headings from JSON response
+            recipe.instructions = parsed.instructions.filter(instruction => {
+              if (typeof instruction !== 'string') return false;
+              const lower = instruction.toLowerCase().trim();
+              // Filter out section headings
+              if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && instruction.length < 50) {
+                return false; // Likely a section heading
+              }
+              // Filter out very short lines that look like headings
+              if (instruction.length < 20 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(instruction)) {
+                return false; // Looks like a title/heading
+              }
+              return true;
+            });
           }
           // If we successfully parsed JSON, return early
           if (recipe.instructions.length > 0 || recipe.ingredients.length > 0) {
@@ -481,15 +494,45 @@ export default async function handler(req, res) {
           instructions.push(currentStep.trim());
         }
         
+        // Filter out section headings (common patterns like "To Make...", "To Serve", "To Store")
+        const filteredInstructions = instructions.filter(instruction => {
+          const lower = instruction.toLowerCase().trim();
+          // Filter out section headings
+          if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && instruction.length < 50) {
+            return false; // Likely a section heading, not an instruction
+          }
+          // Filter out very short lines that look like headings
+          if (instruction.length < 20 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(instruction)) {
+            return false; // Looks like a title/heading
+          }
+          return true;
+        });
+        
         // If we found numbered steps, use them; otherwise fall back to simple parsing
-        if (instructions.length > 0) {
+        if (filteredInstructions.length > 0) {
+          recipe.instructions = filteredInstructions;
+        } else if (instructions.length > 0) {
+          // Use original if filtering removed everything (shouldn't happen, but safety check)
           recipe.instructions = instructions;
         } else {
-          // Fallback: simple line-by-line parsing
+          // Fallback: simple line-by-line parsing with filtering
           recipe.instructions = instructionLines
-            .filter(line => line.trim())
+            .filter(line => {
+              const trimmed = line.trim();
+              if (!trimmed) return false;
+              // Filter out section headings
+              const lower = trimmed.toLowerCase();
+              if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && trimmed.length < 50) {
+                return false;
+              }
+              // Filter out metadata lines
+              if (/^(ingredients?|instructions?|directions?|steps?|title|recipe):/i.test(trimmed)) {
+                return false;
+              }
+              return true;
+            })
             .map(line => line.replace(/^\d+[.)]\s*/, '').trim())
-            .filter(line => line.length > 0 && !/^(ingredients?|instructions?|directions?|steps?|title|recipe):/i.test(line));
+            .filter(line => line.length > 0);
         }
       }
     }
