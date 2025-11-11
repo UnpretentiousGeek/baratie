@@ -41,6 +41,69 @@
     margin: 0;
 }
 
+.start-cooking-btn {
+    margin-top: 32px;
+    padding: 16px 48px;
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(135deg, #E6725F 0%, #FCC0B9 100%);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(230, 114, 95, 0.3);
+    transition: all 0.3s ease;
+}
+
+.start-cooking-btn:hover {
+    box-shadow: 0 6px 20px rgba(230, 114, 95, 0.4);
+    transform: translateY(-2px);
+}
+
+.start-cooking-btn:active {
+    transform: translateY(0);
+}
+
+.recipe-preview {
+    width: 100%;
+    max-width: 800px;
+    text-align: left;
+}
+
+.recipe-meta {
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+    color: var(--text-primary);
+    margin: 8px 0;
+    opacity: 0.8;
+}
+
+.recipe-section {
+    margin: 24px 0;
+}
+
+.recipe-section h3 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+
+.recipe-section ul,
+.recipe-section ol {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+    color: var(--text-primary);
+    padding-left: 24px;
+}
+
+.recipe-section li {
+    margin: 8px 0;
+}
+
 @media (max-width: 768px) {
     .hero-title {
         font-size: 32px;
@@ -49,6 +112,15 @@
     .hero-section {
         min-height: auto;
         padding: var(--spacing-5) var(--spacing-3) var(--spacing-13) var(--spacing-3);
+    }
+
+    .start-cooking-btn {
+        padding: 14px 36px;
+        font-size: 16px;
+    }
+
+    .recipe-preview {
+        padding: 0 16px;
     }
 }
 

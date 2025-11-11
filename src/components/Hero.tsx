@@ -1,10 +1,11 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import ChatInput from './ChatInput';
 import './Hero.css';
 
 const Hero: React.FC = () => {
-  const { currentStage, recipe } = useRecipe();
+  const { currentStage, recipe, setStage } = useRecipe();
 
   // Show recipe preview when stage is 'preview'
   if (currentStage === 'preview' && recipe) {
@@ -40,6 +41,18 @@ const Hero: React.FC = () => {
                 ))}
               </ol>
             </div>
+
+            <motion.button
+              className="start-cooking-btn"
+              onClick={() => setStage('cooking')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              Start Cooking
+            </motion.button>
           </div>
         </div>
       </div>
