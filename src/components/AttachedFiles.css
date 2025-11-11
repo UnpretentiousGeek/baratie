@@ -165,7 +165,6 @@
     object-fit: cover;
     object-position: center;
     flex-shrink: 0;
-    pointer-events: none;
 }
 
 .attached-file-item-list .file-name {

@@ -138,7 +138,65 @@ export default async function handler(req, res) {
 
     // Parse and return Gemini response
     const data = await geminiResponse.json();
-    return res.status(200).json(data);
+    
+    // Extract recipe from Gemini response
+    // Gemini returns: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
+    let recipeText = '';
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      const parts = data.candidates[0].content.parts || [];
+      recipeText = parts.map(part => part.text || '').join('\n');
+    }
+    
+    // Parse the recipe text into structured format
+    // For now, return a basic structure - this should be enhanced with proper parsing
+    const recipe = {
+      title: 'Extracted Recipe',
+      ingredients: [],
+      instructions: [],
+      ...(recipeText ? { rawText: recipeText } : {})
+    };
+    
+    // Try to parse the recipe text (basic implementation)
+    if (recipeText) {
+      const lines = recipeText.split('\n').filter(line => line.trim());
+      
+      // Look for title (usually first line or after "Recipe:" or "Title:")
+      const titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i) || 
+                        recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
+      if (titleMatch) {
+        recipe.title = titleMatch[1].trim();
+      }
+      
+      // Look for ingredients section
+      const ingredientsStart = lines.findIndex(line => 
+        /ingredients?/i.test(line)
+      );
+      if (ingredientsStart !== -1) {
+        const instructionsStart = lines.findIndex((line, idx) => 
+          idx > ingredientsStart && /instructions?|directions?|steps?/i.test(line)
+        );
+        const ingredientsEnd = instructionsStart !== -1 ? instructionsStart : lines.length;
+        recipe.ingredients = lines
+          .slice(ingredientsStart + 1, ingredientsEnd)
+          .filter(line => line.trim() && !/instructions?|directions?|steps?/i.test(line))
+          .map(line => line.replace(/^[-•*]\s*/, '').trim())
+          .filter(line => line.length > 0);
+      }
+      
+      // Look for instructions section
+      const instructionsStart = lines.findIndex(line => 
+        /instructions?|directions?|steps?/i.test(line)
+      );
+      if (instructionsStart !== -1) {
+        recipe.instructions = lines
+          .slice(instructionsStart + 1)
+          .filter(line => line.trim())
+          .map(line => line.replace(/^\d+[.)]\s*/, '').trim())
+          .filter(line => line.length > 0);
+      }
+    }
+    
+    return res.status(200).json({ recipe });
 
   } catch (error) {
     console.error('Serverless function error:', error);

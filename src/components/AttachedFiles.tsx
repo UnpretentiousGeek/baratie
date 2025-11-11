@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import { PdfIcon, XIcon } from './icons';
+import ImageOverlay from './ImageOverlay';
 import './AttachedFiles.css';
 
 const AttachedFiles: React.FC = () => {
   const { attachedFiles, removeFile } = useRecipe();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [overlayImageIndex, setOverlayImageIndex] = useState(0);
 
   useEffect(() => {
     if (attachedFiles.length === 0) {
@@ -15,8 +18,18 @@ const AttachedFiles: React.FC = () => {
     }
   }, [attachedFiles.length]);
 
+  // All files for the overlay (images and PDFs)
+  const allFiles = attachedFiles;
+
   const handleToggleEditMode = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.attached-file-close')) {
+      return;
+    }
+    // Don't toggle if clicking on a file item in edit mode
+    if (
+      isEditMode &&
+      (e.target as HTMLElement).closest('.attached-file-item-list')
+    ) {
       return;
     }
 
@@ -25,6 +38,13 @@ const AttachedFiles: React.FC = () => {
     } else {
       setIsEditMode(false);
     }
+  };
+
+  const handleFileClick = (fileIndex: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOverlayImageIndex(fileIndex);
+    setIsOverlayOpen(true);
   };
 
   if (attachedFiles.length === 0) {
@@ -64,6 +84,7 @@ const AttachedFiles: React.FC = () => {
                 file={file}
                 index={index}
                 onRemove={removeFile}
+                onImageClick={(e) => handleFileClick(index, e)}
               />
             ))}
           </motion.div>
@@ -94,6 +115,14 @@ const AttachedFiles: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* File Overlay */}
+      <ImageOverlay
+        files={allFiles}
+        currentIndex={overlayImageIndex}
+        isOpen={isOverlayOpen}
+        onClose={() => setIsOverlayOpen(false)}
+      />
     </motion.div>
   );
 };
@@ -199,9 +228,10 @@ interface AttachedFileListItemProps {
   file: { name: string; type: string; preview?: string };
   index: number;
   onRemove: (index: number) => void;
+  onImageClick?: (e: React.MouseEvent) => void;
 }
 
-const AttachedFileListItem: React.FC<AttachedFileListItemProps> = ({ file, index, onRemove }) => {
+const AttachedFileListItem: React.FC<AttachedFileListItemProps> = ({ file, index, onRemove, onImageClick }) => {
   const isImage = file.type?.startsWith('image/');
 
   return (
@@ -224,16 +254,39 @@ const AttachedFileListItem: React.FC<AttachedFileListItemProps> = ({ file, index
       }}
       layout
       layoutId={`file-attachment-${index}`}
+      onClick={(e) => {
+        if (onImageClick) {
+          e.stopPropagation();
+          e.preventDefault();
+          onImageClick(e);
+        }
+      }}
     >
       {isImage ? (
         <>
-          <img src={file.preview} alt={file.name} className="file-thumbnail" />
+          <img 
+            src={file.preview} 
+            alt={file.name} 
+            className="file-thumbnail"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onImageClick?.(e);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
           <motion.p 
             className="file-name"
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: 'auto' }}
             exit={{ opacity: 0, width: 0 }}
             transition={{ delay: 0.2, duration: 0.3 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onImageClick?.(e);
+            }}
+            style={{ cursor: 'pointer' }}
           >
             {file.name}
           </motion.p>

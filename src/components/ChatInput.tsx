@@ -34,6 +34,7 @@ const ChatInput: React.FC = () => {
       setInputValue('');
     } catch (error) {
       console.error('Error extracting recipe:', error);
+      alert('Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.');
     } finally {
       setIsLoading(false);
     }
