@@ -15,6 +15,7 @@
   justify-content: flex-start;
   align-items: flex-start;
   flex-direction: column;
+  text-align: left;
 }
 
 .message-bubble {
@@ -58,6 +59,8 @@
   flex-direction: column;
   gap: 16px;
   border-top-left-radius: 4px;
+  text-align: left;
+  align-items: flex-start;
 }
 
 .recipe-preview-title {
@@ -99,6 +102,7 @@
   line-height: 1.5;
   color: #000000;
   margin: 0;
+  text-align: left;
 }
 
 .recipe-preview-button {
