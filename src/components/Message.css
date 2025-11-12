@@ -1,0 +1,131 @@
+.message-container {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.message-user {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.message-system,
+.message-recipe {
+  justify-content: flex-start;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.message-bubble {
+  padding: 12px;
+  border-radius: 12px;
+  max-width: 522px;
+}
+
+.message-bubble-user {
+  background: #f5f3f2;
+  border-radius: 12px;
+}
+
+.message-bubble-system {
+  background: #fef5f4;
+  border-radius: 12px;
+}
+
+.message-text {
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #2d2925;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Recipe Preview Card */
+.message-recipe {
+  gap: 8px;
+}
+
+.recipe-preview-card {
+  background: linear-gradient(135deg, rgba(254, 245, 244, 1) 0%, rgba(252, 192, 185, 0.35) 100%);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 522px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-top-left-radius: 4px;
+}
+
+.recipe-preview-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #000000;
+  margin: 0;
+  width: 100%;
+}
+
+.recipe-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.recipe-preview-section-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #000000;
+  margin: 0;
+}
+
+.recipe-preview-ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.recipe-preview-ingredient {
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #000000;
+  margin: 0;
+}
+
+.recipe-preview-button {
+  background: #f08b7d;
+  border: none;
+  border-radius: 4px;
+  height: 40px;
+  padding: 8px 16px;
+  width: 100%;
+  cursor: pointer;
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #ffffff;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recipe-preview-button:hover {
+  background: #e6725f;
+  transform: translateY(-1px);
+}
+
+.recipe-preview-button:active {
+  transform: translateY(0);
+}
+

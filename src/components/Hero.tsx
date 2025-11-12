@@ -1,13 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import ChatInput from './ChatInput';
 import CookingGuide from './CookingGuide';
+import Message from './Message';
 import './Hero.css';
 
 const Hero: React.FC = () => {
-  const { currentStage, recipe, setStage } = useRecipe();
+  const { currentStage, recipe, setStage, messages } = useRecipe();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Handle case where stage is 'cooking' but recipe is null
   useEffect(() => {
@@ -65,63 +72,18 @@ const Hero: React.FC = () => {
     return <CookingGuide />;
   }
 
-  // Show recipe preview when stage is 'preview'
-  if (currentStage === 'preview' && recipe) {
+  // Show recipe preview when stage is 'preview' - now with chat messages
+  if (currentStage === 'preview') {
     return (
       <div className="hero-section">
-        <div className="hero-content">
-          <h2 className="hero-title">{recipe.title}</h2>
-          <div className="recipe-preview">
-            {recipe.servings && (
-              <p className="recipe-meta">Servings: {recipe.servings}</p>
-            )}
-            {recipe.prepTime && (
-              <p className="recipe-meta">Prep Time: {recipe.prepTime}</p>
-            )}
-            {recipe.cookTime && (
-              <p className="recipe-meta">Cook Time: {recipe.cookTime}</p>
-            )}
-            
-            <div className="recipe-section">
-              <h3>Ingredients</h3>
-              <ul>
-                {normalizeIngredients(recipe.ingredients).map((ingredient, index) => (
-                  <li key={index}>{ingredient}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="recipe-section">
-              <h3>Instructions</h3>
-              <ol>
-                {normalizeInstructions(recipe.instructions).map((instruction, index) => (
-                  <li key={index}>{instruction}</li>
-                ))}
-              </ol>
-            </div>
-
-            <motion.button
-              type="button"
-              className="start-cooking-btn"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (recipe) {
-                  console.log('Setting stage to cooking, recipe exists:', recipe.title);
-                  setStage('cooking');
-                } else {
-                  console.error('Recipe is null when trying to start cooking');
-                }
-              }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              Start Cooking
-            </motion.button>
+        <div className="hero-content chat-container">
+          <div className="chat-messages">
+            {messages.map((message) => (
+              <Message key={message.id} message={message} />
+            ))}
+            <div ref={messagesEndRef} />
           </div>
+          <ChatInput />
         </div>
       </div>
     );

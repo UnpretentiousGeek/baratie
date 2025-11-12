@@ -31,15 +31,29 @@ export interface NutritionInfo {
 
 export type Stage = 'capture' | 'preview' | 'cooking' | 'complete';
 
+export type MessageType = 'user' | 'system' | 'recipe-preview';
+
+export interface ChatMessage {
+  id: string;
+  type: MessageType;
+  text?: string;
+  recipe?: Recipe | null;
+  attachedFiles?: AttachedFile[];
+  timestamp: Date;
+}
+
 export interface RecipeContextType {
   attachedFiles: AttachedFile[];
   recipe: Recipe | null;
   currentStage: Stage;
+  messages: ChatMessage[];
   addFiles: (files: File[]) => Promise<void>;
   removeFile: (index: number) => void;
   clearFiles: () => void;
   extractRecipe: (prompt: string) => Promise<void>;
   setStage: (stage: Stage) => void;
   setRecipe: (recipe: Recipe | null) => void;
+  addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
+  clearMessages: () => void;
 }
 
