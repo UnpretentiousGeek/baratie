@@ -504,6 +504,9 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       const parts = data.candidates[0].content.parts || [];
       recipeText = parts.map(part => part.text || '').join('\n');
+      console.log('=== GEMINI RESPONSE ===');
+      console.log('Response length:', recipeText.length);
+      console.log('First 1000 chars:', recipeText.substring(0, 1000));
     }
     
     // If this is a question request, return the answer directly
@@ -585,20 +588,28 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             });
           }
           if (parsed.instructions && Array.isArray(parsed.instructions)) {
+            console.log('Raw instructions from Gemini:', parsed.instructions.length, 'items');
+            console.log('First 3 instructions:', parsed.instructions.slice(0, 3));
+
             // Filter out section headings from JSON response
             recipe.instructions = parsed.instructions.filter(instruction => {
               if (typeof instruction !== 'string') return false;
               const lower = instruction.toLowerCase().trim();
               // Filter out section headings
               if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && instruction.length < 50) {
+                console.log('Filtered out section heading:', instruction);
                 return false; // Likely a section heading
               }
               // Filter out very short lines that look like headings
               if (instruction.length < 20 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(instruction)) {
+                console.log('Filtered out short heading:', instruction);
                 return false; // Looks like a title/heading
               }
               return true;
             });
+
+            console.log('Filtered instructions count:', recipe.instructions.length);
+            console.log('First 3 filtered:', recipe.instructions.slice(0, 3));
           }
           // Include changesDescription if present (for modifications)
           if (parsed.changesDescription) {
@@ -775,7 +786,13 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
         }
       }
     }
-    
+
+    console.log('=== FINAL RECIPE ===');
+    console.log('Title:', recipe.title);
+    console.log('Ingredients count:', recipe.ingredients.length);
+    console.log('Instructions count:', recipe.instructions.length);
+    console.log('First 3 instructions:', recipe.instructions.slice(0, 3));
+
     return res.status(200).json({ recipe });
 
   } catch (error) {
