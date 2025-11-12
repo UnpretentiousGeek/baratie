@@ -181,7 +181,7 @@
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display {
     position: absolute;
     bottom: calc(100% - 10px);
-    left: 0;
+    left: -20px;
     right: auto;
     top: auto;
     width: fit-content;
@@ -193,9 +193,9 @@
     align-items: center;
     justify-content: flex-start;
     overflow: visible;
-    transition: min-width 0.3s ease;
+    transition: min-width 0.3s ease, left 0.3s ease;
     margin-bottom: -10px;
-    padding-left: 0;
+    padding-left: 20px;
     margin-left: 0;
 }
 
@@ -225,13 +225,6 @@
     position: relative;
     padding-left: 0;
     margin-left: 0;
-}
-
-/* On hover, expand fan container to accommodate spread-out files */
-.chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover .attached-files-fan-container {
-    min-width: 160px;
-    padding-left: 30px;
-    margin-left: -30px;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
