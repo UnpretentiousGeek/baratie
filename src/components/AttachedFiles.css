@@ -54,6 +54,14 @@
 .attached-file-item-fan {
     position: relative;
     transition: all 0.2s ease;
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+/* In chat mode, ensure fan items maintain square shape */
+.chat-input-wrapper.chat-input-chat-mode .attached-file-item-fan {
+    flex-shrink: 0;
+    flex-grow: 0;
 }
 
 .attached-file-item-fan.pdf {
@@ -72,10 +80,31 @@
 
 /* In chat mode, make PDF cards square like images */
 .chat-input-wrapper.chat-input-chat-mode .attached-file-item-fan.pdf {
-    width: 46px;
-    height: 46px;
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    aspect-ratio: 1;
     padding: 13px;
     gap: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Ensure image cards are also exactly square in chat mode */
+.chat-input-wrapper.chat-input-chat-mode .attached-file-item-fan.image {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    aspect-ratio: 1;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .attached-file-item-fan.pdf:hover {
