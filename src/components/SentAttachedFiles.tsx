@@ -45,7 +45,7 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
   const remainingCount = files.length - maxVisible;
   const showMore = remainingCount > 0;
 
-  const getSize = (index: number, total: number) => {
+  const getSize = (total: number) => {
     if (total === 1) return 'large';
     if (total === 2) return 'medium';
     return 'small';
@@ -67,14 +67,18 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
 
   return (
     <div className="sent-attached-files-group">
-      {visibleFiles.map((file, index) => (
-        <SentAttachedFiles
-          key={`${file.name}-${index}`}
-          file={file}
-          size={getSize(index, visibleFiles.length)}
-          className={getBorderRadius(index, visibleFiles.length)}
-        />
-      ))}
+      {visibleFiles.map((file, index) => {
+        const size = getSize(visibleFiles.length);
+        const borderRadius = getBorderRadius(index, visibleFiles.length);
+        return (
+          <SentAttachedFiles
+            key={`${file.name}-${index}`}
+            file={file}
+            size={size}
+            className={borderRadius}
+          />
+        );
+      })}
       {showMore && (
         <div className="sent-attached-file sent-file-more sent-file-small sent-file-last-of-many">
           <p className="sent-file-more-text">{remainingCount} more</p>
