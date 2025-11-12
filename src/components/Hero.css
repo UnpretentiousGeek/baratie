@@ -45,6 +45,7 @@
     max-width: 748px;
     width: 748px;
     padding: 16px;
+    padding-left: 0;
     overflow-x: visible;
     overflow-y: hidden;
     display: flex;

@@ -21,6 +21,8 @@
     width: 100%;
     position: relative;
     overflow: visible;
+    padding-left: 0;
+    margin-left: 0;
 }
 
 .chat-input-chat-mode .chat-input-container-inner {

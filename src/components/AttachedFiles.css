@@ -193,8 +193,10 @@
     align-items: center;
     justify-content: flex-start;
     overflow: visible;
-    transition: width 0.3s ease;
+    transition: min-width 0.3s ease;
     margin-bottom: -10px;
+    padding-left: 0;
+    margin-left: 0;
 }
 
 /* Ensure fan pattern is visible by default in chat mode */
@@ -209,6 +211,8 @@
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover {
     min-width: 130px;
     min-height: 40px;
+    left: -16px;
+    padding-left: 16px;
 }
 
 /* Ensure fan container allows overflow on hover */
@@ -218,6 +222,9 @@
     height: fit-content;
     min-width: 109px;
     min-height: 40px;
+    position: relative;
+    padding-left: 0;
+    margin-left: 0;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
