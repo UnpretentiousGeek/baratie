@@ -6,7 +6,7 @@ import ImageOverlay from './ImageOverlay';
 import './AttachedFiles.css';
 
 const AttachedFiles: React.FC = () => {
-  const { attachedFiles, removeFile, currentStage } = useRecipe();
+  const { attachedFiles, removeFile } = useRecipe();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
