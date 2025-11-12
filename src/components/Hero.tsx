@@ -82,8 +82,8 @@ const Hero: React.FC = () => {
             ))}
             <div ref={messagesEndRef} />
           </div>
+          <ChatInput isChatMode={true} />
         </div>
-        <ChatInput isSidebar={true} />
       </div>
     );
   }

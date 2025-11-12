@@ -10,30 +10,9 @@
     overflow: visible;
 }
 
-.chat-input-wrapper.chat-input-sidebar {
-    width: 400px;
-    max-width: 400px;
-    position: fixed;
-    right: 0;
-    top: 80px;
-    bottom: 0;
-    height: calc(100vh - 80px);
-    background: var(--background-primary);
-    border-left: 1px solid var(--stroke-default);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    z-index: 10;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.chat-input-wrapper.chat-input-sidebar .chat-input-container-inner {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    gap: 16px;
+.chat-input-wrapper.chat-input-chat-mode {
+    max-width: 100%;
+    width: 100%;
 }
 
 .chat-input-container-inner {
@@ -61,12 +40,8 @@
     z-index: 2;
 }
 
-.chat-input-box-sidebar {
+.chat-input-box-chat-mode {
     max-width: 100%;
-    position: sticky;
-    bottom: 0;
-    margin-top: auto;
-    flex-shrink: 0;
 }
 
 .hero-chat-input {

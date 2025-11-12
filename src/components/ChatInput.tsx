@@ -6,10 +6,10 @@ import { PlusIcon, ArrowUpIcon } from './icons';
 import './ChatInput.css';
 
 interface ChatInputProps {
-  isSidebar?: boolean;
+  isChatMode?: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ isSidebar = false }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
   const { addFiles, extractRecipe, attachedFiles } = useRecipe();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +68,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isSidebar = false }) => {
   };
 
   return (
-    <div className={`chat-input-wrapper ${isSidebar ? 'chat-input-sidebar' : ''}`}>
+    <div className={`chat-input-wrapper ${isChatMode ? 'chat-input-chat-mode' : ''}`}>
       <input
         ref={fileInputRef}
         type="file"
@@ -82,14 +82,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ isSidebar = false }) => {
       <div className="chat-input-container-inner">
         <AttachedFiles />
         <motion.div
-          className={`chat-input-box ${isSidebar ? 'chat-input-box-sidebar' : ''}`}
+          className={`chat-input-box ${isChatMode ? 'chat-input-box-chat-mode' : ''}`}
           whileHover={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
           transition={{ duration: 0.2 }}
         >
           <textarea
             ref={textareaRef}
             className="hero-chat-input"
-            placeholder={isSidebar ? "+ Ask Anything" : "Ask Baratie to extract or make changes to a recipe..."}
+            placeholder={isChatMode ? "+ Ask Anything" : "Ask Baratie to extract or make changes to a recipe..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
@@ -98,7 +98,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isSidebar = false }) => {
             aria-label="Recipe chat input"
           />
           <div className="chat-input-actions">
-            {!isSidebar && (
+            {!isChatMode && (
               <motion.button
                 className="btn-add-media"
                 onClick={() => fileInputRef.current?.click()}
