@@ -64,6 +64,7 @@
     padding: 0;
     align-items: flex-start;
     justify-content: flex-start;
+    height: 100%;
 }
 
 .hero-content {
@@ -79,7 +80,7 @@
     max-width: 748px;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 0px;
     align-items: stretch;
     justify-content: flex-end;
     min-height: 0;
@@ -89,7 +90,7 @@
 .hero-section.chat-mode .chat-container {
     max-width: 748px;
     width: 748px;
-    padding: 0 40px;
+    padding: 0 40px 24px 40px;
     overflow-x: visible;
     overflow-y: hidden;
     display: flex;
