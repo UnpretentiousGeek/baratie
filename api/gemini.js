@@ -537,48 +537,50 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
               if (typeof ingredient !== 'string') return false;
               const trimmed = ingredient.trim();
               if (!trimmed) return false;
-              
+
               // Filter out section headers
               if (/^(instructions?|directions?|steps?|process|method|for\s+(marination|curry|sauce|dressing|garnish|topping|filling|base|mixture)):?$/i.test(trimmed)) {
                 return false;
               }
-              
+
               // Filter out numbered steps (e.g., "1. Add chicken...")
               if (/^\d+[.)]\s/.test(trimmed)) {
                 return false;
               }
-              
-              // Filter out lines that are clearly instructions (start with action verbs that indicate cooking steps)
-              // But allow preparation notes like "chopped", "beaten", "slit" which come after the ingredient
-              const cookingVerbs = /\b(add|mix|heat|cook|stir|sauté|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter)\b/i;
-              
-              // If it starts with a cooking verb (not just contains one), it's likely an instruction
-              if (/^(add|mix|heat|cook|stir|sauté|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter)\s/i.test(trimmed)) {
+
+              // Filter out lines that start with action verbs (case-insensitive, handles various forms)
+              if (/^(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|chop|slice|dice|mince|crush|beat|whisk|process|marinate|remove|drain|rinse|wash|peel|cut|trim|prepare|bring|reduce|lower|raise|increase)\s/i.test(trimmed)) {
                 return false;
               }
-              
+
               // Filter out sentences that describe a process (contain multiple action verbs or conjunctions indicating steps)
-              const actionVerbMatches = trimmed.match(/\b(add|mix|heat|cook|stir|sauté|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|then|and\s+then|until|till|when)\b/gi);
-              if (actionVerbMatches && actionVerbMatches.length > 1) {
-                return false; // Multiple action verbs = likely an instruction
+              const actionVerbMatches = trimmed.match(/\b(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|then|and\s+then|until|till|when|leave|rest|starts?|floating|turn|becomes?)\b/gi);
+              if (actionVerbMatches && actionVerbMatches.length >= 2) {
+                return false; // Multiple action verbs/indicators = likely an instruction
               }
-              
+
               // Filter out very long lines (likely instructions, not ingredients)
               // Ingredients are typically short: "1 cup flour" or "2 tbsp butter, melted"
               if (trimmed.length > 120) {
                 return false;
               }
-              
+
               // Filter out lines that look like complete sentences with periods and multiple clauses
               if ((trimmed.match(/\./g) || []).length > 1) {
                 return false; // Multiple sentences = likely instruction
               }
-              
+
               // Filter out lines that contain instruction patterns
-              if (/\b(till|until|when|after|before|while|then|and then|mix well|cover and|set aside|leave|rest|marinate for)\b/i.test(trimmed)) {
+              if (/\b(till|until|when|after|before|while|then|and then|mix well|cover and|set aside|leave|rest|marinate for|starts?\s+(to\s+)?(floating|boiling|bubbling)|turn(s|ed)?\s+(brown|golden|soft|tender)|becomes?\s+)/i.test(trimmed)) {
                 return false;
               }
-              
+
+              // Filter out lines that have sentence structure (subject + verb + object patterns)
+              // Common instruction patterns: "Cook till...", "Add the...", etc.
+              if (/^(cook|add|mix|heat|stir|sauté|saute)\s+(the|till|until|for|about|some|all)/i.test(trimmed)) {
+                return false;
+              }
+
               return true;
             });
           }
@@ -635,23 +637,49 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           .slice(ingredientsStart + 1, ingredientsEnd)
           .filter(line => {
             const trimmed = line.trim();
+            if (!trimmed) return false;
+
             // Filter out section headers
-            if (!trimmed || /instructions?|directions?|steps?|process|method/i.test(trimmed)) {
+            if (/^(instructions?|directions?|steps?|process|method|for\s+(marination|curry|sauce|dressing|garnish|topping|filling|base|mixture)):?$/i.test(trimmed)) {
               return false;
             }
-            // Filter out instruction-like content (lines that look like steps)
-            // Instructions often start with action verbs or numbers
-            if (/^(add|mix|heat|cook|stir|sauté|roast|garnish|serve|cover|set|marinate|chop|slice|dice|mince|crush|beat|whisk|fry|boil|simmer|bake|grill|steam|blend|process|method|step)/i.test(trimmed)) {
-              return false;
-            }
+
             // Filter out numbered steps
             if (/^\d+[.)]\s/.test(trimmed)) {
               return false;
             }
-            // Filter out very long lines (likely instructions, not ingredients)
-            if (trimmed.length > 100) {
+
+            // Filter out lines that start with action verbs
+            if (/^(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|chop|slice|dice|mince|crush|beat|whisk|process|marinate|remove|drain|rinse|wash|peel|cut|trim|prepare|bring|reduce|lower|raise|increase)\s/i.test(trimmed)) {
               return false;
             }
+
+            // Filter out sentences that describe a process
+            const actionVerbMatches = trimmed.match(/\b(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|then|and\s+then|until|till|when|leave|rest|starts?|floating|turn|becomes?)\b/gi);
+            if (actionVerbMatches && actionVerbMatches.length >= 2) {
+              return false;
+            }
+
+            // Filter out very long lines (likely instructions, not ingredients)
+            if (trimmed.length > 120) {
+              return false;
+            }
+
+            // Filter out lines with multiple sentences
+            if ((trimmed.match(/\./g) || []).length > 1) {
+              return false;
+            }
+
+            // Filter out instruction patterns
+            if (/\b(till|until|when|after|before|while|then|and then|mix well|cover and|set aside|leave|rest|marinate for|starts?\s+(to\s+)?(floating|boiling|bubbling)|turn(s|ed)?\s+(brown|golden|soft|tender)|becomes?\s+)/i.test(trimmed)) {
+              return false;
+            }
+
+            // Filter out sentence structure patterns
+            if (/^(cook|add|mix|heat|stir|sauté|saute)\s+(the|till|until|for|about|some|all)/i.test(trimmed)) {
+              return false;
+            }
+
             return true;
           })
           .map(line => line.replace(/^[-•*]\s*/, '').trim())
