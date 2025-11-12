@@ -283,11 +283,11 @@
     text-overflow: ellipsis;
     flex: 1 1 auto;
     min-width: 0;
-    max-width: none;
+    max-width: 100%;
     position: relative;
     margin: 0;
     padding: 0;
-    flex-shrink: 0;
+    flex-shrink: 1;
 }
 
 @keyframes fadeInText {
@@ -314,9 +314,10 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
-    animation: fadeInText 0.3s ease-out 0.2s both;
+    max-width: 100%;
+    flex-shrink: 1;
 }
 
 /* Close Button for Attached Files */
