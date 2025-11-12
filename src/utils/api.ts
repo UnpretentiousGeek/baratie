@@ -70,7 +70,7 @@ export async function extractRecipeFromYouTube(videoId: string): Promise<Recipe>
   }
 }
 
-export async function answerQuestion(question: string, currentRecipe?: Recipe | null): Promise<string> {
+export async function answerQuestion(question: string): Promise<string> {
   try {
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',

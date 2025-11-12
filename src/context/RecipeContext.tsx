@@ -87,7 +87,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         if (isQuestion && !isModification) {
           // This is a question - answer it without modifying the recipe
           const { answerQuestion } = await import('../utils/api');
-          const answer = await answerQuestion(prompt, recipe);
+          const answer = await answerQuestion(prompt);
           
           addMessage({
             type: 'system',
@@ -123,7 +123,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // If it's a question but no recipe, still answer it
       if (isQuestion && !hasUrl && attachedFiles.length === 0 && !recipe) {
         const { answerQuestion } = await import('../utils/api');
-        const answer = await answerQuestion(prompt, null);
+        const answer = await answerQuestion(prompt);
         
         addMessage({
           type: 'system',
