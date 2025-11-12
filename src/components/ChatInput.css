@@ -13,6 +13,8 @@
 .chat-input-wrapper.chat-input-chat-mode {
     max-width: 100%;
     width: 100%;
+    overflow: visible;
+    position: relative;
 }
 
 .chat-input-container-inner {
@@ -41,7 +43,7 @@
     box-sizing: border-box;
     position: relative;
     outline: none !important;
-    z-index: 2;
+    z-index: 10;
 }
 
 .chat-input-box-chat-mode {

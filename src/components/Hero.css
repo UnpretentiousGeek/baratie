@@ -51,6 +51,7 @@
     flex-direction: column;
     height: calc(100vh - 80px);
     margin: 0 auto;
+    position: relative;
 }
 
 .chat-messages {

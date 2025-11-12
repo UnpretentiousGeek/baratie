@@ -184,7 +184,7 @@
     top: auto;
     width: 109px;
     height: 77px;
-    z-index: 100;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -201,10 +201,18 @@
 /* On hover, expand container width to match Figma hover state */
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover {
     width: 130px;
+    height: 85px;
+}
+
+/* Ensure fan container allows overflow on hover */
+.chat-input-wrapper.chat-input-chat-mode .attached-files-fan-container {
+    overflow: visible;
+    width: 100%;
+    height: 100%;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
-    z-index: 100;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     bottom: calc(100% + 8px);
