@@ -1,9 +1,10 @@
 .cooking-guide {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   padding: 24px;
   min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .cooking-header {

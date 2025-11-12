@@ -15,6 +15,44 @@
     flex: 1;
 }
 
+/* Cooking mode: split layout */
+.hero-section.cooking-mode {
+    max-width: 100%;
+    width: 100%;
+    padding: 0;
+    min-height: calc(100vh - 80px);
+    height: calc(100vh - 80px);
+    overflow: hidden;
+}
+
+.cooking-split-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.cooking-chat-panel {
+    width: 33.333%;
+    min-width: 400px;
+    max-width: 500px;
+    height: 100%;
+    border-right: 1px solid var(--stroke-default);
+    background: var(--background-primary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cooking-recipe-panel {
+    flex: 1;
+    width: 66.667%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--background-primary);
+}
+
 .hero-section.chat-mode {
     padding: 8px var(--3) var(--15) var(--3);
     align-items: flex-start;
@@ -52,6 +90,21 @@
     flex-direction: column;
     height: calc(100vh - 80px);
     margin: 0 auto;
+    position: relative;
+}
+
+/* Chat container in cooking mode */
+.cooking-chat-panel .chat-container {
+    max-width: 100%;
+    width: 100%;
+    padding: 16px;
+    padding-left: 40px;
+    overflow-x: visible;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin: 0;
     position: relative;
 }
 

@@ -66,9 +66,30 @@ const Hero: React.FC = () => {
     );
   }
 
-  // Show cooking guide when stage is 'cooking'
+  // Show cooking guide when stage is 'cooking' - split layout with chat on left, recipe on right
   if (currentStage === 'cooking' && recipe) {
-    return <CookingGuide />;
+    return (
+      <div className="hero-section cooking-mode">
+        <div className="cooking-split-container">
+          {/* Left side: Chat interface */}
+          <div className="cooking-chat-panel">
+            <div className="chat-container">
+              <div className="chat-messages">
+                {messages.map((message) => (
+                  <Message key={message.id} message={message} />
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <ChatInput isChatMode={true} />
+            </div>
+          </div>
+          {/* Right side: Cooking guide */}
+          <div className="cooking-recipe-panel">
+            <CookingGuide />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Show recipe preview when stage is 'preview' - now with chat messages
