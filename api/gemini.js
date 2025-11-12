@@ -188,7 +188,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify } = req.body;
+    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify, question } = req.body;
 
     // If URL is provided, fetch and extract content from it
     let finalPrompt = prompt || '';
@@ -328,8 +328,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // Handle question requests (not recipe modifications)
+    if (question) {
+      console.log('Answering question:', prompt);
+      // Use the prompt as-is for answering questions
+      finalPrompt = prompt;
+    }
     // Handle recipe modification requests
-    if (modify && currentRecipe) {
+    else if (modify && currentRecipe) {
       console.log('Modifying recipe:', currentRecipe.title);
       
       // Normalize ingredients and instructions to arrays
@@ -370,7 +376,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
     }
 
     // Validate request
-    if (!finalPrompt && !modify) {
+    if (!finalPrompt && !modify && !question) {
       return res.status(400).json({ error: 'Missing required field: prompt or url' });
     }
     
@@ -496,6 +502,14 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       const parts = data.candidates[0].content.parts || [];
       recipeText = parts.map(part => part.text || '').join('\n');
+    }
+    
+    // If this is a question request, return the answer directly
+    if (question) {
+      return res.status(200).json({ 
+        answer: recipeText || 'I apologize, but I couldn\'t generate an answer.',
+        text: recipeText 
+      });
     }
     
     // Parse the recipe text into structured format

@@ -73,30 +73,61 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         attachedFiles: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
       });
 
-      // Check if we have an existing recipe and this is a modification request
-      // Modification request: has recipe, no URL in prompt, no new files attached
+      // Check if this is a question (ends with ? or starts with question words)
+      const isQuestion = /^(\?|how|what|when|where|why|who|which|is|are|can|could|would|should|do|does|did|will|may|might)\s/i.test(prompt.trim()) || 
+                        prompt.trim().endsWith('?');
+      
+      // Check if it's a modification request (contains modification keywords)
+      const isModification = /\b(make|adjust|change|modify|convert|update|replace|remove|add|increase|decrease|scale|double|halve|reduce|substitute|swap|use|try)\b/i.test(prompt);
+      
+      // Check if we have an existing recipe and this is a question or modification request
+      // Question/modification: has recipe, no URL in prompt, no new files attached
       const hasUrl = prompt.match(/(https?:\/\/[^\s]+)/gi);
       if (recipe && !hasUrl && attachedFiles.length === 0) {
-        // This is a modification request
-        const { modifyRecipe } = await import('../utils/api');
-        const modifiedRecipe = await modifyRecipe(recipe, prompt);
-        
-        setRecipe(modifiedRecipe);
-        setCurrentStage('preview');
+        if (isQuestion && !isModification) {
+          // This is a question - answer it without modifying the recipe
+          const { answerQuestion } = await import('../utils/api');
+          const answer = await answerQuestion(prompt, recipe);
+          
+          addMessage({
+            type: 'system',
+            text: answer,
+          });
+          return;
+        } else if (isModification || (!isQuestion && !isModification)) {
+          // This is a modification request (or ambiguous - treat as modification)
+          const { modifyRecipe } = await import('../utils/api');
+          const modifiedRecipe = await modifyRecipe(recipe, prompt);
+          
+          setRecipe(modifiedRecipe);
+          setCurrentStage('preview');
 
-        // Add system message with description of changes
-        const changesText = modifiedRecipe.changesDescription 
-          ? modifiedRecipe.changesDescription 
-          : 'Recipe updated successfully!';
+          // Add system message with description of changes
+          const changesText = modifiedRecipe.changesDescription 
+            ? modifiedRecipe.changesDescription 
+            : 'Recipe updated successfully!';
+          addMessage({
+            type: 'system',
+            text: changesText,
+          });
+
+          // Add recipe preview message
+          addMessage({
+            type: 'recipe-preview',
+            recipe: modifiedRecipe,
+          });
+          return;
+        }
+      }
+      
+      // If it's a question but no recipe, still answer it
+      if (isQuestion && !hasUrl && attachedFiles.length === 0 && !recipe) {
+        const { answerQuestion } = await import('../utils/api');
+        const answer = await answerQuestion(prompt, null);
+        
         addMessage({
           type: 'system',
-          text: changesText,
-        });
-
-        // Add recipe preview message
-        addMessage({
-          type: 'recipe-preview',
-          recipe: modifiedRecipe,
+          text: answer,
         });
         return;
       }
