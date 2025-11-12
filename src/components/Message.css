@@ -27,6 +27,7 @@
 .message-bubble-user {
   background: #f5f3f2;
   border-radius: 12px;
+  text-align: left;
 }
 
 .message-bubble-system {
