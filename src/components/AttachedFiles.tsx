@@ -6,17 +6,23 @@ import ImageOverlay from './ImageOverlay';
 import './AttachedFiles.css';
 
 const AttachedFiles: React.FC = () => {
-  const { attachedFiles, removeFile } = useRecipe();
+  const { attachedFiles, removeFile, currentStage } = useRecipe();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayImageIndex, setOverlayImageIndex] = useState(0);
 
+  // In chat mode (preview stage), always show files in edit mode
+  const isChatMode = currentStage === 'preview';
+
   useEffect(() => {
     if (attachedFiles.length === 0) {
       setIsEditMode(false);
+    } else if (isChatMode) {
+      // Auto-show edit mode in chat mode when files are attached
+      setIsEditMode(true);
     }
-  }, [attachedFiles.length]);
+  }, [attachedFiles.length, isChatMode]);
 
   // All files for the overlay (images and PDFs)
   const allFiles = attachedFiles;
