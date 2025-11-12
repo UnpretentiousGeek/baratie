@@ -153,13 +153,17 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
   // All cards rotate counter-clockwise from 0°, decreasing by 15° each
   const getRotationAndPosition = (idx: number) => {
     const rotations = [300, 315, 330, 345, 0]; // Figma rotations
-    const leftPositions = [0, 14, 32, 48, 63]; // Figma left positions (from left)
+    // Default positions (from Figma Default state)
+    const defaultLeftPositions = [0, 14, 32, 48, 63];
+    // Hover positions (from Figma Hover state - more spread out)
+    const hoverLeftPositions = [0, 14, 40, 64, 79];
     const topPositions = [14.16, 5.47, 0, 6.09, 11]; // Figma top positions
     
-    // In chat mode, reverse the index to fan from right to left
     // Clamp to valid array indices (0-4)
-    const maxIndex = Math.min(totalFiles - 1, 4);
-    const positionIndex = isChatMode ? (maxIndex - idx) : Math.min(idx, 4);
+    const positionIndex = Math.min(idx, 4);
+    
+    // Use hover positions if hovered, otherwise default positions
+    const leftPositions = isHovered ? hoverLeftPositions : defaultLeftPositions;
     
     const rotation = rotations[positionIndex] || 0;
     // In chat mode, use right positions (mirrored); otherwise use left positions
@@ -170,35 +174,11 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
     return { rotation, left, right, top };
   };
 
+  // Recalculate positions when hover state changes
   const { rotation, left, right, top } = getRotationAndPosition(index);
 
-  // Hover effects: spread out cards more on hover
-  const getHoverOffset = (idx: number, total: number) => {
-    if (!isHovered) return { x: 0, y: 0 };
-    
-    // In chat mode, spread out more horizontally
-    if (isChatMode) {
-      const spreadAmount = 15; // More spread in chat mode
-      const baseOffset = (idx - (total - 1) / 2) * spreadAmount;
-      return { x: baseOffset, y: -8 };
-    }
-    
-    // Original hover behavior for non-chat mode
-    const middleIndex = Math.floor(total / 2);
-    
-    if (idx < 2) {
-      // Left 2 cards: move top and left
-      return { x: -8, y: -8 };
-    } else if (idx === middleIndex) {
-      // Middle card: move top only
-      return { x: 0, y: -10 };
-    } else {
-      // Right 2 cards: move top and right
-      return { x: 8, y: -8 };
-    }
-  };
-
-  const hoverOffset = getHoverOffset(index, totalFiles);
+  // Hover effects are now handled in getRotationAndPosition via different position arrays
+  // No additional offset needed since positions change directly
 
   return (
     <motion.div
@@ -210,16 +190,19 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
         opacity: 1,
         scale: 1,
         rotate: rotation,
-        left: left !== undefined ? left + hoverOffset.x : undefined,
-        right: right !== undefined ? right - hoverOffset.x : undefined,
-        top: top + hoverOffset.y,
+        left: left !== undefined ? left : undefined,
+        right: right !== undefined ? right : undefined,
+        top: top,
         zIndex: totalFiles - index, // Left card (index 0) has highest z-index
       }}
       transition={{ 
         delay: index * 0.05, 
         duration: 0.3,
-        layout: { duration: 0.5, ease: [0.4, 0, 0.2, 1] },
-        rotate: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
+        layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+        rotate: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+        left: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+        right: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+        top: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
       }}
       style={{ 
         position: 'absolute'

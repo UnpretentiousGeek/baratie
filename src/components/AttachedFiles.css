@@ -160,12 +160,18 @@
     align-items: center;
     justify-content: flex-end;
     overflow: visible;
+    transition: width 0.3s ease;
 }
 
 /* Ensure fan pattern is visible by default in chat mode */
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode) {
     width: 109px;
     height: 77px;
+}
+
+/* On hover, expand container width to match Figma hover state */
+.chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover {
+    width: 130px;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
