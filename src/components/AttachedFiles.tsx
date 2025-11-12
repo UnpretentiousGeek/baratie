@@ -12,17 +12,15 @@ const AttachedFiles: React.FC = () => {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayImageIndex, setOverlayImageIndex] = useState(0);
 
-  // In chat mode (preview stage), always show files in edit mode
+  // In chat mode (preview stage), use fan mode (not edit mode)
   const isChatMode = currentStage === 'preview';
 
   useEffect(() => {
     if (attachedFiles.length === 0) {
       setIsEditMode(false);
-    } else if (isChatMode) {
-      // Auto-show edit mode in chat mode when files are attached
-      setIsEditMode(true);
     }
-  }, [attachedFiles.length, isChatMode]);
+    // In chat mode, keep fan mode (don't auto-switch to edit mode)
+  }, [attachedFiles.length]);
 
   // All files for the overlay (images and PDFs)
   const allFiles = attachedFiles;
@@ -116,6 +114,7 @@ const AttachedFiles: React.FC = () => {
                 totalFiles={Math.min(attachedFiles.length, maxVisible)}
                 isHovered={isHovered}
                 actualIndex={attachedFiles.indexOf(file)}
+                isChatMode={isChatMode}
               />
             ))}
           </motion.div>
@@ -142,24 +141,31 @@ interface AttachedFileFanItemProps {
   actualIndex: number;
 }
 
-const AttachedFileFanItem: React.FC<AttachedFileFanItemProps> = ({ file, index, onRemove, totalFiles, isHovered, actualIndex }) => {
+const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: boolean }> = ({ file, index, onRemove, totalFiles, isHovered, actualIndex, isChatMode = false }) => {
   const isImage = file.type?.startsWith('image/');
 
   // Rotations from Figma: 300°, 315°, 330°, 345°, 0° (or -60°, -45°, -30°, -15°, 0°)
   // All cards rotate counter-clockwise from 0°, decreasing by 15° each
   const getRotationAndPosition = (idx: number) => {
     const rotations = [300, 315, 330, 345, 0]; // Figma rotations
-    const leftPositions = [0, 14, 32, 48, 63]; // Figma left positions
+    const leftPositions = [0, 14, 32, 48, 63]; // Figma left positions (from left)
     const topPositions = [14.16, 5.47, 0, 6.09, 11]; // Figma top positions
     
-    const rotation = rotations[idx] || 0;
-    const left = leftPositions[idx] || 0;
-    const top = topPositions[idx] || 0;
+    // In chat mode, reverse the index to fan from right to left
+    // Clamp to valid array indices (0-4)
+    const maxIndex = Math.min(totalFiles - 1, 4);
+    const positionIndex = isChatMode ? (maxIndex - idx) : Math.min(idx, 4);
     
-    return { rotation, left, top };
+    const rotation = rotations[positionIndex] || 0;
+    // In chat mode, use right positions (mirrored); otherwise use left positions
+    const left = isChatMode ? undefined : (leftPositions[positionIndex] || 0);
+    const right = isChatMode ? (leftPositions[positionIndex] || 0) : undefined;
+    const top = topPositions[positionIndex] || 0;
+    
+    return { rotation, left, right, top };
   };
 
-  const { rotation, left, top } = getRotationAndPosition(index);
+  const { rotation, left, right, top } = getRotationAndPosition(index);
 
   // Hover effects: left 2 cards move top+left, middle moves top only, right 2 move top+right
   const getHoverOffset = (idx: number, total: number) => {
@@ -191,7 +197,8 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps> = ({ file, index, 
         opacity: 1,
         scale: 1,
         rotate: rotation,
-        left: left + hoverOffset.x,
+        left: left !== undefined ? left + hoverOffset.x : undefined,
+        right: right !== undefined ? right - hoverOffset.x : undefined,
         top: top + hoverOffset.y,
         zIndex: totalFiles - index, // Left card (index 0) has highest z-index
       }}

@@ -131,22 +131,20 @@
     scrollbar-width: none;
 }
 
-/* Fix for chat mode - ensure attached files are visible and not cut off */
+/* Fix for chat mode - ensure attached files are visible with fan effect */
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display {
     position: absolute;
-    bottom: calc(100% + 8px);
+    bottom: calc(100% + 10px);
     right: 0;
     left: auto;
     top: auto;
-    width: fit-content;
-    max-width: 250px;
-    min-width: 200px;
-    height: fit-content;
-    max-height: 200px;
-    overflow-y: auto;
-    overflow-x: visible;
+    width: 80px;
+    height: 80px;
     z-index: 100;
     display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: visible;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
@@ -160,6 +158,10 @@
     width: fit-content;
     max-width: 250px;
     min-width: 200px;
+    height: fit-content;
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: visible;
     align-items: flex-end;
 }
 
