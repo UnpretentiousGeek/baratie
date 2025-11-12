@@ -196,19 +196,16 @@
 }
 
 .attached-file-item-list.image {
-    padding-left: var(--2);
-    padding-right: var(--4);
-    padding-top: var(--2);
-    padding-bottom: var(--2);
-    gap: var(--3);
+    padding: var(--4);
+    gap: var(--5);
     height: 46px;
     min-height: 46px;
 }
 
 .attached-file-item-list.image .file-thumbnail {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--3);
+    width: 20px;
+    height: 20px;
+    border-radius: var(--2);
     object-fit: cover;
     object-position: center;
     flex-shrink: 0;

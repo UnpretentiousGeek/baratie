@@ -24,7 +24,8 @@
       "Bash(git commit:*)",
       "mcp__figma-desktop__get_design_context",
       "mcp__figma-desktop__get_screenshot",
-      "Bash(dir /b \"d:\\Vibe Coding Projects\\Baratie\")"
+      "Bash(dir /b \"d:\\Vibe Coding Projects\\Baratie\")",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

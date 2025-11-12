@@ -12,15 +12,17 @@ const AttachedFiles: React.FC = () => {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayImageIndex, setOverlayImageIndex] = useState(0);
 
-  // In chat mode (preview stage), use fan mode (not edit mode)
+  // In chat mode (preview stage), always use list mode (edit mode)
   const isChatMode = currentStage === 'preview';
 
   useEffect(() => {
     if (attachedFiles.length === 0) {
       setIsEditMode(false);
+    } else if (isChatMode) {
+      // In chat mode, always show as list (square cards)
+      setIsEditMode(true);
     }
-    // In chat mode, keep fan mode (don't auto-switch to edit mode)
-  }, [attachedFiles.length]);
+  }, [attachedFiles.length, isChatMode]);
 
   // All files for the overlay (images and PDFs)
   const allFiles = attachedFiles;
@@ -34,6 +36,11 @@ const AttachedFiles: React.FC = () => {
       isEditMode &&
       (e.target as HTMLElement).closest('.attached-file-item-list')
     ) {
+      return;
+    }
+
+    // In chat mode, don't allow toggling (always stay in list mode)
+    if (isChatMode) {
       return;
     }
 
