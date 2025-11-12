@@ -37,11 +37,7 @@ const AttachedFiles: React.FC = () => {
       return;
     }
 
-    // In chat mode, don't allow toggling (always stay in fan mode)
-    if (isChatMode) {
-      return;
-    }
-
+    // Allow toggling in chat mode too
     if (!isEditMode) {
       setIsEditMode(true);
     } else {
@@ -104,7 +100,7 @@ const AttachedFiles: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ 
               opacity: 1,
-              x: isHovered && !isChatMode ? -15 : 0
+              x: isHovered ? -15 : 0
             }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
@@ -151,9 +147,9 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
   // All cards rotate counter-clockwise from 0°, decreasing by 15° each
   const getRotationAndPosition = (idx: number) => {
     const rotations = [300, 315, 330, 345, 0]; // Figma rotations
-    // Default positions (from Figma Default state)
+    // Default positions (from Figma Default state) - LEFT positions
     const defaultLeftPositions = [0, 14, 32, 48, 63];
-    // Hover positions (from Figma Hover state - more spread out)
+    // Hover positions (from Figma Hover state - more spread out) - LEFT positions
     const hoverLeftPositions = [0, 14, 40, 64, 79];
     const topPositions = [14.16, 5.47, 0, 6.09, 11]; // Figma top positions
     
@@ -164,16 +160,15 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
     const leftPositions = isHovered ? hoverLeftPositions : defaultLeftPositions;
     
     const rotation = rotations[positionIndex] || 0;
-    // In chat mode, use right positions (mirrored); otherwise use left positions
-    const left = isChatMode ? undefined : (leftPositions[positionIndex] || 0);
-    const right = isChatMode ? (leftPositions[positionIndex] || 0) : undefined;
+    // Always use left positions (files should be on the left in chat mode per Figma)
+    const left = leftPositions[positionIndex] || 0;
     const top = topPositions[positionIndex] || 0;
     
-    return { rotation, left, right, top };
+    return { rotation, left, top };
   };
 
   // Recalculate positions when hover state changes
-  const { rotation, left, right, top } = getRotationAndPosition(index);
+  const { rotation, left, top } = getRotationAndPosition(index);
 
   // Hover effects are now handled in getRotationAndPosition via different position arrays
   // No additional offset needed since positions change directly
@@ -188,8 +183,7 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
         opacity: 1,
         scale: 1,
         rotate: rotation,
-        left: left !== undefined ? left : undefined,
-        right: right !== undefined ? right : undefined,
+        left: left,
         top: top,
         zIndex: totalFiles - index, // Left card (index 0) has highest z-index
       }}
@@ -199,7 +193,6 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
         layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
         rotate: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
         left: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
-        right: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
         top: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
       }}
       style={{ 
