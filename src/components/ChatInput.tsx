@@ -6,9 +6,10 @@ import { PlusIcon, ArrowUpIcon } from './icons';
 import './ChatInput.css';
 
 const ChatInput: React.FC = () => {
-  const { addFiles, extractRecipe, attachedFiles } = useRecipe();
+  const { addFiles, extractRecipe, attachedFiles, messages } = useRecipe();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -28,17 +29,34 @@ const ChatInput: React.FC = () => {
       return;
     }
 
+    const currentInput = inputValue;
     setIsLoading(true);
+    setLastMessageCount(messages.length);
+    
     try {
-      await extractRecipe(inputValue);
-      setInputValue('');
+      await extractRecipe(currentInput);
+      // Don't clear input here - wait for response
     } catch (error) {
       console.error('Error extracting recipe:', error);
+      // Clear input on error
+      setInputValue('');
       alert('Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Clear input when a new system or recipe-preview message arrives (response received)
+  React.useEffect(() => {
+    if (lastMessageCount > 0 && messages.length > lastMessageCount) {
+      const newMessages = messages.slice(lastMessageCount);
+      const hasResponse = newMessages.some(msg => msg.type === 'system' || msg.type === 'recipe-preview');
+      if (hasResponse && inputValue) {
+        // Only clear if the input matches what we sent
+        setInputValue('');
+      }
+    }
+  }, [messages, lastMessageCount, inputValue]);
 
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

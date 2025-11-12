@@ -366,7 +366,7 @@ ${ingredientsList.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
 Instructions:
 ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
 
-      finalPrompt = `${recipeText}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
+      finalPrompt = `${recipeText}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."], "changesDescription": "..." }. The "changesDescription" field should be a brief summary of what changes were made (e.g., "Made the recipe vegan by replacing chicken with tofu and eggs with a vegan alternative", or "Adjusted ingredient quantities for 2 pounds of chicken"). CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
     }
 
     // Validate request
@@ -534,6 +534,10 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
               return true;
             });
           }
+          // Include changesDescription if present (for modifications)
+          if (parsed.changesDescription) {
+            recipe.changesDescription = parsed.changesDescription;
+          }
           // If we successfully parsed JSON, return early
           if (recipe.instructions.length > 0 || recipe.ingredients.length > 0) {
             return res.status(200).json({ recipe });
@@ -641,13 +645,21 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
                 return false;
               }
               // Filter out metadata lines
-              if (/^(ingredients?|instructions?|directions?|steps?|title|recipe):/i.test(trimmed)) {
+              if (/^(ingredients?|instructions?|directions?|steps?|title|recipe|changesDescription):/i.test(trimmed)) {
                 return false;
               }
               return true;
             })
             .map(line => line.replace(/^\d+[.)]\s*/, '').trim())
             .filter(line => line.length > 0);
+        }
+      }
+      
+      // Try to extract changesDescription from text (fallback if not in JSON)
+      if (modify && !recipe.changesDescription) {
+        const changesMatch = recipeText.match(/(?:changesDescription|changes?|modifications?):\s*(.+?)(?:\n|$)/i);
+        if (changesMatch) {
+          recipe.changesDescription = changesMatch[1].trim();
         }
       }
     }

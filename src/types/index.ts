@@ -19,6 +19,7 @@ export interface Recipe {
   prepTime?: string;
   cookTime?: string;
   nutrition?: NutritionInfo;
+  changesDescription?: string; // Description of changes made during modification
 }
 
 export interface NutritionInfo {

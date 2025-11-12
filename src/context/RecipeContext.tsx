@@ -84,10 +84,13 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         setRecipe(modifiedRecipe);
         setCurrentStage('preview');
 
-        // Add system message
+        // Add system message with description of changes
+        const changesText = modifiedRecipe.changesDescription 
+          ? modifiedRecipe.changesDescription 
+          : 'Recipe updated successfully!';
         addMessage({
           type: 'system',
-          text: 'Recipe updated successfully!',
+          text: changesText,
         });
 
         // Add recipe preview message
