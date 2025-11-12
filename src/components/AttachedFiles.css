@@ -211,8 +211,8 @@
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover {
     min-width: 130px;
     min-height: 40px;
-    left: -16px;
-    padding-left: 16px;
+    left: -30px;
+    padding-left: 30px;
 }
 
 /* Ensure fan container allows overflow on hover */
@@ -225,6 +225,13 @@
     position: relative;
     padding-left: 0;
     margin-left: 0;
+}
+
+/* On hover, expand fan container to accommodate spread-out files */
+.chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover .attached-files-fan-container {
+    min-width: 160px;
+    padding-left: 30px;
+    margin-left: -30px;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
