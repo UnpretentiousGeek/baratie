@@ -74,7 +74,7 @@ const Hero: React.FC = () => {
   // Show recipe preview when stage is 'preview' - now with chat messages
   if (currentStage === 'preview') {
     return (
-      <div className="hero-section">
+      <div className="hero-section chat-mode">
         <div className="hero-content chat-container">
           <div className="chat-messages">
             {messages.map((message) => (
@@ -82,8 +82,8 @@ const Hero: React.FC = () => {
             ))}
             <div ref={messagesEndRef} />
           </div>
-          <ChatInput />
         </div>
+        <ChatInput isSidebar={true} />
       </div>
     );
   }

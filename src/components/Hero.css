@@ -15,6 +15,16 @@
     flex: 1;
 }
 
+.hero-section.chat-mode {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0;
+    gap: 0;
+    min-height: calc(100vh - 80px);
+    max-width: 100%;
+}
+
 .hero-content {
     display: flex;
     flex-direction: column;
@@ -35,6 +45,16 @@
     flex: 1;
 }
 
+.hero-section.chat-mode .chat-container {
+    flex: 1;
+    max-width: calc(100% - 400px);
+    padding: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 80px);
+}
+
 .chat-messages {
     display: flex;
     flex-direction: column;
@@ -44,6 +64,7 @@
     flex: 1;
     padding: 16px;
     align-items: stretch;
+    overflow-x: hidden;
 }
 
 .hero-title {

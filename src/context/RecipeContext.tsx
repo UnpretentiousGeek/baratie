@@ -66,6 +66,11 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   const extractRecipe = useCallback(async (prompt: string) => {
     try {
+      // Switch to chat mode immediately when user sends first message
+      if (currentStage === 'capture') {
+        setCurrentStage('preview');
+      }
+      
       // Add user message
       addMessage({
         type: 'user',
@@ -175,7 +180,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       });
       throw error;
     }
-  }, [attachedFiles, addMessage, recipe, clearFiles]);
+  }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage]);
 
   const value: RecipeContextType = {
     attachedFiles,

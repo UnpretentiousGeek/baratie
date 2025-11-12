@@ -5,7 +5,11 @@ import AttachedFiles from './AttachedFiles';
 import { PlusIcon, ArrowUpIcon } from './icons';
 import './ChatInput.css';
 
-const ChatInput: React.FC = () => {
+interface ChatInputProps {
+  isSidebar?: boolean;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({ isSidebar = false }) => {
   const { addFiles, extractRecipe, attachedFiles } = useRecipe();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +68,7 @@ const ChatInput: React.FC = () => {
   };
 
   return (
-    <div className="chat-input-wrapper">
+    <div className={`chat-input-wrapper ${isSidebar ? 'chat-input-sidebar' : ''}`}>
       <input
         ref={fileInputRef}
         type="file"
@@ -78,14 +82,14 @@ const ChatInput: React.FC = () => {
       <div className="chat-input-container-inner">
         <AttachedFiles />
         <motion.div
-          className="chat-input-box"
+          className={`chat-input-box ${isSidebar ? 'chat-input-box-sidebar' : ''}`}
           whileHover={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
           transition={{ duration: 0.2 }}
         >
           <textarea
             ref={textareaRef}
             className="hero-chat-input"
-            placeholder="Ask Baratie to extract or make changes to a recipe..."
+            placeholder={isSidebar ? "+ Ask Anything" : "Ask Baratie to extract or make changes to a recipe..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
@@ -94,16 +98,18 @@ const ChatInput: React.FC = () => {
             aria-label="Recipe chat input"
           />
           <div className="chat-input-actions">
-            <motion.button
-              className="btn-add-media"
-              onClick={() => fileInputRef.current?.click()}
-              whileHover={{ backgroundColor: '#faf9f8', scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="Add media"
-              type="button"
-            >
-              <PlusIcon size={20} />
-            </motion.button>
+            {!isSidebar && (
+              <motion.button
+                className="btn-add-media"
+                onClick={() => fileInputRef.current?.click()}
+                whileHover={{ backgroundColor: '#faf9f8', scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                title="Add media"
+                type="button"
+              >
+                <PlusIcon size={20} />
+              </motion.button>
+            )}
             <motion.button
               className="btn-send-arrow"
               onClick={handleSend}
