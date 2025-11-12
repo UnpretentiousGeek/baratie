@@ -125,6 +125,26 @@
     scrollbar-width: none;
 }
 
+/* Fix for chat mode - ensure attached files are not cut off */
+.chat-input-chat-mode .attached-files-display {
+    position: absolute;
+    right: calc(100% + 16px);
+    top: 0;
+    left: auto;
+    width: fit-content;
+    max-width: 250px;
+    min-width: 200px;
+    height: fit-content;
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: visible;
+    z-index: 100;
+}
+
+.chat-input-chat-mode .attached-files-display.edit-mode {
+    z-index: 100;
+}
+
 .attached-files-display.edit-mode::-webkit-scrollbar {
     display: none;
     width: 0;

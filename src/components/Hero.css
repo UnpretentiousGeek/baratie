@@ -45,7 +45,8 @@
     max-width: 748px;
     width: 748px;
     padding: 16px;
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: hidden;
     display: flex;
     flex-direction: column;
     height: calc(100vh - 80px);

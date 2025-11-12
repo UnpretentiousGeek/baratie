@@ -71,11 +71,17 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         setCurrentStage('preview');
       }
       
+      // Store attached files before clearing
+      const filesToSend = attachedFiles.length > 0 ? [...attachedFiles] : undefined;
+      
+      // Clear attached files immediately after sending
+      clearFiles();
+      
       // Add user message
       addMessage({
         type: 'user',
         text: prompt || 'Extract this recipe',
-        attachedFiles: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
+        attachedFiles: filesToSend,
       });
 
       // Check if this is a question (ends with ? or starts with question words)
@@ -88,7 +94,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // Check if we have an existing recipe and this is a question or modification request
       // Question/modification: has recipe, no URL in prompt, no new files attached
       const hasUrl = prompt.match(/(https?:\/\/[^\s]+)/gi);
-      if (recipe && !hasUrl && attachedFiles.length === 0) {
+      if (recipe && !hasUrl && (!filesToSend || filesToSend.length === 0)) {
         if (isQuestion && !isModification) {
           // This is a question - answer it without modifying the recipe
           const { answerQuestion } = await import('../utils/api');
@@ -126,7 +132,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       }
       
       // If it's a question but no recipe, still answer it
-      if (isQuestion && !hasUrl && attachedFiles.length === 0 && !recipe) {
+      if (isQuestion && !hasUrl && (!filesToSend || filesToSend.length === 0) && !recipe) {
         const { answerQuestion } = await import('../utils/api');
         const answer = await answerQuestion(prompt);
         
@@ -143,22 +149,19 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const url = urls[0] || null;
       
       let extractedRecipe;
-      if (url && attachedFiles.length === 0) {
+      if (url && (!filesToSend || filesToSend.length === 0)) {
         // Extract from URL
         const { extractRecipeFromURL } = await import('../utils/api');
         extractedRecipe = await extractRecipeFromURL(url, prompt);
-      } else if (attachedFiles.length > 0) {
+      } else if (filesToSend && filesToSend.length > 0) {
         // Extract from files
-        extractedRecipe = await extractRecipeFromFiles(attachedFiles, prompt);
+        extractedRecipe = await extractRecipeFromFiles(filesToSend, prompt);
       } else {
         throw new Error('Please provide a URL or attach files');
       }
       
       setRecipe(extractedRecipe);
       setCurrentStage('preview');
-      
-      // Clear attached files after successful extraction
-      clearFiles();
 
       // Add system message with recipe title
       addMessage({

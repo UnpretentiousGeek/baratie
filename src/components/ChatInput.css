@@ -21,6 +21,10 @@
     overflow: visible;
 }
 
+.chat-input-chat-mode .chat-input-container-inner {
+    overflow: visible;
+}
+
 .chat-input-box {
     background: var(--background-primary);
     border: 1px solid var(--stroke-default);
