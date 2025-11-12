@@ -215,7 +215,7 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
           whileTap={{ scale: 0.98 }}
         >
           <img src={file.preview} alt={file.name} />
-          <RemoveButton onRemove={() => onRemove(actualIndex)} />
+          {/* No remove button in fan preview mode */}
         </motion.div>
       ) : (
         <motion.div
@@ -226,7 +226,7 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
           <div className="attached-file-pdf-icon">
             <PdfIcon size={20} />
           </div>
-          <RemoveButton onRemove={() => onRemove(actualIndex)} />
+          {/* No remove button in fan preview mode */}
         </motion.div>
       )}
     </motion.div>

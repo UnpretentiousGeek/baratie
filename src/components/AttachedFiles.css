@@ -252,16 +252,19 @@
 }
 
 .attached-file-item-list.image {
-    padding: var(--4);
-    gap: var(--5);
+    padding-left: var(--2);
+    padding-right: var(--4);
+    padding-top: var(--2);
+    padding-bottom: var(--2);
+    gap: var(--3);
     height: 46px;
     min-height: 46px;
 }
 
 .attached-file-item-list.image .file-thumbnail {
-    width: 20px;
-    height: 20px;
-    border-radius: var(--2);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--3);
     object-fit: cover;
     object-position: center;
     flex-shrink: 0;
@@ -340,12 +343,9 @@
     flex-shrink: 0;
 }
 
-/* Remove button in fan mode - absolutely positioned */
+/* Remove button in fan mode - hidden (not shown in preview) */
 .attached-file-item-fan .attached-file-close {
-    position: absolute;
-    right: -8px;
-    top: -10px;
-    left: auto;
+    display: none !important;
 }
 
 .attached-file-close svg {
