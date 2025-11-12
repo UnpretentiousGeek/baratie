@@ -282,9 +282,9 @@ export default async function handler(req, res) {
           
           if (recipeContent) {
             combinedContent += `\n\n${recipeContent}`;
-            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes.'}`;
+            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes.'}`;
           } else {
-            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
           }
           
           console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
@@ -317,7 +317,7 @@ export default async function handler(req, res) {
           }
           
           // Combine URL content with prompt
-          finalPrompt = `Extract the recipe from this webpage content. The content below contains the full recipe text from the webpage:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. The content above contains the full recipe - extract all numbered steps with their complete descriptions.'}`;
+          finalPrompt = `Extract the recipe from this webpage content. The content below contains the full recipe text from the webpage:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. The content above contains the full recipe - extract all steps with their complete descriptions.'}`;
         }
       } catch (urlError) {
         console.error('Error fetching URL:', urlError);
@@ -722,9 +722,9 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
       }
       
       // Improved instructions parsing - extract all numbered steps
-      // Look for instructions section
+      // Look for instructions section (including "Process" which is common in Indian recipes)
       const instructionsStart = lines.findIndex(line => 
-        /instructions?|directions?|steps?/i.test(line)
+        /instructions?|directions?|steps?|process/i.test(line)
       );
       
       if (instructionsStart !== -1) {
@@ -734,9 +734,13 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
         
         for (let i = 0; i < instructionLines.length; i++) {
           const line = instructionLines[i];
+          const trimmed = line.trim();
           
-          // Check if this line starts a new numbered step
-          const stepMatch = line.match(/^(\d+)[.)]\s*(.+)/);
+          // Skip empty lines
+          if (!trimmed) continue;
+          
+          // Check if this line starts a new numbered step (e.g., "1. Add chicken...")
+          const stepMatch = trimmed.match(/^(\d+)[.)]\s*(.+)/);
           if (stepMatch) {
             // Save previous step if exists
             if (currentStep.trim()) {
@@ -744,13 +748,27 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             }
             // Start new step
             currentStep = stepMatch[2];
-          } else {
+          } 
+          // Check if this line starts with a bullet point (•, -, *, etc.)
+          else if (/^[•\-\*]\s*(.+)/.test(trimmed)) {
+            const bulletMatch = trimmed.match(/^[•\-\*]\s*(.+)/);
+            if (bulletMatch) {
+              // Save previous step if exists
+              if (currentStep.trim()) {
+                instructions.push(currentStep.trim());
+              }
+              // Start new step from bullet point
+              currentStep = bulletMatch[1];
+            }
+          } 
+          else {
             // Continue current step (might be multi-line)
             if (currentStep) {
-              currentStep += ' ' + line;
-            } else if (line.trim() && !/^(ingredients?|instructions?|directions?|steps?|title|recipe):/i.test(line)) {
+              currentStep += ' ' + trimmed;
+            } else if (trimmed && !/^(ingredients?|instructions?|directions?|steps?|process|title|recipe|for\s+(marination|curry)):?$/i.test(trimmed)) {
               // If no current step but line looks like content, start one
-              currentStep = line;
+              // But skip section headers
+              currentStep = trimmed;
             }
           }
         }
