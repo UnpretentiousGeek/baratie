@@ -249,6 +249,7 @@
     cursor: pointer;
     overflow: visible;
     margin: 0;
+    box-sizing: border-box;
 }
 
 .attached-file-item-list.image {
@@ -259,6 +260,7 @@
     gap: var(--3);
     height: 46px;
     min-height: 46px;
+    box-sizing: border-box;
 }
 
 .attached-file-item-list.image .file-thumbnail {
@@ -283,9 +285,9 @@
     min-width: 0;
     max-width: none;
     position: relative;
-    animation: fadeInText 0.3s ease-out 0.2s both;
     margin: 0;
     padding: 0;
+    flex-shrink: 0;
 }
 
 @keyframes fadeInText {
@@ -357,6 +359,7 @@
     height: auto;
     min-width: auto;
     min-height: auto;
+    cursor: pointer;
 }
 
 /* Remove button in fan mode - hidden (not shown in preview) */
