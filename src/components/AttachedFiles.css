@@ -321,8 +321,8 @@
     border-radius: var(--2);
     width: auto;
     height: auto;
-    min-width: 20px;
-    min-height: 20px;
+    min-width: auto;
+    min-height: auto;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -332,8 +332,10 @@
     box-shadow: none;
     transition: all 0.2s ease;
     flex-shrink: 0;
-    gap: var(--3);
+    gap: 8px;
     outline: none;
+    overflow: clip;
+    position: relative;
 }
 
 /* Remove button in list mode - positioned at end of flex container */
@@ -341,6 +343,20 @@
     position: relative;
     margin-left: auto;
     flex-shrink: 0;
+    background: var(--background-primary);
+    border: none;
+    border-radius: var(--2);
+    padding: 2px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow: clip;
+    width: auto;
+    height: auto;
+    min-width: auto;
+    min-height: auto;
 }
 
 /* Remove button in fan mode - hidden (not shown in preview) */
