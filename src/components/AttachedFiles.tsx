@@ -114,7 +114,6 @@ const AttachedFiles: React.FC = () => {
                 totalFiles={Math.min(attachedFiles.length, maxVisible)}
                 isHovered={isHovered}
                 actualIndex={attachedFiles.indexOf(file)}
-                isChatMode={isChatMode}
               />
             ))}
           </motion.div>
@@ -140,7 +139,7 @@ interface AttachedFileFanItemProps {
   actualIndex: number;
 }
 
-const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: boolean }> = ({ file, index, totalFiles, isHovered, actualIndex, isChatMode = false }) => {
+const AttachedFileFanItem: React.FC<AttachedFileFanItemProps> = ({ file, index, totalFiles, isHovered, actualIndex }) => {
   const isImage = file.type?.startsWith('image/');
 
   // Rotations from Figma: 300°, 315°, 330°, 345°, 0° (or -60°, -45°, -30°, -15°, 0°)
