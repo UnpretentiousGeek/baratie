@@ -12,17 +12,15 @@ const AttachedFiles: React.FC = () => {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayImageIndex, setOverlayImageIndex] = useState(0);
 
-  // In chat mode (preview stage), always use list mode (edit mode)
+  // In chat mode (preview stage), use fan mode with square cards
   const isChatMode = currentStage === 'preview';
 
   useEffect(() => {
     if (attachedFiles.length === 0) {
       setIsEditMode(false);
-    } else if (isChatMode) {
-      // In chat mode, always show as list (square cards)
-      setIsEditMode(true);
     }
-  }, [attachedFiles.length, isChatMode]);
+    // In chat mode, use fan mode (not edit mode)
+  }, [attachedFiles.length]);
 
   // All files for the overlay (images and PDFs)
   const allFiles = attachedFiles;
@@ -39,7 +37,7 @@ const AttachedFiles: React.FC = () => {
       return;
     }
 
-    // In chat mode, don't allow toggling (always stay in list mode)
+    // In chat mode, don't allow toggling (always stay in fan mode)
     if (isChatMode) {
       return;
     }
@@ -106,7 +104,7 @@ const AttachedFiles: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ 
               opacity: 1,
-              x: isHovered ? -15 : 0
+              x: isHovered && !isChatMode ? -15 : 0
             }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
@@ -174,10 +172,18 @@ const AttachedFileFanItem: React.FC<AttachedFileFanItemProps & { isChatMode?: bo
 
   const { rotation, left, right, top } = getRotationAndPosition(index);
 
-  // Hover effects: left 2 cards move top+left, middle moves top only, right 2 move top+right
+  // Hover effects: spread out cards more on hover
   const getHoverOffset = (idx: number, total: number) => {
     if (!isHovered) return { x: 0, y: 0 };
     
+    // In chat mode, spread out more horizontally
+    if (isChatMode) {
+      const spreadAmount = 15; // More spread in chat mode
+      const baseOffset = (idx - (total - 1) / 2) * spreadAmount;
+      return { x: baseOffset, y: -8 };
+    }
+    
+    // Original hover behavior for non-chat mode
     const middleIndex = Math.floor(total / 2);
     
     if (idx < 2) {
