@@ -42,6 +42,37 @@
 
 .chat-input-box-chat-mode {
     max-width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: auto;
+    min-height: auto;
+    padding: var(--5);
+    gap: 12px;
+}
+
+.chat-input-chat-mode-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+}
+
+.chat-input-left-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-input-chat-mode-text {
+    flex: 1;
+    min-width: 0;
 }
 
 .hero-chat-input {

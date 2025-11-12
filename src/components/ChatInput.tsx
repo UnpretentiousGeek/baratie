@@ -86,41 +86,79 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
           whileHover={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
           transition={{ duration: 0.2 }}
         >
-          <textarea
-            ref={textareaRef}
-            className="hero-chat-input"
-            placeholder={isChatMode ? "+ Ask Anything" : "Ask Baratie to extract or make changes to a recipe..."}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            onPaste={handlePaste}
-            rows={1}
-            aria-label="Recipe chat input"
-          />
-          <div className="chat-input-actions">
-            {!isChatMode && (
+          {isChatMode ? (
+            <div className="chat-input-chat-mode-layout">
+              <div className="chat-input-left-group">
+                <motion.button
+                  className="btn-add-media"
+                  onClick={() => fileInputRef.current?.click()}
+                  whileHover={{ backgroundColor: '#faf9f8', scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Add media"
+                  type="button"
+                >
+                  <PlusIcon size={20} />
+                </motion.button>
+                <textarea
+                  ref={textareaRef}
+                  className="hero-chat-input chat-input-chat-mode-text"
+                  placeholder="Ask Anything"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  onPaste={handlePaste}
+                  rows={1}
+                  aria-label="Recipe chat input"
+                />
+              </div>
               <motion.button
-                className="btn-add-media"
-                onClick={() => fileInputRef.current?.click()}
-                whileHover={{ backgroundColor: '#faf9f8', scale: 1.05 }}
+                className="btn-send-arrow"
+                onClick={handleSend}
+                disabled={isLoading || (!inputValue.trim() && attachedFiles.length === 0)}
+                whileHover={{ backgroundColor: '#E6725F', scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                title="Add media"
                 type="button"
               >
-                <PlusIcon size={20} />
+                <ArrowUpIcon size={20} />
               </motion.button>
-            )}
-            <motion.button
-              className="btn-send-arrow"
-              onClick={handleSend}
-              disabled={isLoading || (!inputValue.trim() && attachedFiles.length === 0)}
-              whileHover={{ backgroundColor: '#E6725F', scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-            >
-              <ArrowUpIcon size={20} />
-            </motion.button>
-          </div>
+            </div>
+          ) : (
+            <>
+              <textarea
+                ref={textareaRef}
+                className="hero-chat-input"
+                placeholder="Ask Baratie to extract or make changes to a recipe..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                onPaste={handlePaste}
+                rows={1}
+                aria-label="Recipe chat input"
+              />
+              <div className="chat-input-actions">
+                <motion.button
+                  className="btn-add-media"
+                  onClick={() => fileInputRef.current?.click()}
+                  whileHover={{ backgroundColor: '#faf9f8', scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Add media"
+                  type="button"
+                >
+                  <PlusIcon size={20} />
+                </motion.button>
+                <motion.button
+                  className="btn-send-arrow"
+                  onClick={handleSend}
+                  disabled={isLoading || (!inputValue.trim() && attachedFiles.length === 0)}
+                  whileHover={{ backgroundColor: '#E6725F', scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                >
+                  <ArrowUpIcon size={20} />
+                </motion.button>
+              </div>
+            </>
+          )}
         </motion.div>
       </div>
     </div>

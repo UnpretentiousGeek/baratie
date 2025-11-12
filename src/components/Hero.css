@@ -42,12 +42,14 @@
 }
 
 .hero-section.chat-mode .chat-container {
-    max-width: 100%;
+    max-width: 748px;
+    width: 748px;
     padding: 16px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     height: calc(100vh - 80px);
+    margin: 0 auto;
 }
 
 .chat-messages {
