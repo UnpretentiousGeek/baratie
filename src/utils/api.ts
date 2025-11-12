@@ -22,6 +22,9 @@ export async function extractRecipeFromFiles(
       };
     });
 
+    console.log('Sending request to:', GEMINI_API_ENDPOINT);
+    console.log('Files count:', filesData.length);
+    
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -32,14 +35,29 @@ export async function extractRecipeFromFiles(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to extract recipe');
+      let errorMessage = 'Failed to extract recipe';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     return data.recipe;
   } catch (error) {
     console.error('Error extracting recipe:', error);
+    
+    // Provide more helpful error messages
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isLocalDev && GEMINI_API_ENDPOINT.startsWith('/api/')) {
+        throw new Error('API endpoint not accessible. Make sure to run "vercel dev" in a separate terminal to start the API server, or use "yarn dev:all" to run both frontend and API together.');
+      }
+    }
+    
     throw error;
   }
 }

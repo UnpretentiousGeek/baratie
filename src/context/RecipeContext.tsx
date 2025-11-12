@@ -173,10 +173,17 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       });
     } catch (error) {
       console.error('Error extracting recipe:', error);
+      
+      // Get a more helpful error message
+      let errorMessage = 'Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.';
+      if (error instanceof Error) {
+        errorMessage = error.message || errorMessage;
+      }
+      
       // Add error message
       addMessage({
         type: 'system',
-        text: 'Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.',
+        text: errorMessage,
       });
       throw error;
     }
