@@ -589,34 +589,58 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           }
           if (parsed.instructions && Array.isArray(parsed.instructions)) {
             console.log('Raw instructions from Gemini:', parsed.instructions.length, 'items');
-            console.log('First 3 instructions:', parsed.instructions.slice(0, 3));
+            console.log('First 5 raw instructions:', parsed.instructions.slice(0, 5));
 
             // Filter out section headings from JSON response
             recipe.instructions = parsed.instructions.filter(instruction => {
-              if (typeof instruction !== 'string') return false;
-              const lower = instruction.toLowerCase().trim();
-              // Filter out section headings
-              if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && instruction.length < 50) {
-                console.log('Filtered out section heading:', instruction);
+              if (typeof instruction !== 'string') {
+                console.log('Filtered out non-string instruction:', typeof instruction);
+                return false;
+              }
+              
+              const trimmed = instruction.trim();
+              if (!trimmed) {
+                console.log('Filtered out empty instruction');
+                return false;
+              }
+              
+              const lower = trimmed.toLowerCase();
+              
+              // Filter out section headings (but be more lenient - only filter if it's clearly a heading)
+              if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)\s*$/i.test(lower)) {
+                console.log('Filtered out section heading:', trimmed);
                 return false; // Likely a section heading
               }
-              // Filter out very short lines that look like headings
-              if (instruction.length < 20 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(instruction)) {
-                console.log('Filtered out short heading:', instruction);
+              
+              // Filter out very short lines that look like headings (but be more lenient)
+              if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
+                console.log('Filtered out short heading:', trimmed);
                 return false; // Looks like a title/heading
               }
+              
+              // Keep all other instructions - don't filter them out
               return true;
             });
 
             console.log('Filtered instructions count:', recipe.instructions.length);
-            console.log('First 3 filtered:', recipe.instructions.slice(0, 3));
+            if (recipe.instructions.length > 0) {
+              console.log('First 5 filtered instructions:', recipe.instructions.slice(0, 5));
+            } else {
+              console.log('WARNING: All instructions were filtered out!');
+              console.log('All raw instructions:', parsed.instructions);
+            }
+          } else {
+            console.log('WARNING: No instructions array found in parsed JSON');
+            console.log('Parsed keys:', Object.keys(parsed));
           }
           // Include changesDescription if present (for modifications)
           if (parsed.changesDescription) {
             recipe.changesDescription = parsed.changesDescription;
           }
           // If we successfully parsed JSON, return early
-          if (recipe.instructions.length > 0 || recipe.ingredients.length > 0) {
+          // Only return if we have at least ingredients (instructions might be empty if they were all filtered)
+          if (recipe.ingredients.length > 0) {
+            console.log('Returning JSON-parsed recipe. Ingredients:', recipe.ingredients.length, 'Instructions:', recipe.instructions.length);
             return res.status(200).json({ recipe });
           }
         }
@@ -738,17 +762,28 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
         
         // Filter out section headings (common patterns like "To Make...", "To Serve", "To Store")
         const filteredInstructions = instructions.filter(instruction => {
-          const lower = instruction.toLowerCase().trim();
-          // Filter out section headings
-          if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && instruction.length < 50) {
+          const trimmed = instruction.trim();
+          if (!trimmed) return false;
+          
+          const lower = trimmed.toLowerCase();
+          
+          // Filter out section headings (but be more lenient - only filter if it's clearly just a heading)
+          if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)\s*$/i.test(lower)) {
+            console.log('Text parsing: Filtered out section heading:', trimmed);
             return false; // Likely a section heading, not an instruction
           }
-          // Filter out very short lines that look like headings
-          if (instruction.length < 20 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(instruction)) {
+          
+          // Filter out very short lines that look like headings (but be more lenient)
+          if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
+            console.log('Text parsing: Filtered out short heading:', trimmed);
             return false; // Looks like a title/heading
           }
+          
+          // Keep all other instructions
           return true;
         });
+        
+        console.log('Text parsing: Extracted', instructions.length, 'instructions, filtered to', filteredInstructions.length);
         
         // If we found numbered steps, use them; otherwise fall back to simple parsing
         if (filteredInstructions.length > 0) {
