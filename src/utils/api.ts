@@ -72,30 +72,11 @@ export async function extractRecipeFromYouTube(videoId: string): Promise<Recipe>
 
 export async function answerQuestion(question: string, currentRecipe?: Recipe | null): Promise<string> {
   try {
-    let prompt = question;
-    
-    // If there's a current recipe, include it for context
-    if (currentRecipe) {
-      const ingredients = Array.isArray(currentRecipe.ingredients) 
-        ? (typeof currentRecipe.ingredients[0] === 'string' 
-            ? currentRecipe.ingredients 
-            : currentRecipe.ingredients.flatMap((s: any) => s.items || []))
-        : [];
-      
-      prompt = `Current Recipe Context:
-Title: ${currentRecipe.title}
-Ingredients: ${ingredients.join(', ')}
-
-User Question: ${question}
-
-Please provide a helpful answer to the user's question. If the question relates to the recipe, you can reference it. Otherwise, provide a general answer.`;
-    }
-
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt,
+        prompt: question,
         question: true,
       }),
     });

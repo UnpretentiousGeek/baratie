@@ -331,8 +331,10 @@ export default async function handler(req, res) {
     // Handle question requests (not recipe modifications)
     if (question) {
       console.log('Answering question:', prompt);
-      // Use the prompt as-is for answering questions
-      finalPrompt = prompt;
+      // Use a simple prompt that asks for a direct answer without recipe references
+      finalPrompt = `Please provide a clear, concise, and direct answer to this question: ${prompt}
+
+Answer the question directly without referencing any recipes or providing unnecessary context. Keep the answer focused and helpful.`;
     }
     // Handle recipe modification requests
     else if (modify && currentRecipe) {
