@@ -155,10 +155,10 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // Clear attached files after successful extraction
       clearFiles();
 
-      // Add system message
+      // Add system message with recipe title
       addMessage({
         type: 'system',
-        text: 'Here is the Extracted Recipe',
+        text: extractedRecipe.title || 'Here is the Extracted Recipe',
       });
 
       // Add recipe preview message
