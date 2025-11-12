@@ -1,21 +1,26 @@
 .message-container {
   display: flex;
+  flex-direction: column;
   width: 100%;
   gap: 8px;
   margin-bottom: 8px;
 }
 
 .message-user {
-  justify-content: flex-end;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .message-system,
 .message-recipe {
-  justify-content: flex-start;
   align-items: flex-start;
   flex-direction: column;
   text-align: left;
+}
+
+.message-files-container {
+  margin-bottom: 0;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .message-bubble {
@@ -28,6 +33,13 @@
   background: #f5f3f2;
   border-radius: 12px;
   text-align: left;
+}
+
+.message-bubble-user.message-bubble-with-files {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 4px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 .message-bubble-system {

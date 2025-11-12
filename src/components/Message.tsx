@@ -1,20 +1,30 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChatMessage } from '../types';
+import { ChatMessage, AttachedFile } from '../types';
 import { normalizeIngredients } from '../utils/recipeUtils';
 import { useRecipe } from '../context/RecipeContext';
+import { SentAttachedFilesGroup } from './SentAttachedFiles';
 import './Message.css';
 
 interface MessageProps {
   message: ChatMessage;
 }
 
-const UserMessage: React.FC<{ text: string; attachedFiles?: any[] }> = ({ text }) => {
+const UserMessage: React.FC<{ text: string; attachedFiles?: AttachedFile[] }> = ({ text, attachedFiles }) => {
+  const hasFiles = attachedFiles && attachedFiles.length > 0;
+  
   return (
     <div className="message-container message-user">
-      <div className="message-bubble message-bubble-user">
-        <p className="message-text">{text}</p>
-      </div>
+      {hasFiles && (
+        <div className="message-files-container">
+          <SentAttachedFilesGroup files={attachedFiles} maxVisible={3} />
+        </div>
+      )}
+      {text && (
+        <div className={`message-bubble message-bubble-user ${hasFiles ? 'message-bubble-with-files' : ''}`}>
+          <p className="message-text">{text}</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -71,7 +81,10 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <UserMessage text={message.text || ''} attachedFiles={message.attachedFiles} />
+        <UserMessage 
+          text={message.text || ''} 
+          attachedFiles={message.attachedFiles} 
+        />
       </motion.div>
     );
   }

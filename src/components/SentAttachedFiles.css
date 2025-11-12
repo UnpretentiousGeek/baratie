@@ -1,0 +1,131 @@
+.sent-attached-files-group {
+    display: flex;
+    flex-direction: row;
+    gap: var(--3);
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.sent-attached-file {
+    position: relative;
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--brand-light);
+    border: 1px solid var(--brand-default);
+}
+
+.sent-attached-file-image {
+    background: transparent;
+    border: none;
+}
+
+.sent-attached-file-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+.sent-attached-file-pdf {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.sent-file-pdf-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sent-file-pdf-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Sizes */
+.sent-file-large {
+    width: 130px;
+    height: 130px;
+}
+
+.sent-file-medium {
+    width: 110px;
+    height: 110px;
+}
+
+.sent-file-small {
+    width: 90px;
+    height: 90px;
+}
+
+/* Border radius for single file */
+.sent-file-single {
+    border-radius: var(--5);
+}
+
+/* Border radius for 2 files */
+.sent-file-first-of-two {
+    border-top-left-radius: var(--5);
+    border-bottom-left-radius: var(--5);
+    border-top-right-radius: var(--3);
+    border-bottom-right-radius: var(--2);
+}
+
+.sent-file-second-of-two {
+    border-top-left-radius: var(--3);
+    border-bottom-left-radius: var(--2);
+    border-top-right-radius: var(--5);
+    border-bottom-right-radius: var(--2);
+}
+
+/* Border radius for 3+ files */
+.sent-file-first-of-many {
+    border-top-left-radius: var(--5);
+    border-bottom-left-radius: var(--5);
+    border-top-right-radius: var(--3);
+    border-bottom-right-radius: var(--3);
+}
+
+.sent-file-middle {
+    border-radius: var(--3);
+}
+
+.sent-file-before-more {
+    border-top-left-radius: var(--3);
+    border-bottom-left-radius: var(--3);
+    border-top-right-radius: var(--3);
+    border-bottom-right-radius: var(--2);
+}
+
+.sent-file-last-of-many {
+    border-top-left-radius: var(--3);
+    border-bottom-left-radius: var(--2);
+    border-top-right-radius: var(--5);
+    border-bottom-right-radius: var(--2);
+}
+
+/* "More" indicator */
+.sent-file-more {
+    background: var(--brand-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.sent-file-more-text {
+    font-family: 'Sora', sans-serif;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    text-align: center;
+    margin: 0;
+}
+
