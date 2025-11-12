@@ -134,14 +134,15 @@
 /* Fix for chat mode - ensure attached files are visible and not cut off */
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display {
     position: absolute;
-    right: calc(100% + 16px);
-    top: 0;
+    bottom: calc(100% + 8px);
+    right: 0;
     left: auto;
+    top: auto;
     width: fit-content;
     max-width: 250px;
     min-width: 200px;
     height: fit-content;
-    max-height: 400px;
+    max-height: 200px;
     overflow-y: auto;
     overflow-x: visible;
     z-index: 100;
@@ -151,6 +152,15 @@
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
     z-index: 100;
     display: flex;
+    flex-direction: column;
+    bottom: calc(100% + 8px);
+    right: 0;
+    left: auto;
+    top: auto;
+    width: fit-content;
+    max-width: 250px;
+    min-width: 200px;
+    align-items: flex-end;
 }
 
 .attached-files-display.edit-mode::-webkit-scrollbar {
