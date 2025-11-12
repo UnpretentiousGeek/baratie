@@ -8,17 +8,32 @@ export async function extractRecipeFromFiles(
   prompt: string
 ): Promise<Recipe> {
   try {
+    // Convert files to the format expected by the API
+    const filesData = files.map(f => {
+      // Remove data URI prefix if present (e.g., "data:image/jpeg;base64,")
+      let base64Data = f.data;
+      if (base64Data.includes(',')) {
+        base64Data = base64Data.split(',')[1];
+      }
+      
+      return {
+        mimeType: f.type,
+        data: base64Data,
+      };
+    });
+
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        files: files.map(f => ({ name: f.name, type: f.type, data: f.data })),
-        prompt,
+        filesData,
+        prompt: prompt || 'Extract the recipe from the provided images.',
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to extract recipe');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to extract recipe');
     }
 
     const data = await response.json();
