@@ -253,10 +253,10 @@
 }
 
 .attached-file-item-list.image {
-    padding-left: var(--2);
-    padding-right: var(--4);
-    padding-top: var(--2);
-    padding-bottom: var(--2);
+    padding-left: 4px;
+    padding-right: 12px;
+    padding-top: 4px;
+    padding-bottom: 4px;
     gap: var(--3);
     height: 46px;
     min-height: 46px;
@@ -302,8 +302,11 @@
 }
 
 .attached-file-item-list.pdf {
-    padding: var(--4);
+    padding: 12px;
     gap: var(--5);
+    height: 46px;
+    min-height: 46px;
+    box-sizing: border-box;
 }
 
 .attached-file-item-list.pdf .file-name {
