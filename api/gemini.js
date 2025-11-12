@@ -188,7 +188,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url } = req.body;
+    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify } = req.body;
 
     // If URL is provided, fetch and extract content from it
     let finalPrompt = prompt || '';
@@ -328,9 +328,55 @@ export default async function handler(req, res) {
       }
     }
 
+    // Handle recipe modification requests
+    if (modify && currentRecipe) {
+      console.log('Modifying recipe:', currentRecipe.title);
+      
+      // Normalize ingredients and instructions to arrays
+      let ingredientsList = [];
+      if (Array.isArray(currentRecipe.ingredients)) {
+        if (currentRecipe.ingredients.length > 0 && typeof currentRecipe.ingredients[0] === 'string') {
+          ingredientsList = currentRecipe.ingredients;
+        } else {
+          // It's an array of sections
+          ingredientsList = currentRecipe.ingredients.flatMap(section => section.items || []);
+        }
+      }
+      
+      let instructionsList = [];
+      if (Array.isArray(currentRecipe.instructions)) {
+        if (currentRecipe.instructions.length > 0 && typeof currentRecipe.instructions[0] === 'string') {
+          instructionsList = currentRecipe.instructions;
+        } else {
+          // It's an array of sections
+          instructionsList = currentRecipe.instructions.flatMap(section => section.items || []);
+        }
+      }
+      
+      // Format current recipe for the prompt
+      const recipeText = `CURRENT RECIPE:
+Title: ${currentRecipe.title}
+${currentRecipe.servings ? `Servings: ${currentRecipe.servings}` : ''}
+${currentRecipe.prepTime ? `Prep Time: ${currentRecipe.prepTime}` : ''}
+${currentRecipe.cookTime ? `Cook Time: ${currentRecipe.cookTime}` : ''}
+
+Ingredients:
+${ingredientsList.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
+
+Instructions:
+${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
+
+      finalPrompt = `${recipeText}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
+    }
+
     // Validate request
-    if (!finalPrompt) {
+    if (!finalPrompt && !modify) {
       return res.status(400).json({ error: 'Missing required field: prompt or url' });
+    }
+    
+    // If modify is true but no currentRecipe, return error
+    if (modify && !currentRecipe) {
+      return res.status(400).json({ error: 'Cannot modify recipe: no current recipe provided' });
     }
 
     // Check for API key

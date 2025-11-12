@@ -73,6 +73,31 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         attachedFiles: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
       });
 
+      // Check if we have an existing recipe and this is a modification request
+      // Modification request: has recipe, no URL in prompt, no new files attached
+      const hasUrl = prompt.match(/(https?:\/\/[^\s]+)/gi);
+      if (recipe && !hasUrl && attachedFiles.length === 0) {
+        // This is a modification request
+        const { modifyRecipe } = await import('../utils/api');
+        const modifiedRecipe = await modifyRecipe(recipe, prompt);
+        
+        setRecipe(modifiedRecipe);
+        setCurrentStage('preview');
+
+        // Add system message
+        addMessage({
+          type: 'system',
+          text: 'Recipe updated successfully!',
+        });
+
+        // Add recipe preview message
+        addMessage({
+          type: 'recipe-preview',
+          recipe: modifiedRecipe,
+        });
+        return;
+      }
+
       // Check if prompt contains a URL
       const urlPattern = /(https?:\/\/[^\s]+)/gi;
       const urls = prompt.match(urlPattern) || [];
@@ -92,6 +117,9 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       
       setRecipe(extractedRecipe);
       setCurrentStage('preview');
+      
+      // Clear attached files after successful extraction
+      clearFiles();
 
       // Add system message
       addMessage({
@@ -113,7 +141,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       });
       throw error;
     }
-  }, [attachedFiles, addMessage]);
+  }, [attachedFiles, addMessage, recipe, clearFiles]);
 
   const value: RecipeContextType = {
     attachedFiles,

@@ -70,3 +70,37 @@ export async function extractRecipeFromYouTube(videoId: string): Promise<Recipe>
   }
 }
 
+export async function modifyRecipe(
+  currentRecipe: Recipe,
+  modificationPrompt: string
+): Promise<Recipe> {
+  try {
+    const response = await fetch(GEMINI_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: modificationPrompt,
+        currentRecipe: {
+          title: currentRecipe.title,
+          ingredients: currentRecipe.ingredients,
+          instructions: currentRecipe.instructions,
+          servings: currentRecipe.servings,
+          prepTime: currentRecipe.prepTime,
+          cookTime: currentRecipe.cookTime,
+        },
+        modify: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to modify recipe');
+    }
+
+    const data = await response.json();
+    return data.recipe;
+  } catch (error) {
+    console.error('Error modifying recipe:', error);
+    throw error;
+  }
+}
+
