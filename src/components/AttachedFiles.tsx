@@ -12,9 +12,6 @@ const AttachedFiles: React.FC = () => {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayImageIndex, setOverlayImageIndex] = useState(0);
 
-  // In chat mode (preview stage), use fan mode with square cards
-  const isChatMode = currentStage === 'preview';
-
   useEffect(() => {
     if (attachedFiles.length === 0) {
       setIsEditMode(false);
