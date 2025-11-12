@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
-import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import ChatInput from './ChatInput';
 import CookingGuide from './CookingGuide';
 import Message from './Message';

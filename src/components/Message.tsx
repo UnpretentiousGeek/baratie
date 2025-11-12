@@ -9,7 +9,7 @@ interface MessageProps {
   message: ChatMessage;
 }
 
-const UserMessage: React.FC<{ text: string; attachedFiles?: any[] }> = ({ text, attachedFiles }) => {
+const UserMessage: React.FC<{ text: string; attachedFiles?: any[] }> = ({ text }) => {
   return (
     <div className="message-container message-user">
       <div className="message-bubble message-bubble-user">
