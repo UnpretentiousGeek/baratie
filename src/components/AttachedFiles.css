@@ -37,7 +37,7 @@
     width: fit-content;
     height: fit-content;
     min-width: 109px;
-    min-height: 77px;
+    min-height: 40px;
 }
 
 .attached-file-fan {
@@ -180,21 +180,21 @@
 /* Fix for chat mode - ensure attached files are visible with fan effect */
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display {
     position: absolute;
-    bottom: 0;
+    bottom: calc(100% - 10px);
     left: 0;
     right: auto;
     top: auto;
     width: fit-content;
     height: fit-content;
     min-width: 109px;
-    min-height: 77px;
+    min-height: 40px;
     z-index: 1;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     overflow: visible;
     transition: width 0.3s ease;
-    transform: translateY(50%);
+    margin-bottom: -10px;
 }
 
 /* Ensure fan pattern is visible by default in chat mode */
@@ -202,13 +202,13 @@
     width: fit-content;
     height: fit-content;
     min-width: 109px;
-    min-height: 77px;
+    min-height: 40px;
 }
 
 /* On hover, expand container width to match Figma hover state */
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display:not(.edit-mode):hover {
     min-width: 130px;
-    min-height: 85px;
+    min-height: 40px;
 }
 
 /* Ensure fan container allows overflow on hover */
@@ -217,7 +217,7 @@
     width: fit-content;
     height: fit-content;
     min-width: 109px;
-    min-height: 77px;
+    min-height: 40px;
 }
 
 .chat-input-wrapper.chat-input-chat-mode .attached-files-display.edit-mode {
