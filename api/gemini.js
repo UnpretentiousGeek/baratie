@@ -282,9 +282,9 @@ export default async function handler(req, res) {
           
           if (recipeContent) {
             combinedContent += `\n\n${recipeContent}`;
-            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. IMPORTANT: Ingredients should ONLY be ingredient names with quantities (e.g., "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten"). DO NOT include cooking steps, process descriptions, or instructions in the ingredients array.'}`;
+            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL: Ingredients should ONLY be ingredient names with quantities and measurements (e.g., "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit"). DO NOT include any cooking steps, process descriptions, action verbs (like "add", "mix", "heat", "cook"), or instructions in the ingredients array. Ingredients are just the raw materials needed, not how to use them.'}`;
           } else {
-            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. IMPORTANT: Ingredients should ONLY be ingredient names with quantities (e.g., "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten"). DO NOT include cooking steps, process descriptions, or instructions in the ingredients array. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL: Ingredients should ONLY be ingredient names with quantities and measurements (e.g., "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit"). DO NOT include any cooking steps, process descriptions, action verbs (like "add", "mix", "heat", "cook"), or instructions in the ingredients array. Ingredients are just the raw materials needed, not how to use them. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
           }
           
           console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
@@ -317,7 +317,7 @@ export default async function handler(req, res) {
           }
           
           // Combine URL content with prompt
-          finalPrompt = `Extract the recipe from this webpage content. The content below contains the full recipe text from the webpage:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. IMPORTANT: Ingredients should ONLY be ingredient names with quantities (e.g., "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten"). DO NOT include cooking steps, process descriptions, or instructions in the ingredients array. The content above contains the full recipe - extract all numbered steps with their complete descriptions.'}`;
+          finalPrompt = `Extract the recipe from this webpage content. The content below contains the full recipe text from the webpage:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions (e.g., "1. Lay ¼ onion flat side down...", "2. Mince finely into 1/8-inch pieces..."). DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store" - these are NOT instructions. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps from all sections into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL: Ingredients should ONLY be ingredient names with quantities and measurements (e.g., "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit"). DO NOT include any cooking steps, process descriptions, action verbs (like "add", "mix", "heat", "cook"), or instructions in the ingredients array. Ingredients are just the raw materials needed, not how to use them. The content above contains the full recipe - extract all numbered steps with their complete descriptions.'}`;
         }
       } catch (urlError) {
         console.error('Error fetching URL:', urlError);
@@ -374,7 +374,7 @@ ${ingredientsList.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
 Instructions:
 ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
 
-      finalPrompt = `${recipeText}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."], "changesDescription": "..." }. The "changesDescription" field should be a brief summary of what changes were made (e.g., "Made the recipe vegan by replacing chicken with tofu and eggs with a vegan alternative", or "Adjusted ingredient quantities for 2 pounds of chicken"). CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. IMPORTANT: Ingredients should ONLY be ingredient names with quantities. DO NOT include cooking steps, process descriptions, or instructions in the ingredients array. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
+      finalPrompt = `${recipeText}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."], "changesDescription": "..." }. The "changesDescription" field should be a brief summary of what changes were made (e.g., "Made the recipe vegan by replacing chicken with tofu and eggs with a vegan alternative", or "Adjusted ingredient quantities for 2 pounds of chicken"). CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. CRITICAL: Ingredients should ONLY be ingredient names with quantities and measurements. DO NOT include any cooking steps, process descriptions, action verbs (like "add", "mix", "heat", "cook"), or instructions in the ingredients array. Ingredients are just the raw materials needed, not how to use them. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
     }
 
     // Validate request
@@ -532,7 +532,41 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           const parsed = JSON.parse(jsonMatch[1]);
           if (parsed.title) recipe.title = parsed.title;
           if (parsed.ingredients && Array.isArray(parsed.ingredients)) {
-            recipe.ingredients = parsed.ingredients;
+            // Filter out instruction-like content from ingredients
+            recipe.ingredients = parsed.ingredients.filter(ingredient => {
+              if (typeof ingredient !== 'string') return false;
+              const trimmed = ingredient.trim();
+              if (!trimmed) return false;
+              
+              // Filter out section headers
+              if (/instructions?|directions?|steps?|process|method/i.test(trimmed)) {
+                return false;
+              }
+              
+              // Filter out instruction-like content (lines that look like steps)
+              // Instructions often start with action verbs or numbers
+              if (/^(add|mix|heat|cook|stir|sauté|roast|garnish|serve|cover|set|marinate|chop|slice|dice|mince|crush|beat|whisk|fry|boil|simmer|bake|grill|steam|blend|process|method|step|pour|sprinkle|season|toss|fold|knead|roll|cut|peel|grate|zest|juice|squeeze|drain|rinse|pat|dry|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|marinade|seasoning)/i.test(trimmed)) {
+                return false;
+              }
+              
+              // Filter out numbered steps
+              if (/^\d+[.)]\s/.test(trimmed)) {
+                return false;
+              }
+              
+              // Filter out very long lines (likely instructions, not ingredients)
+              if (trimmed.length > 150) {
+                return false;
+              }
+              
+              // Filter out lines that contain multiple action verbs (likely instructions)
+              const actionVerbCount = (trimmed.match(/\b(add|mix|heat|cook|stir|sauté|roast|garnish|serve|cover|set|marinate|chop|slice|dice|mince|crush|beat|whisk|fry|boil|simmer|bake|grill|steam|blend|process|method|step|pour|sprinkle|season|toss|fold|knead|roll|cut|peel|grate|zest|juice|squeeze|drain|rinse|pat|dry|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|marinade|seasoning)\b/gi) || []).length;
+              if (actionVerbCount > 1) {
+                return false;
+              }
+              
+              return true;
+            });
           }
           if (parsed.instructions && Array.isArray(parsed.instructions)) {
             // Filter out section headings from JSON response
