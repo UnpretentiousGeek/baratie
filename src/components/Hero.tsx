@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
+import { ChatMessage } from '../types';
 import ChatInput from './ChatInput';
 import CookingGuide from './CookingGuide';
 import Message from './Message';
@@ -68,6 +69,30 @@ const Hero: React.FC = () => {
 
   // Show cooking guide when stage is 'cooking' - split layout with chat on left, recipe on right
   if (currentStage === 'cooking' && recipe) {
+    // Group consecutive recipe and system messages together
+    const groupedMessages: (ChatMessage | ChatMessage[])[] = [];
+    let currentGroup: ChatMessage[] | null = null;
+
+    messages.forEach((message) => {
+      if (message.type === 'recipe-preview' || message.type === 'system') {
+        if (!currentGroup) {
+          currentGroup = [message];
+        } else {
+          currentGroup.push(message);
+        }
+      } else {
+        if (currentGroup) {
+          groupedMessages.push(currentGroup);
+          currentGroup = null;
+        }
+        groupedMessages.push(message);
+      }
+    });
+
+    if (currentGroup) {
+      groupedMessages.push(currentGroup);
+    }
+
     return (
       <div className="hero-section cooking-mode">
         <div className="cooking-split-container">
@@ -75,9 +100,21 @@ const Hero: React.FC = () => {
           <div className="cooking-chat-panel">
             <div className="chat-container">
               <div className="chat-messages">
-                {messages.map((message) => (
-                  <Message key={message.id} message={message} />
-                ))}
+                {groupedMessages.map((item, index) => {
+                  if (Array.isArray(item)) {
+                    // Group of recipe/system messages with 8px gap
+                    return (
+                      <div key={`group-${index}`} className="message-group-recipe-system">
+                        {item.map((message) => (
+                          <Message key={message.id} message={message} />
+                        ))}
+                      </div>
+                    );
+                  } else {
+                    // Single message (user or other)
+                    return <Message key={item.id} message={item} />;
+                  }
+                })}
                 <div ref={messagesEndRef} />
               </div>
               <ChatInput isChatMode={true} />
@@ -94,13 +131,49 @@ const Hero: React.FC = () => {
 
   // Show recipe preview when stage is 'preview' - now with chat messages
   if (currentStage === 'preview') {
+    // Group consecutive recipe and system messages together
+    const groupedMessages: (ChatMessage | ChatMessage[])[] = [];
+    let currentGroup: ChatMessage[] | null = null;
+
+    messages.forEach((message) => {
+      if (message.type === 'recipe-preview' || message.type === 'system') {
+        if (!currentGroup) {
+          currentGroup = [message];
+        } else {
+          currentGroup.push(message);
+        }
+      } else {
+        if (currentGroup) {
+          groupedMessages.push(currentGroup);
+          currentGroup = null;
+        }
+        groupedMessages.push(message);
+      }
+    });
+
+    if (currentGroup) {
+      groupedMessages.push(currentGroup);
+    }
+
     return (
       <div className="hero-section chat-mode">
         <div className="hero-content chat-container">
           <div className="chat-messages">
-            {messages.map((message) => (
-              <Message key={message.id} message={message} />
-            ))}
+            {groupedMessages.map((item, index) => {
+              if (Array.isArray(item)) {
+                // Group of recipe/system messages with 8px gap
+                return (
+                  <div key={`group-${index}`} className="message-group-recipe-system">
+                    {item.map((message) => (
+                      <Message key={message.id} message={message} />
+                    ))}
+                  </div>
+                );
+              } else {
+                // Single message (user or other)
+                return <Message key={item.id} message={item} />;
+              }
+            })}
             <div ref={messagesEndRef} />
           </div>
           <ChatInput isChatMode={true} />
