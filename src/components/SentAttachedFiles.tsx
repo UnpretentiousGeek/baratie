@@ -107,7 +107,17 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
           );
         })}
         {shouldShowMore && (
-          <div className="sent-attached-file sent-file-more sent-file-small sent-file-last-of-many">
+          <div 
+            className="sent-attached-file sent-file-more sent-file-small sent-file-last-of-many"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Open overlay starting from the first hidden file (index 2)
+              setOverlayImageIndex(2);
+              setIsOverlayOpen(true);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <p className="sent-file-more-text">{remainingCount} more</p>
           </div>
         )}
