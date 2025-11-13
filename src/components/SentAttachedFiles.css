@@ -3,7 +3,7 @@
     flex-direction: row;
     gap: var(--3);
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 0;
 }
 
 .sent-attached-file {
@@ -65,48 +65,58 @@
 }
 
 /* Border radius for single file */
+/* 1 file: top-left: 16px, top-right: 12px, bottom-left: 16px, bottom-right: 4px */
 .sent-file-single {
-    border-radius: var(--5);
-}
-
-/* Border radius for 2 files */
-.sent-file-first-of-two {
     border-top-left-radius: var(--5);
+    border-top-right-radius: var(--4);
     border-bottom-left-radius: var(--5);
-    border-top-right-radius: var(--3);
     border-bottom-right-radius: var(--2);
 }
 
+/* Border radius for 2 files */
+/* First file: top-left: 16px, top-right: 8px, bottom-left: 16px, bottom-right: 8px */
+.sent-file-first-of-two {
+    border-top-left-radius: var(--5);
+    border-top-right-radius: var(--3);
+    border-bottom-left-radius: var(--5);
+    border-bottom-right-radius: var(--3);
+}
+
+/* Second file: top-left: 8px, top-right: 16px, bottom-left: 8px, bottom-right: 4px */
 .sent-file-second-of-two {
     border-top-left-radius: var(--3);
-    border-bottom-left-radius: var(--2);
     border-top-right-radius: var(--5);
+    border-bottom-left-radius: var(--3);
     border-bottom-right-radius: var(--2);
 }
 
 /* Border radius for 3+ files */
+/* First file: top-left: 16px, top-right: 8px, bottom-left: 16px, bottom-right: 8px */
 .sent-file-first-of-many {
     border-top-left-radius: var(--5);
-    border-bottom-left-radius: var(--5);
     border-top-right-radius: var(--3);
+    border-bottom-left-radius: var(--5);
     border-bottom-right-radius: var(--3);
 }
 
+/* Middle file: all 8px */
 .sent-file-middle {
     border-radius: var(--3);
 }
 
+/* File before "more" indicator: top-left: 8px, top-right: 8px, bottom-left: 8px, bottom-right: 4px */
 .sent-file-before-more {
     border-top-left-radius: var(--3);
-    border-bottom-left-radius: var(--3);
     border-top-right-radius: var(--3);
+    border-bottom-left-radius: var(--3);
     border-bottom-right-radius: var(--2);
 }
 
+/* Last file (more indicator): top-left: 8px, top-right: 16px, bottom-left: 8px, bottom-right: 4px */
 .sent-file-last-of-many {
     border-top-left-radius: var(--3);
-    border-bottom-left-radius: var(--2);
     border-top-right-radius: var(--5);
+    border-bottom-left-radius: var(--3);
     border-bottom-right-radius: var(--2);
 }
 

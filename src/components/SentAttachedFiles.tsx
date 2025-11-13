@@ -54,9 +54,13 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
 
   if (files.length === 0) return null;
 
-  const visibleFiles = files.slice(0, maxVisible);
-  const remainingCount = files.length - maxVisible;
-  const showMore = remainingCount > 0;
+  // For 3+ files, always show 3 items (first 2 files + "more" indicator)
+  // For 1-3 files, show all files
+  const totalFiles = files.length;
+  const shouldShowMore = totalFiles > 3;
+  const displayCount = shouldShowMore ? 3 : totalFiles;
+  const visibleFiles = shouldShowMore ? files.slice(0, 2) : files.slice(0, displayCount);
+  const remainingCount = totalFiles - 2; // Count remaining after first 2 files
 
   const handleFileClick = (fileIndex: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -71,17 +75,18 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
     return 'small';
   };
 
-  const getBorderRadius = (index: number, total: number) => {
+  const getBorderRadius = (index: number, total: number, hasMore: boolean) => {
     if (total === 1) {
       return 'sent-file-single';
     }
     if (total === 2) {
       return index === 0 ? 'sent-file-first-of-two' : 'sent-file-second-of-two';
     }
-    // 3+ files
+    // 3+ files (always shows 3 items: 2 files + "more" indicator)
     if (index === 0) return 'sent-file-first-of-many';
-    if (index === total - 1 && !showMore) return 'sent-file-last-of-many';
-    if (index === total - 1 && showMore) return 'sent-file-before-more';
+    if (index === 1 && hasMore) return 'sent-file-before-more';
+    if (index === 1 && !hasMore) return 'sent-file-middle';
+    if (index === 2) return 'sent-file-last-of-many';
     return 'sent-file-middle';
   };
 
@@ -89,8 +94,9 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
     <>
       <div className="sent-attached-files-group">
         {visibleFiles.map((file, index) => {
-          const size = getSize(visibleFiles.length);
-          const borderRadius = getBorderRadius(index, visibleFiles.length);
+          // For 3+ files, use small size for all visible items
+          const size = shouldShowMore ? 'small' : getSize(displayCount);
+          const borderRadius = getBorderRadius(index, displayCount, shouldShowMore);
           const actualIndex = files.indexOf(file);
           return (
             <SentAttachedFiles
@@ -102,7 +108,7 @@ export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({
             />
           );
         })}
-        {showMore && (
+        {shouldShowMore && (
           <div className="sent-attached-file sent-file-more sent-file-small sent-file-last-of-many">
             <p className="sent-file-more-text">{remainingCount} more</p>
           </div>
