@@ -17,7 +17,7 @@ const UserMessage: React.FC<{ text: string; attachedFiles?: AttachedFile[] }> = 
     <div className="message-container message-user">
       {hasFiles && (
         <div className="message-files-container">
-          <SentAttachedFilesGroup files={attachedFiles} maxVisible={3} />
+          <SentAttachedFilesGroup files={attachedFiles} />
         </div>
       )}
       {text && (

@@ -42,12 +42,10 @@ const SentAttachedFiles: React.FC<SentAttachedFilesProps> = ({ file, className =
 
 interface SentAttachedFilesGroupProps {
   files: AttachedFile[];
-  maxVisible?: number;
 }
 
 export const SentAttachedFilesGroup: React.FC<SentAttachedFilesGroupProps> = ({ 
-  files, 
-  maxVisible = 3 
+  files
 }) => {
   const [isOverlayOpen, setIsOverlayOpen] = React.useState(false);
   const [overlayImageIndex, setOverlayImageIndex] = React.useState(0);
