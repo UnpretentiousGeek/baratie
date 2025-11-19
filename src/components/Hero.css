@@ -8,9 +8,9 @@
     width: 100%;
     max-width: 1280px;
     margin: 0 auto;
-    min-height: 748px;
+    min-height: 0;
     box-sizing: border-box;
-    overflow: visible;
+    overflow: hidden;
     position: relative;
     flex: 1;
 }
