@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Download } from 'lucide-react';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
   const { recipe, setStage } = useRecipe();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [selectedFilter, setSelectedFilter] = useState('All');
 
   if (!recipe) {
     return null;
@@ -50,116 +51,141 @@ const CookingGuide: React.FC = () => {
 
   return (
     <div className="cooking-guide">
-      <div className="cooking-header">
-        <button
-          type="button"
-          className="back-button"
-          onClick={() => setStage('preview')}
-        >
-          <ChevronLeft size={20} />
-          Back to Recipe
-        </button>
-        <h2 className="cooking-title">{recipe.title}</h2>
-        <div className="step-indicator">
-          Step {currentStep + 1} of {totalSteps}
+      {/* Recipe Name Header */}
+      <div className="recipe-name-header">
+        <h2 className="recipe-name-title">{recipe.title || 'Recipe Name'}</h2>
+        <div className="recipe-name-actions">
+          <button type="button" className="recipe-action-btn" aria-label="Download">
+            <Download size={32} />
+          </button>
+          <button type="button" className="recipe-action-btn" onClick={() => setStage('preview')} aria-label="Close">
+            <X size={32} />
+          </button>
         </div>
       </div>
 
-      <div className="cooking-content">
-        <div className="step-navigation">
-          <button
-            type="button"
-            className="nav-button"
-            onClick={goToPreviousStep}
-            disabled={currentStep === 0}
-          >
-            <ChevronLeft size={24} />
-            Previous
-          </button>
-
-          <div className="step-content">
-            <div className="step-number">Step {currentStep + 1}</div>
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="step-instruction"
-            >
-              <p>{instructions[currentStep]}</p>
-            </motion.div>
-
+      {/* Main Content: Two Column Layout */}
+      <div className="recipe-main-content">
+        {/* Left Column: Ingredient List */}
+        <div className="ingredient-list-panel">
+          <h3 className="ingredient-list-title">Ingredient list</h3>
+          
+          {/* Filter Buttons */}
+          <div className="ingredient-filters">
             <button
               type="button"
-              className={`step-complete-btn ${completedSteps.has(currentStep) ? 'completed' : ''}`}
-              onClick={() => toggleStepComplete(currentStep)}
+              className={`ingredient-filter-btn ${selectedFilter === 'All' ? 'active' : ''}`}
+              onClick={() => setSelectedFilter('All')}
             >
-              <Check size={20} />
-              {completedSteps.has(currentStep) ? 'Completed' : 'Mark as Complete'}
+              All
+            </button>
+            <button
+              type="button"
+              className={`ingredient-filter-btn ${selectedFilter === 'Marination' ? 'active' : ''}`}
+              onClick={() => setSelectedFilter('Marination')}
+            >
+              Marination
+            </button>
+            <button
+              type="button"
+              className={`ingredient-filter-btn ${selectedFilter === 'Curry' ? 'active' : ''}`}
+              onClick={() => setSelectedFilter('Curry')}
+            >
+              Curry
             </button>
           </div>
 
-          <button
-            type="button"
-            className="nav-button"
-            onClick={goToNextStep}
-            disabled={currentStep === totalSteps - 1}
-          >
-            Next
-            <ChevronRight size={24} />
-          </button>
+          {/* Ingredients List */}
+          <div className="ingredients-list-container">
+            {ingredients.map((ingredient, index) => (
+              <div key={index} className="ingredient-item">
+                <div className="ingredient-checkbox">
+                  <Check size={12} />
+                </div>
+                <p className="ingredient-name">{ingredient}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="cooking-sidebar">
-          <div className="ingredients-panel">
-            <h3>Ingredients</h3>
-            <ul>
-              {ingredients.map((ingredient, index) => (
-                <li key={index}>{ingredient}</li>
-              ))}
-            </ul>
+        {/* Right Column: Instructions and Macros */}
+        <div className="instructions-macros-column">
+          {/* Instructions Section */}
+          <div className="instructions-section">
+            <div className="instructions-header">
+              <h3 className="instructions-title">Instructions</h3>
+              <div className="step-counter">
+                {currentStep + 1}/{totalSteps}
+              </div>
+            </div>
+
+            <div className="instruction-content">
+              <p className="instruction-text">{instructions[currentStep] || 'Recipe Instructions'}</p>
+            </div>
+
+            <div className="instruction-navigation">
+              <button
+                type="button"
+                className="nav-btn prev-btn"
+                onClick={goToPreviousStep}
+                disabled={currentStep === 0}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                type="button"
+                className="mark-complete-btn"
+                onClick={() => toggleStepComplete(currentStep)}
+              >
+                {completedSteps.has(currentStep) ? 'Completed' : 'Mark as Completed'}
+              </button>
+              <button
+                type="button"
+                className="nav-btn next-btn"
+                onClick={goToNextStep}
+                disabled={currentStep === totalSteps - 1}
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
           </div>
 
-          <div className="steps-overview">
-            <h3>Steps</h3>
-            <div className="steps-list">
-              {instructions.map((instruction, index) => (
-                <button
-                  type="button"
-                  key={index}
-                  className={`step-item ${index === currentStep ? 'active' : ''} ${completedSteps.has(index) ? 'completed' : ''}`}
-                  onClick={() => setCurrentStep(index)}
-                >
-                  <span className="step-item-number">{index + 1}</span>
-                  <span className="step-item-text">{instruction.substring(0, 50)}...</span>
-                  {completedSteps.has(index) && <Check size={16} />}
-                </button>
-              ))}
+          {/* Macros Section */}
+          <div className="macros-section">
+            <h3 className="macros-title">Macros</h3>
+            <div className="macros-content">
+              <div className="calories-display">
+                <p className="calories-amount">1000 Calories</p>
+                <p className="calories-label">Per Portion</p>
+              </div>
+              <div className="macros-info">
+                <div className="macro-item">
+                  <div className="macro-icon">🍳</div>
+                  <p className="macro-label">10g Protein</p>
+                </div>
+                <div className="macro-item">
+                  <div className="macro-icon">🍞</div>
+                  <p className="macro-label">10g Carbohydrates</p>
+                </div>
+                <div className="macro-item">
+                  <div className="macro-icon">🧀</div>
+                  <p className="macro-label">10g Fat</p>
+                </div>
+              </div>
+              <div className="portions-selector">
+                <div className="portions-control">
+                  <button type="button" className="portion-btn">−</button>
+                  <p className="portion-count">1</p>
+                  <button type="button" className="portion-btn">+</button>
+                </div>
+                <p className="portions-label">Portions</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {allStepsCompleted && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="completion-banner"
-        >
-          <h3>🎉 All Steps Completed!</h3>
-          <p>Great job! Your {recipe.title} is ready.</p>
-          <button
-            type="button"
-            className="finish-button"
-            onClick={handleComplete}
-          >
-            Finish Cooking
-          </button>
-        </motion.div>
-      )}
     </div>
   );
 };
 
 export default CookingGuide;
-

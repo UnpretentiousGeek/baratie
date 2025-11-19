@@ -35,9 +35,7 @@
 }
 
 .cooking-chat-panel {
-    width: 33.333%;
-    min-width: 400px;
-    max-width: 550px;
+    width: 550px;
     height: calc(100vh - 80px);
     border: 1px solid var(--stroke-default);
     border-radius: 12px;
@@ -47,6 +45,7 @@
     overflow: hidden;
     position: relative;
     margin: 0;
+    flex-shrink: 0;
 }
 
 .cooking-recipe-panel {
@@ -104,7 +103,7 @@
 .cooking-chat-panel .chat-container {
     max-width: 100%;
     width: 100%;
-    padding: 0 40px 24px 40px;
+    padding: 0 var(--8) var(--7) var(--8);
     overflow-x: visible;
     overflow-y: hidden;
     display: flex;
