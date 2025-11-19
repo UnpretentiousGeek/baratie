@@ -86,7 +86,7 @@
   margin: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .ingredient-filters {
@@ -99,21 +99,13 @@
   margin-right: calc(var(--7) * -1);
   padding-left: var(--7);
   padding-right: var(--7);
-  scrollbar-width: thin;
-  scrollbar-color: var(--stroke-default) transparent;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 .ingredient-filters::-webkit-scrollbar {
-  height: 4px;
-}
-
-.ingredient-filters::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ingredient-filters::-webkit-scrollbar-thumb {
-  background: var(--stroke-default);
-  border-radius: 2px;
+  display: none; /* Chrome, Safari and Opera */
 }
 
 .ingredient-filter-btn {

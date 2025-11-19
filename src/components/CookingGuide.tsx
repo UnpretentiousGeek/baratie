@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
-import { ChevronLeft, ChevronRight, Check, X, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -115,7 +115,11 @@ const CookingGuide: React.FC = () => {
                     onClick={() => toggleIngredient(index)}
                   >
                     <div className={`ingredient-checkbox ${isChecked ? 'checked' : ''}`}>
-                      {isChecked && <Check size={12} />}
+                      {isChecked && (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1.875 6.75L4.5 9.375L10.5 3.375" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
                     </div>
                     <p className="ingredient-name">{ingredient}</p>
                   </div>
