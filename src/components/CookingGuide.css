@@ -180,16 +180,19 @@
   padding: 2px;
   box-sizing: border-box;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .ingredient-checkbox.checked {
   background: var(--button-primary-default);
-  border-color: var(--button-primary-default);
+  border: none;
 }
 
 .ingredient-checkbox.checked svg {
   color: var(--button-primary-foreground);
   stroke-width: 2;
+  width: 12px;
+  height: 12px;
 }
 
 .ingredient-name {
