@@ -231,6 +231,9 @@
   flex-direction: column;
   gap: var(--6);
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .instructions-header {
@@ -259,6 +262,8 @@
   font-weight: 400;
   line-height: 1.5;
   color: var(--text-secondary);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .instruction-content {
@@ -267,7 +272,10 @@
   border-radius: var(--4);
   padding: var(--6);
   flex: 1;
-  min-height: 200px;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
 }
 
 .instruction-text {
@@ -277,6 +285,8 @@
   line-height: 1.2;
   color: var(--text-primary);
   margin: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .instruction-navigation {
@@ -299,6 +309,8 @@
   color: var(--text-primary);
   transition: all 0.2s ease;
   flex-shrink: 0;
+  box-sizing: border-box;
+  gap: var(--2);
 }
 
 .nav-btn:hover:not(:disabled) {
@@ -324,6 +336,11 @@
   cursor: pointer;
   transition: all 0.2s ease;
   flex: 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--3);
 }
 
 .mark-complete-btn:hover {
@@ -342,6 +359,7 @@
   flex-direction: column;
   gap: 16px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .macros-title {

@@ -55,10 +55,12 @@
     --button-primary-default: #f08b7d;
     --button-primary-foreground: #ffffff;
     --button-secondary-default: #ffffff;
+    --button-secondary-stroke: #e5e1dd;
     --text-primary: #2d2925;
     --text-secondary: #5a544e;
     --text-faint: #8f8782;
     --background-primary: #ffffff;
+    --background-fill: #f5f3f2;
     --stroke-default: #e5e1dd;
 
     /* Legacy/Compatibility Colors */
