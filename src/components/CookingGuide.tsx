@@ -9,6 +9,7 @@ const CookingGuide: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [selectedFilter, setSelectedFilter] = useState('All');
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
 
   if (!recipe) {
     return null;
@@ -17,6 +18,18 @@ const CookingGuide: React.FC = () => {
   const instructions = normalizeInstructions(recipe.instructions);
   const ingredients = normalizeIngredients(recipe.ingredients);
   const totalSteps = instructions.length;
+
+  const toggleIngredient = (index: number) => {
+    setCheckedIngredients(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   const toggleStepComplete = (stepIndex: number) => {
     setCompletedSteps(prev => {
@@ -90,14 +103,21 @@ const CookingGuide: React.FC = () => {
 
           {/* Ingredients List */}
           <div className="ingredients-list-container">
-            {ingredients.map((ingredient, index) => (
-              <div key={index} className="ingredient-item">
-                <div className="ingredient-checkbox">
-                  <Check size={12} />
+            {ingredients.map((ingredient, index) => {
+              const isChecked = checkedIngredients.has(index);
+              return (
+                <div 
+                  key={index} 
+                  className={`ingredient-item ${isChecked ? 'checked' : ''}`}
+                  onClick={() => toggleIngredient(index)}
+                >
+                  <div className={`ingredient-checkbox ${isChecked ? 'checked' : ''}`}>
+                    {isChecked && <Check size={12} />}
+                  </div>
+                  <p className="ingredient-name">{ingredient}</p>
                 </div>
-                <p className="ingredient-name">{ingredient}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

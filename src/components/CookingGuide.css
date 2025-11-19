@@ -128,28 +128,43 @@
 }
 
 .ingredient-item {
-  background: var(--brand-light);
+  background: var(--background-primary);
   border-radius: var(--4);
   padding: var(--4);
   display: flex;
   gap: var(--3);
   align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ingredient-item.checked {
+  background: var(--brand-light);
 }
 
 .ingredient-checkbox {
   width: 16px;
   height: 16px;
   border-radius: var(--2);
-  background: var(--button-primary-default);
+  background: var(--background-primary);
+  border: 1px solid var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   padding: 2px;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
 }
 
-.ingredient-checkbox svg {
+.ingredient-checkbox.checked {
+  background: var(--button-primary-default);
+  border-color: var(--button-primary-default);
+}
+
+.ingredient-checkbox.checked svg {
   color: var(--button-primary-foreground);
+  stroke-width: 2;
 }
 
 .ingredient-name {
