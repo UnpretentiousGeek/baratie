@@ -92,7 +92,28 @@
 .ingredient-filters {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  width: calc(100% + var(--7) * 2);
+  margin-left: calc(var(--7) * -1);
+  margin-right: calc(var(--7) * -1);
+  padding-left: var(--7);
+  padding-right: var(--7);
+  scrollbar-width: thin;
+  scrollbar-color: var(--stroke-default) transparent;
+}
+
+.ingredient-filters::-webkit-scrollbar {
+  height: 4px;
+}
+
+.ingredient-filters::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ingredient-filters::-webkit-scrollbar-thumb {
+  background: var(--stroke-default);
+  border-radius: 2px;
 }
 
 .ingredient-filter-btn {
@@ -129,17 +150,13 @@
 
 .ingredient-item {
   background: var(--brand-light);
-  border-radius: var(--4);
-  padding: var(--4);
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
   transition: background-color 0.2s ease;
-}
-
-.ingredient-item:not(.checked) {
-  background: var(--background-primary);
 }
 
 .ingredient-checkbox-wrapper {
