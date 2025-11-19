@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight, Check, X, Download } from 'lucide-react';
@@ -42,12 +41,6 @@ const CookingGuide: React.FC = () => {
       setCurrentStep(currentStep - 1);
     }
   };
-
-  const handleComplete = () => {
-    setStage('complete');
-  };
-
-  const allStepsCompleted = completedSteps.size === totalSteps;
 
   return (
     <div className="cooking-guide">
