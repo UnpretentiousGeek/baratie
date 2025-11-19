@@ -109,12 +109,16 @@ const CookingGuide: React.FC = () => {
                 <div 
                   key={index} 
                   className={`ingredient-item ${isChecked ? 'checked' : ''}`}
-                  onClick={() => toggleIngredient(index)}
                 >
-                  <div className={`ingredient-checkbox ${isChecked ? 'checked' : ''}`}>
-                    {isChecked && <Check size={12} />}
+                  <div 
+                    className="ingredient-checkbox-wrapper"
+                    onClick={() => toggleIngredient(index)}
+                  >
+                    <div className={`ingredient-checkbox ${isChecked ? 'checked' : ''}`}>
+                      {isChecked && <Check size={12} />}
+                    </div>
+                    <p className="ingredient-name">{ingredient}</p>
                   </div>
-                  <p className="ingredient-name">{ingredient}</p>
                 </div>
               );
             })}
