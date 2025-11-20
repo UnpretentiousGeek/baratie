@@ -5,7 +5,7 @@ interface DownloadIconProps {
   size?: number;
 }
 
-const DownloadIcon: React.FC<DownloadIconProps> = ({ className = '', size = 32 }) => {
+const DownloadIcon: React.FC<DownloadIconProps> = ({ className = '', size = 24 }) => {
   return (
     <svg 
       className={className}

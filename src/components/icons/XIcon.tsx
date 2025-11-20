@@ -5,7 +5,7 @@ interface XIconProps {
   size?: number;
 }
 
-const XIcon: React.FC<XIconProps> = ({ className = '', size = 32 }) => {
+const XIcon: React.FC<XIconProps> = ({ className = '', size = 24 }) => {
   return (
     <svg 
       className={className}

@@ -63,10 +63,10 @@ const CookingGuide: React.FC = () => {
         <h2 className="recipe-name-title">{recipe.title || 'Recipe Name'}</h2>
         <div className="recipe-name-actions">
           <button type="button" className="recipe-action-btn" aria-label="Download">
-            <DownloadIcon size={32} />
+            <DownloadIcon size={24} />
           </button>
           <button type="button" className="recipe-action-btn" onClick={() => setStage('preview')} aria-label="Close">
-            <XIcon size={32} />
+            <XIcon size={24} />
           </button>
         </div>
       </div>

@@ -260,9 +260,9 @@
   background: var(--background-fill);
   border: 1px solid var(--stroke-default);
   border-radius: var(--6);
-  padding: 8px var(--5);
+  padding: var(--2) var(--4);
   font-family: 'Sora', sans-serif;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 400;
   line-height: 1.5;
   color: var(--text-secondary);
@@ -321,12 +321,19 @@
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: var(--background-fill);
+  background: var(--button-secondary-hover);
 }
 
 .nav-btn:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
+}
+
+.nav-btn:disabled svg {
+  color: #b8b3ae;
+}
+
+.nav-btn:disabled svg path {
+  stroke: #b8b3ae;
 }
 
 .mark-complete-btn {
@@ -342,12 +349,12 @@
   color: var(--button-primary-foreground);
   cursor: pointer;
   transition: all 0.2s ease;
-  flex: 1;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--3);
+  white-space: nowrap;
 }
 
 .mark-complete-btn:hover {
