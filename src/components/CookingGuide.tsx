@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { XIcon, DownloadIcon, CheckIcon } from './icons';
+import { XIcon, DownloadIcon, CheckIcon, PortionMinusIcon, PortionPlusIcon } from './icons';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -11,6 +11,7 @@ const CookingGuide: React.FC = () => {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
+  const [portions, setPortions] = useState(1);
 
   if (!recipe) {
     return null;
@@ -183,23 +184,42 @@ const CookingGuide: React.FC = () => {
               </div>
               <div className="macros-info">
                 <div className="macro-item">
-                  <div className="macro-icon">🍳</div>
+                  <div className="macro-icon">
+                    <img src="/assets/macros/protein.png" alt="Protein" />
+                  </div>
                   <p className="macro-label">10g Protein</p>
                 </div>
                 <div className="macro-item">
-                  <div className="macro-icon">🍞</div>
+                  <div className="macro-icon">
+                    <img src="/assets/macros/carbohydrates.png" alt="Carbohydrates" />
+                  </div>
                   <p className="macro-label">10g Carbohydrates</p>
                 </div>
                 <div className="macro-item">
-                  <div className="macro-icon">🧀</div>
+                  <div className="macro-icon">
+                    <img src="/assets/macros/fat.png" alt="Fat" />
+                  </div>
                   <p className="macro-label">10g Fat</p>
                 </div>
               </div>
               <div className="portions-selector">
                 <div className="portions-control">
-                  <button type="button" className="portion-btn">−</button>
-                  <p className="portion-count">1</p>
-                  <button type="button" className="portion-btn">+</button>
+                  <button 
+                    type="button" 
+                    className="portion-btn"
+                    onClick={() => setPortions(Math.max(1, portions - 1))}
+                    disabled={portions <= 1}
+                  >
+                    <PortionMinusIcon size={25} disabled={portions <= 1} />
+                  </button>
+                  <p className="portion-count">{portions}</p>
+                  <button 
+                    type="button" 
+                    className="portion-btn"
+                    onClick={() => setPortions(portions + 1)}
+                  >
+                    <PortionPlusIcon size={25} />
+                  </button>
                 </div>
                 <p className="portions-label">Portions</p>
               </div>

@@ -1,23 +1,26 @@
 import React from 'react';
 
-interface PlusIconProps {
+interface PortionMinusIconProps {
   className?: string;
   size?: number;
+  disabled?: boolean;
 }
 
-const PlusIcon: React.FC<PlusIconProps> = ({ className = '', size = 20 }) => {
+const PortionMinusIcon: React.FC<PortionMinusIconProps> = ({ className = '', size = 25, disabled = false }) => {
+  const strokeColor = disabled ? '#b8b3ae' : '#2D2925';
+  
   return (
     <svg 
       className={className}
       width={size} 
       height={size} 
-      viewBox="0 0 20 20" 
+      viewBox="0 0 25 25" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
     >
       <path 
-        d="M10 3.125V16.875M3.125 10H16.875" 
-        stroke="currentColor" 
+        d="M3.90625 12.5H21.0938" 
+        stroke={strokeColor} 
         strokeWidth="2" 
         strokeLinecap="round" 
         strokeLinejoin="round"
@@ -26,5 +29,5 @@ const PlusIcon: React.FC<PlusIconProps> = ({ className = '', size = 20 }) => {
   );
 };
 
-export default PlusIcon;
+export default PortionMinusIcon;
 
