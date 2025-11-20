@@ -117,13 +117,14 @@
   font-size: 16px;
   font-weight: 400;
   line-height: 1.5;
-  padding: 8px var(--5);
+  padding: var(--5) 8px;
   border-radius: var(--9);
   border: 1px solid var(--brand-default);
   background: var(--background-primary);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .ingredient-filter-btn.active {
@@ -133,8 +134,14 @@
   padding: var(--3) var(--5);
 }
 
+.ingredient-filter-btn.active:hover {
+  background: var(--button-primary-hover);
+}
+
 .ingredient-filter-btn:hover:not(.active) {
+  background: var(--background-primary);
   color: var(--text-primary);
+  padding: var(--3) var(--5);
 }
 
 .ingredients-list-container {
@@ -355,6 +362,14 @@
   justify-content: center;
   gap: var(--3);
   white-space: nowrap;
+}
+
+.mark-complete-btn:hover {
+  background: var(--button-primary-hover);
+}
+
+.mark-complete-btn.completed {
+  gap: 8px;
 }
 
 .mark-complete-btn:hover {

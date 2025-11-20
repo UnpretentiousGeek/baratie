@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { XIcon, DownloadIcon } from './icons';
+import { XIcon, DownloadIcon, CheckIcon } from './icons';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -156,10 +156,11 @@ const CookingGuide: React.FC = () => {
               </button>
               <button
                 type="button"
-                className="mark-complete-btn"
+                className={`mark-complete-btn ${completedSteps.has(currentStep) ? 'completed' : ''}`}
                 onClick={() => toggleStepComplete(currentStep)}
               >
-                {completedSteps.has(currentStep) ? 'Completed' : 'Mark as Completed'}
+                {completedSteps.has(currentStep) && <CheckIcon size={20} />}
+                <span>{completedSteps.has(currentStep) ? 'Completed' : 'Mark as Completed'}</span>
               </button>
               <button
                 type="button"
