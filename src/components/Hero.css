@@ -143,6 +143,12 @@
     padding: 16px 0;
     align-items: stretch;
     overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.chat-messages::-webkit-scrollbar {
+    display: none;
 }
 
 .hero-title {
