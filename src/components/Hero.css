@@ -35,7 +35,7 @@
 }
 
 .cooking-chat-panel {
-    width: 550px;
+    width: 35%;
     height: calc(100% - 4px);
     border: 1px solid var(--stroke-default);
     border-radius: 12px;

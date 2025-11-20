@@ -71,7 +71,7 @@
   border-bottom-left-radius: var(--6);
   border-bottom-right-radius: var(--4);
   padding: var(--7);
-  width: 313px;
+  width: 30%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
