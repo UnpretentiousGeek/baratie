@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
-import { ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { XIcon, DownloadIcon } from './icons';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -62,10 +63,10 @@ const CookingGuide: React.FC = () => {
         <h2 className="recipe-name-title">{recipe.title || 'Recipe Name'}</h2>
         <div className="recipe-name-actions">
           <button type="button" className="recipe-action-btn" aria-label="Download">
-            <Download size={32} />
+            <DownloadIcon size={32} />
           </button>
           <button type="button" className="recipe-action-btn" onClick={() => setStage('preview')} aria-label="Close">
-            <X size={32} />
+            <XIcon size={32} />
           </button>
         </div>
       </div>

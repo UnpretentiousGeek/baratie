@@ -1,11 +1,11 @@
 import React from 'react';
 
-interface XIconProps {
+interface DownloadIconProps {
   className?: string;
   size?: number;
 }
 
-const XIcon: React.FC<XIconProps> = ({ className = '', size = 32 }) => {
+const DownloadIcon: React.FC<DownloadIconProps> = ({ className = '', size = 32 }) => {
   return (
     <svg 
       className={className}
@@ -16,14 +16,21 @@ const XIcon: React.FC<XIconProps> = ({ className = '', size = 32 }) => {
       xmlns="http://www.w3.org/2000/svg"
     >
       <path 
-        d="M25 7L7 25" 
+        d="M16 18V4" 
         stroke="#2D2925" 
         strokeWidth="2" 
         strokeLinecap="round" 
         strokeLinejoin="round"
       />
       <path 
-        d="M25 25L7 7" 
+        d="M27 18V26H5V18" 
+        stroke="#2D2925" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+      />
+      <path 
+        d="M21 13L16 18L11 13" 
         stroke="#2D2925" 
         strokeWidth="2" 
         strokeLinecap="round" 
@@ -33,5 +40,5 @@ const XIcon: React.FC<XIconProps> = ({ className = '', size = 32 }) => {
   );
 };
 
-export default XIcon;
+export default DownloadIcon;
 
