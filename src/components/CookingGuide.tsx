@@ -191,7 +191,7 @@ const CookingGuide: React.FC = () => {
                 </div>
                 <div className="macro-item">
                   <div className="macro-icon">
-                    <img src="/assets/macros/carbohydrates.png" alt="Carbohydrates" />
+                    <img src="/assets/macros/carbs.png" alt="Carbohydrates" />
                   </div>
                   <p className="macro-label">10g Carbohydrates</p>
                 </div>

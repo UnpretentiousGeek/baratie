@@ -495,7 +495,7 @@
   color: var(--text-primary);
   margin: 0;
   text-align: center;
-  width: min-content;
+  width: auto;
   flex-shrink: 0;
 }
 
