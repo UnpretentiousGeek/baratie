@@ -155,27 +155,43 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           return;
         } else if (isModification || (!isQuestion && !isModification)) {
           // This is a modification request (or ambiguous - treat as modification)
-          const { modifyRecipe } = await import('../utils/api');
-          const conversationContext = buildConversationContext();
-          const modifiedRecipe = await modifyRecipe(recipe, prompt, conversationContext);
           
-          setRecipe(modifiedRecipe);
-          setCurrentStage('preview');
-
-          // Add system message with description of changes
-          const changesText = modifiedRecipe.changesDescription 
-            ? modifiedRecipe.changesDescription 
-            : 'Recipe updated successfully!';
+          // Add loading message
           addMessage({
-            type: 'system',
-            text: changesText,
+            type: 'loading',
+            text: 'Updating recipe...',
           });
 
-          // Add recipe preview message
-          addMessage({
-            type: 'recipe-preview',
-            recipe: modifiedRecipe,
-          });
+          try {
+            const { modifyRecipe } = await import('../utils/api');
+            const conversationContext = buildConversationContext();
+            const modifiedRecipe = await modifyRecipe(recipe, prompt, conversationContext);
+            
+            // Update recipe in place (no new recipe card)
+            setRecipe(modifiedRecipe);
+            setCurrentStage('preview');
+
+            // Remove loading message
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+            // Add system message with description of changes
+            const changesText = modifiedRecipe.changesDescription 
+              ? modifiedRecipe.changesDescription 
+              : 'Recipe updated successfully!';
+            addMessage({
+              type: 'system',
+              text: changesText,
+            });
+          } catch (error) {
+            // Remove loading message on error
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+            
+            // Add error message
+            addMessage({
+              type: 'system',
+              text: 'Failed to update recipe. Please try again.',
+            });
+          }
           return;
         }
       }

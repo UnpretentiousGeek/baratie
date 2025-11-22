@@ -4,6 +4,7 @@ import { ChatMessage, AttachedFile } from '../types';
 import { normalizeIngredients } from '../utils/recipeUtils';
 import { useRecipe } from '../context/RecipeContext';
 import { SentAttachedFilesGroup } from './SentAttachedFiles';
+import LoadingMessage from './LoadingMessage';
 import './Message.css';
 
 interface MessageProps {
@@ -97,6 +98,18 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         transition={{ duration: 0.3 }}
       >
         <SystemMessage text={message.text || ''} />
+      </motion.div>
+    );
+  }
+
+  if (message.type === 'loading') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <LoadingMessage text={message.text || 'Updating recipe...'} />
       </motion.div>
     );
   }
