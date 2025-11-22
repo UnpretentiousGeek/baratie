@@ -11,10 +11,10 @@ const Hero: React.FC = () => {
   const { currentStage, recipe, setStage, messages } = useRecipe();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when new messages arrive or stage changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, currentStage]);
 
   // Handle case where stage is 'cooking' but recipe is null
   useEffect(() => {
