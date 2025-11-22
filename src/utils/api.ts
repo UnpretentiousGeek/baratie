@@ -74,7 +74,17 @@ export async function extractRecipeFromURL(url: string, prompt: string): Promise
     });
 
     if (!response.ok) {
-      throw new Error('Failed to extract recipe from URL');
+      let errorMessage = 'Failed to extract recipe from URL';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+        if (errorData.details) {
+          errorMessage += `: ${errorData.details}`;
+        }
+      } catch (e) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

@@ -27,7 +27,9 @@
       "Bash(dir /b \"d:\\Vibe Coding Projects\\Baratie\")",
       "Bash(git push:*)",
       "WebFetch(domain:www.figma.com)",
-      "Bash(yarn build)"
+      "Bash(yarn build)",
+      "Bash(node -e:*)",
+      "Bash(vercel env:*)"
     ],
     "deny": [],
     "ask": []
