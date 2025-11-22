@@ -21,6 +21,13 @@ const CookingGuide: React.FC = () => {
   const ingredients = normalizeIngredients(recipe.ingredients);
   const totalSteps = instructions.length;
 
+  // Ensure currentStep is valid when instructions change
+  React.useEffect(() => {
+    if (currentStep >= totalSteps && totalSteps > 0) {
+      setCurrentStep(totalSteps - 1);
+    }
+  }, [totalSteps, currentStep]);
+
   // Get ingredient sections for dynamic filters
   const ingredientSections = useMemo(() => {
     return getIngredientSections(recipe.ingredients);
@@ -150,7 +157,7 @@ const CookingGuide: React.FC = () => {
         {/* Left Column: Ingredient List */}
         <div className="ingredient-list-panel">
           <h3 className="ingredient-list-title">Ingredient list</h3>
-          
+
           {/* Filter Buttons - Dynamic based on recipe sections */}
           {filterOptions.length > 1 && (
             <div className="ingredient-filters">
@@ -172,18 +179,18 @@ const CookingGuide: React.FC = () => {
             {filteredIngredients.map(({ ingredient, originalIndex }) => {
               const isChecked = checkedIngredients.has(originalIndex);
               return (
-                <div 
-                  key={originalIndex} 
+                <div
+                  key={originalIndex}
                   className={`ingredient-item ${isChecked ? 'checked' : ''}`}
                 >
-                  <div 
+                  <div
                     className="ingredient-checkbox-wrapper"
                     onClick={() => toggleIngredient(originalIndex)}
                   >
                     <div className={`ingredient-checkbox ${isChecked ? 'checked' : ''}`}>
                       {isChecked && (
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1.875 6.75L4.5 9.375L10.5 3.375" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M1.875 6.75L4.5 9.375L10.5 3.375" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </div>
@@ -299,8 +306,8 @@ const CookingGuide: React.FC = () => {
               )}
               <div className="portions-selector">
                 <div className="portions-control">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="portion-btn"
                     onClick={() => setPortions(Math.max(1, portions - 1))}
                     disabled={portions <= 1}
@@ -308,8 +315,8 @@ const CookingGuide: React.FC = () => {
                     <PortionMinusIcon size={25} disabled={portions <= 1} />
                   </button>
                   <p className="portion-count">{portions}</p>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="portion-btn"
                     onClick={() => setPortions(portions + 1)}
                   >

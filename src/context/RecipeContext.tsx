@@ -120,10 +120,10 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
       // Store attached files before clearing
       const filesToSend = attachedFiles.length > 0 ? [...attachedFiles] : undefined;
-      
+
       // Clear attached files immediately after sending
       clearFiles();
-      
+
       // Add user message
       addMessage({
         type: 'user',
@@ -132,15 +132,15 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       });
 
       // Check if this is a question (ends with ? or starts with question words)
-      const isQuestion = /^(\?|how|what|when|where|why|who|which|is|are|can|could|would|should|do|does|did|will|may|might)\s/i.test(prompt.trim()) || 
-                        prompt.trim().endsWith('?');
-      
+      const isQuestion = /^(\?|how|what|when|where|why|who|which|is|are|can|could|would|should|do|does|did|will|may|might)\s/i.test(prompt.trim()) ||
+        prompt.trim().endsWith('?');
+
       // Check if user is asking about alternatives/substitutions (should suggest, not auto-update)
       const isAlternativeRequest = /\b(don't have|do not have|missing|alternative|substitute|instead of|can i use|what can i use|what to use|replace with|suggest|recommend|options?)\b/i.test(prompt);
-      
+
       // Check if it's a modification request (contains modification keywords, but not alternative requests)
       const isModification = !isAlternativeRequest && /\b(make|adjust|change|modify|convert|update|replace|remove|add|increase|decrease|scale|double|halve|reduce|swap|use|try)\b/i.test(prompt);
-      
+
       // Check if we have an existing recipe and this is a question or modification request
       // Question/modification: has recipe, no URL in prompt, no new files attached
       const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
@@ -158,7 +158,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           return;
         } else if (isModification || (!isQuestion && !isAlternativeRequest && !isModification)) {
           // This is a modification request (or ambiguous - treat as modification)
-          
+
           // Add loading message
           addMessage({
             type: 'loading',
@@ -169,26 +169,36 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
             const { modifyRecipe } = await import('../utils/api');
             const conversationContext = buildConversationContext();
             const modifiedRecipe = await modifyRecipe(recipe, prompt, conversationContext);
-            
-            // Update recipe in place (no new recipe card)
-            setRecipe(modifiedRecipe);
-            setCurrentStage('preview');
 
-            // Remove loading message and any existing recipe-preview messages
-            setMessages(prev => prev.filter(msg => msg.type !== 'loading' && msg.type !== 'recipe-preview'));
+            // Update recipe in place
+            setRecipe(modifiedRecipe);
+
+            // Only switch to preview if we're in capture mode
+            if (currentStage === 'capture') {
+              setCurrentStage('preview');
+            }
+
+            // Remove loading message but KEEP existing recipe-preview messages
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
             // Add system message with description of changes
-            const changesText = modifiedRecipe.changesDescription 
-              ? modifiedRecipe.changesDescription 
+            const changesText = modifiedRecipe.changesDescription
+              ? modifiedRecipe.changesDescription
               : 'Recipe updated successfully!';
             addMessage({
               type: 'system',
               text: changesText,
             });
+
+            // Add new recipe preview card so user sees the updated version in chat
+            addMessage({
+              type: 'recipe-preview',
+              recipe: modifiedRecipe,
+            });
           } catch (error) {
             // Remove loading message on error
             setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-            
+
             // Add error message
             addMessage({
               type: 'system',
@@ -198,13 +208,13 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           return;
         }
       }
-      
+
       // If it's a question but no recipe, still answer it
       if (isQuestion && !urlMatches && (!filesToSend || filesToSend.length === 0) && !recipe) {
         const { answerQuestion } = await import('../utils/api');
         const conversationContext = buildConversationContext();
         const answer = await answerQuestion(prompt, null, conversationContext);
-        
+
         addMessage({
           type: 'system',
           text: answer,
@@ -216,7 +226,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const urlPattern = /(https?:\/\/[^\s]+)/gi;
       const urls = prompt.match(urlPattern) || [];
       const url = urls[0] || null;
-      
+
       let extractedRecipe;
       if (url && (!filesToSend || filesToSend.length === 0)) {
         // Extract from URL
@@ -228,7 +238,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       } else {
         throw new Error('Please provide a URL or attach files');
       }
-      
+
       setRecipe(extractedRecipe);
       setCurrentStage('preview');
 
@@ -245,13 +255,13 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       });
     } catch (error) {
       console.error('Error extracting recipe:', error);
-      
+
       // Get a more helpful error message
       let errorMessage = 'Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.';
       if (error instanceof Error) {
         errorMessage = error.message || errorMessage;
       }
-      
+
       // Add error message
       addMessage({
         type: 'system',
