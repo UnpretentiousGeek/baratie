@@ -178,8 +178,35 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
               setCurrentStage('preview');
             }
 
-            // Remove loading message but KEEP existing recipe-preview messages
-            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+            // Remove loading message and update existing recipe card
+            setMessages(prev => {
+              const filtered = prev.filter(msg => msg.type !== 'loading');
+
+              // Find the last recipe-preview message and update it
+              let lastRecipeIndex = -1;
+              for (let i = filtered.length - 1; i >= 0; i--) {
+                if (filtered[i].type === 'recipe-preview') {
+                  lastRecipeIndex = i;
+                  break;
+                }
+              }
+
+              if (lastRecipeIndex !== -1) {
+                const newMessages = [...filtered];
+                newMessages[lastRecipeIndex] = {
+                  ...newMessages[lastRecipeIndex],
+                  recipe: modifiedRecipe
+                };
+                return newMessages;
+              }
+
+              return [...filtered, {
+                id: Date.now().toString(),
+                type: 'recipe-preview',
+                recipe: modifiedRecipe,
+                timestamp: new Date()
+              } as ChatMessage];
+            });
 
             // Add system message with description of changes
             const changesText = modifiedRecipe.changesDescription
@@ -189,17 +216,8 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
               type: 'system',
               text: changesText,
             });
-
-            // Add new recipe preview card so user sees the updated version in chat
-            addMessage({
-              type: 'recipe-preview',
-              recipe: modifiedRecipe,
-            });
           } catch (error) {
-            // Remove loading message on error
             setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-
-            // Add error message
             addMessage({
               type: 'system',
               text: 'Failed to update recipe. Please try again.',
