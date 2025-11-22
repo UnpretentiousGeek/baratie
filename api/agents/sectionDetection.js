@@ -108,8 +108,8 @@ Make sure all original ingredients and instructions are included in the sections
 
     // If sections detected, return them
     if (result.hasSections &&
-        result.ingredientSections.length > 0 &&
-        result.instructionSections.length > 0) {
+      result.ingredientSections.length > 0 &&
+      result.instructionSections.length > 0) {
 
       console.log(`Detected ${result.ingredientSections.length} ingredient sections and ${result.instructionSections.length} instruction sections`);
 
@@ -138,4 +138,4 @@ Make sure all original ingredients and instructions are included in the sections
   }
 }
 
-module.exports = { detectRecipeSections };
+export { detectRecipeSections };

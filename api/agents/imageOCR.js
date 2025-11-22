@@ -225,7 +225,7 @@ Keep the response concise and friendly (2-3 sentences).`;
   }
 }
 
-module.exports = {
+export {
   extractAndValidateImage,
   extractRecipeFromImage,
   identifyIngredient

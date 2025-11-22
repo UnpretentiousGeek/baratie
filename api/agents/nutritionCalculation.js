@@ -91,9 +91,9 @@ All values should be numbers (no units).
 
     // Validate the response has required fields
     if (typeof nutrition.calories !== 'number' ||
-        typeof nutrition.protein !== 'number' ||
-        typeof nutrition.carbs !== 'number' ||
-        typeof nutrition.fat !== 'number') {
+      typeof nutrition.protein !== 'number' ||
+      typeof nutrition.carbs !== 'number' ||
+      typeof nutrition.fat !== 'number') {
       console.warn('Invalid nutrition response format');
       return null;
     }
@@ -116,4 +116,4 @@ All values should be numbers (no units).
   }
 }
 
-module.exports = { calculateNutrition };
+export { calculateNutrition };

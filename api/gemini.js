@@ -3,10 +3,11 @@
 // API keys are stored as Vercel environment variables and never exposed to client
 
 // Import agent modules
-const { detectRecipeSections } = require('./agents/sectionDetection');
-const { calculateNutrition } = require('./agents/nutritionCalculation');
-const { extractPinnedComment, commentContainsRecipe } = require('./agents/youtubeComments');
-const { extractAndValidateImage, extractRecipeFromImage, identifyIngredient } = require('./agents/imageOCR');
+// Import agent modules
+import { detectRecipeSections } from './agents/sectionDetection.js';
+import { calculateNutrition } from './agents/nutritionCalculation.js';
+import { extractPinnedComment, commentContainsRecipe } from './agents/youtubeComments.js';
+import { extractAndValidateImage, extractRecipeFromImage, identifyIngredient } from './agents/imageOCR.js';
 
 // Helper function to extract page title from HTML
 function extractPageTitle(html) {
@@ -149,7 +150,7 @@ function extractRecipeContent(html) {
   // Remove script and style tags first
   let cleanHtml = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   cleanHtml = cleanHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-  
+
   // Try to find recipe-specific content areas with more comprehensive selectors
   const recipeSelectors = [
     // Try JSON-LD first (most reliable)
@@ -166,11 +167,11 @@ function extractRecipeContent(html) {
     /<main[^>]*>([\s\S]*?)<\/main>/i,
     /<section[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/section>/i,
   ];
-  
+
   let extractedContent = '';
   let bestMatch = null;
   let bestLength = 0;
-  
+
   // Try all selectors and pick the one with the most content (likely the main content area)
   for (const selector of recipeSelectors) {
     const matches = cleanHtml.matchAll(new RegExp(selector.source, 'gi'));
@@ -185,7 +186,7 @@ function extractRecipeContent(html) {
       }
     }
   }
-  
+
   if (bestMatch) {
     extractedContent = bestMatch;
   } else {
@@ -197,14 +198,14 @@ function extractRecipeContent(html) {
       extractedContent = cleanHtml;
     }
   }
-  
+
   // Remove common non-recipe elements that might interfere
   extractedContent = extractedContent.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
   extractedContent = extractedContent.replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '');
   extractedContent = extractedContent.replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
   extractedContent = extractedContent.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '');
   extractedContent = extractedContent.replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '');
-  
+
   // Remove HTML tags but preserve structure - be more careful with instruction content
   let text = extractedContent
     // Preserve numbered lists and steps
@@ -238,32 +239,32 @@ function extractRecipeContent(html) {
     .replace(/&mdash;/g, '—')
     .replace(/&ndash;/g, '–')
     .replace(/&hellip;/g, '...');
-  
+
   // Clean up whitespace
   text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
   text = text.replace(/[ \t]+/g, ' ');
   text = text.trim();
-  
+
   // Try to extract JSON-LD structured data if available
   // But don't use it if it doesn't have complete instructions
   const jsonLdMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
   let jsonLdRecipeText = '';
-  
+
   for (const jsonLdMatch of jsonLdMatches) {
     try {
       const jsonLd = JSON.parse(jsonLdMatch[1]);
       const items = Array.isArray(jsonLd) ? jsonLd : (jsonLd['@graph'] || [jsonLd]);
-      
+
       for (const item of items) {
         if (item['@type'] === 'Recipe' || item['@type'] === 'https://schema.org/Recipe') {
           let recipeText = `RECIPE: ${item.name || ''}\n\n`;
           let hasInstructions = false;
-          
+
           if (item.recipeIngredient) {
             recipeText += 'INGREDIENTS:\n';
             recipeText += item.recipeIngredient.join('\n') + '\n\n';
           }
-          
+
           if (item.recipeInstructions) {
             recipeText += 'INSTRUCTIONS:\n';
             if (Array.isArray(item.recipeInstructions)) {
@@ -283,7 +284,7 @@ function extractRecipeContent(html) {
               });
             }
           }
-          
+
           // Only use JSON-LD if it has substantial instructions (at least 3 steps or detailed content)
           if (hasInstructions && recipeText.length > 200) {
             jsonLdRecipeText = recipeText;
@@ -296,18 +297,18 @@ function extractRecipeContent(html) {
       console.log('JSON-LD parse error:', e.message);
     }
   }
-  
+
   // If we have good JSON-LD data, combine it with scraped text for completeness
   if (jsonLdRecipeText) {
     // Combine JSON-LD with scraped text to ensure we have everything
     return `${jsonLdRecipeText}\n\n--- Additional content from page ---\n${text}`;
   }
-  
+
   // Limit content length (Gemini has token limits)
   if (text.length > 50000) {
     text = text.substring(0, 50000) + '...';
   }
-  
+
   return text;
 }
 
@@ -374,19 +375,19 @@ export default async function handler(req, res) {
         // Check if it's a YouTube URL
         const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
         const youtubeMatch = url.match(youtubeRegex);
-        
+
         if (youtubeMatch) {
           // It's a YouTube URL - use YouTube API instead
           const videoId = youtubeMatch[1];
           console.log('Detected YouTube video ID:', videoId);
-          
+
           const youtubeApiKey = process.env.YOUTUBE_API_KEY;
           if (!youtubeApiKey) {
-            return res.status(400).json({ 
-              error: 'YouTube API key not configured. Cannot extract recipe from YouTube videos.' 
+            return res.status(400).json({
+              error: 'YouTube API key not configured. Cannot extract recipe from YouTube videos.'
             });
           }
-          
+
           // Fetch video metadata from YouTube API
           const youtubeApiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${youtubeApiKey}&part=snippet,contentDetails`;
           console.log('Fetching YouTube video metadata for ID:', videoId);
@@ -425,14 +426,14 @@ export default async function handler(req, res) {
               details: 'The YouTube video ID could not be found. It may be private, deleted, or invalid.'
             });
           }
-          
+
           const video = youtubeData.items[0];
           if (!video || !video.snippet) {
-             console.error('YouTube API returned invalid video data:', video);
-             return res.status(500).json({
-               error: 'YouTube API returned invalid data',
-               details: 'Video snippet is missing'
-             });
+            console.error('YouTube API returned invalid video data:', video);
+            return res.status(500).json({
+              error: 'YouTube API returned invalid data',
+              details: 'Video snippet is missing'
+            });
           }
           const videoTitle = video.snippet.title || 'Unknown Title';
           const videoDescription = video.snippet.description || '';
@@ -564,11 +565,11 @@ export default async function handler(req, res) {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
           });
-          
+
           if (!urlResponse.ok) {
             throw new Error(`Failed to fetch URL: ${urlResponse.status}`);
           }
-          
+
           const html = await urlResponse.text();
 
           // Validate that the page is cooking-related
@@ -588,25 +589,25 @@ export default async function handler(req, res) {
 
           // Extract main content from HTML
           const content = extractRecipeContent(html);
-          
+
           // Log content preview for debugging
           const contentPreview = content.substring(0, 500);
           console.log('Extracted content preview:', contentPreview);
           console.log('Extracted content length:', content.length);
-          
+
           // If content seems too short, warn
           if (content.length < 500) {
             console.warn('Warning: Extracted content seems very short. The page might require JavaScript to load content.');
           }
-          
+
           // Combine URL content with prompt
           finalPrompt = `Extract the recipe from this webpage content. The content below contains the full recipe text from the webpage:\n\n${content}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. The content above contains the full recipe - extract all steps with their complete descriptions.'}`;
         }
       } catch (urlError) {
         console.error('Error fetching URL:', urlError);
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Failed to fetch URL content',
-          details: urlError.message 
+          details: urlError.message
         });
       }
     }
@@ -643,7 +644,7 @@ Please provide a clear, concise, and helpful answer to this cooking-related ques
     // Handle recipe modification requests
     else if (modify && currentRecipe) {
       console.log('Modifying recipe:', currentRecipe.title);
-      
+
       // Normalize ingredients and instructions to arrays
       let ingredientsList = [];
       if (Array.isArray(currentRecipe.ingredients)) {
@@ -654,7 +655,7 @@ Please provide a clear, concise, and helpful answer to this cooking-related ques
           ingredientsList = currentRecipe.ingredients.flatMap(section => section.items || []);
         }
       }
-      
+
       let instructionsList = [];
       if (Array.isArray(currentRecipe.instructions)) {
         if (currentRecipe.instructions.length > 0 && typeof currentRecipe.instructions[0] === 'string') {
@@ -664,7 +665,7 @@ Please provide a clear, concise, and helpful answer to this cooking-related ques
           instructionsList = currentRecipe.instructions.flatMap(section => section.items || []);
         }
       }
-      
+
       // Format current recipe for the prompt
       const recipeText = `CURRENT RECIPE:
 Title: ${currentRecipe.title}
@@ -689,7 +690,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
     if (!finalPrompt && !modify && !question) {
       return res.status(400).json({ error: 'Missing required field: prompt or url' });
     }
-    
+
     // If modify is true but no currentRecipe, return error
     if (modify && !currentRecipe) {
       return res.status(400).json({ error: 'Cannot modify recipe: no current recipe provided' });
@@ -821,7 +822,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
         fileType: fileData?.mimeType,
         url: geminiUrl.replace(apiKey, 'HIDDEN')
       });
-      
+
       // If 404, suggest trying different model or API version
       if (geminiResponse.status === 404) {
         let suggestion = 'Try using a different model like gemini-2.5-flash or gemini-2.0-flash';
@@ -834,7 +835,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           suggestion: suggestion
         });
       }
-      
+
       return res.status(geminiResponse.status).json({
         error: 'Gemini API request failed',
         details: errorText
@@ -843,7 +844,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
 
     // Parse and return Gemini response
     const data = await geminiResponse.json();
-    
+
     // Extract recipe from Gemini response
     // Gemini returns: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
     let recipeText = '';
@@ -854,15 +855,15 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
       console.log('Response length:', recipeText.length);
       console.log('First 1000 chars:', recipeText.substring(0, 1000));
     }
-    
+
     // If this is a question request, return the answer directly
     if (question) {
-      return res.status(200).json({ 
+      return res.status(200).json({
         answer: recipeText || 'I apologize, but I couldn\'t generate an answer.',
-        text: recipeText 
+        text: recipeText
       });
     }
-    
+
     // Parse the recipe text into structured format
     const recipe = {
       title: 'Extracted Recipe',
@@ -870,13 +871,13 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
       instructions: [],
       ...(recipeText ? { rawText: recipeText } : {})
     };
-    
+
     if (recipeText) {
       // First, try to parse as JSON (Gemini might return JSON)
       try {
         // Try to extract JSON from the response (might be wrapped in markdown code blocks)
-        const jsonMatch = recipeText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || 
-                         recipeText.match(/(\{[\s\S]*\})/);
+        const jsonMatch = recipeText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ||
+          recipeText.match(/(\{[\s\S]*\})/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[1]);
           if (parsed.title) recipe.title = parsed.title;
@@ -943,27 +944,27 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
                 console.log('Filtered out non-string instruction:', typeof instruction);
                 return false;
               }
-              
+
               const trimmed = instruction.trim();
               if (!trimmed) {
                 console.log('Filtered out empty instruction');
                 return false;
               }
-              
+
               const lower = trimmed.toLowerCase();
-              
+
               // Filter out section headings (but be more lenient - only filter if it's clearly a heading)
               if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)\s*$/i.test(lower)) {
                 console.log('Filtered out section heading:', trimmed);
                 return false; // Likely a section heading
               }
-              
+
               // Filter out very short lines that look like headings (but be more lenient)
               if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
                 console.log('Filtered out short heading:', trimmed);
                 return false; // Looks like a title/heading
               }
-              
+
               // Keep all other instructions - don't filter them out
               return true;
             });
@@ -1020,23 +1021,23 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
         // JSON parsing failed, continue with text parsing
         console.log('JSON parsing failed, falling back to text parsing');
       }
-      
+
       // Fallback to text parsing with improved logic
       const lines = recipeText.split('\n').filter(line => line.trim());
-      
+
       // Look for title (usually first line or after "Recipe:" or "Title:")
-      const titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i) || 
-                        recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
+      const titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i) ||
+        recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
       if (titleMatch) {
         recipe.title = titleMatch[1].trim();
       }
-      
+
       // Look for ingredients section
-      const ingredientsStart = lines.findIndex(line => 
+      const ingredientsStart = lines.findIndex(line =>
         /ingredients?/i.test(line)
       );
       if (ingredientsStart !== -1) {
-        const instructionsStart = lines.findIndex((line, idx) => 
+        const instructionsStart = lines.findIndex((line, idx) =>
           idx > ingredientsStart && /instructions?|directions?|steps?/i.test(line)
         );
         const ingredientsEnd = instructionsStart !== -1 ? instructionsStart : lines.length;
@@ -1092,25 +1093,25 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           .map(line => line.replace(/^[-•*]\s*/, '').trim())
           .filter(line => line.length > 0);
       }
-      
+
       // Improved instructions parsing - extract all numbered steps
       // Look for instructions section (including "Process" which is common in Indian recipes)
-      const instructionsStart = lines.findIndex(line => 
+      const instructionsStart = lines.findIndex(line =>
         /instructions?|directions?|steps?|process/i.test(line)
       );
-      
+
       if (instructionsStart !== -1) {
         const instructionLines = lines.slice(instructionsStart + 1);
         const instructions = [];
         let currentStep = '';
-        
+
         for (let i = 0; i < instructionLines.length; i++) {
           const line = instructionLines[i];
           const trimmed = line.trim();
-          
+
           // Skip empty lines
           if (!trimmed) continue;
-          
+
           // Check if this line starts a new numbered step (e.g., "1. Add chicken...")
           const stepMatch = trimmed.match(/^(\d+)[.)]\s*(.+)/);
           if (stepMatch) {
@@ -1120,7 +1121,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             }
             // Start new step
             currentStep = stepMatch[2];
-          } 
+          }
           // Check if this line starts with a bullet point (•, -, *, etc.)
           else if (/^[•\-\*]\s*(.+)/.test(trimmed)) {
             const bulletMatch = trimmed.match(/^[•\-\*]\s*(.+)/);
@@ -1132,7 +1133,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
               // Start new step from bullet point
               currentStep = bulletMatch[1];
             }
-          } 
+          }
           else {
             // Continue current step (might be multi-line)
             if (currentStep) {
@@ -1144,37 +1145,37 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             }
           }
         }
-        
+
         // Add last step
         if (currentStep.trim()) {
           instructions.push(currentStep.trim());
         }
-        
+
         // Filter out section headings (common patterns like "To Make...", "To Serve", "To Store")
         const filteredInstructions = instructions.filter(instruction => {
           const trimmed = instruction.trim();
           if (!trimmed) return false;
-          
+
           const lower = trimmed.toLowerCase();
-          
+
           // Filter out section headings (but be more lenient - only filter if it's clearly just a heading)
           if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)\s*$/i.test(lower)) {
             console.log('Text parsing: Filtered out section heading:', trimmed);
             return false; // Likely a section heading, not an instruction
           }
-          
+
           // Filter out very short lines that look like headings (but be more lenient)
           if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
             console.log('Text parsing: Filtered out short heading:', trimmed);
             return false; // Looks like a title/heading
           }
-          
+
           // Keep all other instructions
           return true;
         });
-        
+
         console.log('Text parsing: Extracted', instructions.length, 'instructions, filtered to', filteredInstructions.length);
-        
+
         // If we found numbered steps, use them; otherwise fall back to simple parsing
         if (filteredInstructions.length > 0) {
           recipe.instructions = filteredInstructions;
@@ -1202,7 +1203,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             .filter(line => line.length > 0);
         }
       }
-      
+
       // Try to extract changesDescription from text (fallback if not in JSON)
       if (modify && !recipe.changesDescription) {
         const changesMatch = recipeText.match(/(?:changesDescription|changes?|modifications?):\s*(.+?)(?:\n|$)/i);

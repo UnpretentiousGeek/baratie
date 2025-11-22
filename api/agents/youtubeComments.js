@@ -131,4 +131,4 @@ Answer with ONLY one word: "YES" if it contains a recipe, "NO" if it doesn't.`;
   }
 }
 
-module.exports = { extractPinnedComment, commentContainsRecipe };
+export { extractPinnedComment, commentContainsRecipe };
