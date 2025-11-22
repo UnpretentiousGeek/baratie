@@ -140,8 +140,8 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       
       // Check if we have an existing recipe and this is a question or modification request
       // Question/modification: has recipe, no URL in prompt, no new files attached
-      const hasUrl = prompt.match(/(https?:\/\/[^\s]+)/gi);
-      if (recipe && !hasUrl && (!filesToSend || filesToSend.length === 0)) {
+      const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
+      if (recipe && !urlMatches && (!filesToSend || filesToSend.length === 0)) {
         if (isQuestion && !isModification) {
           // This is a question - answer it without modifying the recipe
           const { answerQuestion } = await import('../utils/api');
@@ -181,7 +181,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       }
       
       // If it's a question but no recipe, still answer it
-      if (isQuestion && !hasUrl && (!filesToSend || filesToSend.length === 0) && !recipe) {
+      if (isQuestion && !urlMatches && (!filesToSend || filesToSend.length === 0) && !recipe) {
         const { answerQuestion } = await import('../utils/api');
         const conversationContext = buildConversationContext();
         const answer = await answerQuestion(prompt, null, conversationContext);
