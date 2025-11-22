@@ -384,16 +384,36 @@ export default async function handler(req, res) {
           
           // Fetch video metadata from YouTube API
           const youtubeApiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${youtubeApiKey}&part=snippet,contentDetails`;
-          const youtubeResponse = await fetch(youtubeApiUrl);
-          
-          if (!youtubeResponse.ok) {
-            throw new Error(`YouTube API error: ${youtubeResponse.status}`);
+          console.log('Fetching YouTube video metadata for ID:', videoId);
+
+          let youtubeResponse;
+          try {
+            youtubeResponse = await fetch(youtubeApiUrl);
+          } catch (fetchError) {
+            console.error('YouTube API fetch failed:', fetchError);
+            return res.status(500).json({
+              error: 'Failed to connect to YouTube API',
+              details: fetchError.message
+            });
           }
-          
+
+          if (!youtubeResponse.ok) {
+            const errorText = await youtubeResponse.text();
+            console.error('YouTube API error response:', youtubeResponse.status, errorText);
+            return res.status(400).json({
+              error: `YouTube API error: ${youtubeResponse.status}`,
+              details: errorText.substring(0, 200)
+            });
+          }
+
           const youtubeData = await youtubeResponse.json();
-          
+          console.log('YouTube API response received, items count:', youtubeData.items?.length || 0);
+
           if (!youtubeData.items || youtubeData.items.length === 0) {
-            throw new Error('Video not found');
+            return res.status(404).json({
+              error: 'Video not found',
+              details: 'The YouTube video ID could not be found. It may be private, deleted, or invalid.'
+            });
           }
           
           const video = youtubeData.items[0];
@@ -402,7 +422,14 @@ export default async function handler(req, res) {
 
           // Step 1: Validate YouTube video title is cooking-related
           console.log('Validating YouTube video title:', videoTitle);
-          const isCookingVideo = await validateCookingMessage(videoTitle, apiKey);
+          let isCookingVideo = true;
+          try {
+            isCookingVideo = await validateCookingMessage(videoTitle, apiKey);
+          } catch (validationError) {
+            console.error('Validation error (allowing through):', validationError);
+            // Allow through on validation error to avoid blocking
+            isCookingVideo = true;
+          }
 
           if (!isCookingVideo) {
             return res.status(400).json({
