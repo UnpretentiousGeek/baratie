@@ -103,7 +103,11 @@ export async function extractRecipeFromYouTube(videoId: string): Promise<Recipe>
   }
 }
 
-export async function answerQuestion(question: string): Promise<string> {
+export async function answerQuestion(
+  question: string,
+  currentRecipe: Recipe | null = null,
+  conversationHistory: string = ''
+): Promise<string> {
   try {
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
@@ -111,6 +115,12 @@ export async function answerQuestion(question: string): Promise<string> {
       body: JSON.stringify({
         prompt: question,
         question: true,
+        currentRecipe: currentRecipe ? {
+          title: currentRecipe.title,
+          ingredients: currentRecipe.ingredients,
+          instructions: currentRecipe.instructions,
+        } : undefined,
+        conversationHistory,
       }),
     });
 
@@ -128,7 +138,8 @@ export async function answerQuestion(question: string): Promise<string> {
 
 export async function modifyRecipe(
   currentRecipe: Recipe,
-  modificationPrompt: string
+  modificationPrompt: string,
+  conversationHistory: string = ''
 ): Promise<Recipe> {
   try {
     const response = await fetch(GEMINI_API_ENDPOINT, {
@@ -140,11 +151,11 @@ export async function modifyRecipe(
           title: currentRecipe.title,
           ingredients: currentRecipe.ingredients,
           instructions: currentRecipe.instructions,
-          servings: currentRecipe.servings,
           prepTime: currentRecipe.prepTime,
           cookTime: currentRecipe.cookTime,
         },
         modify: true,
+        conversationHistory,
       }),
     });
 

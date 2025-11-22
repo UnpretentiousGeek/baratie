@@ -15,7 +15,6 @@ export interface Recipe {
   title: string;
   ingredients: string[] | RecipeSection[]; // Support both flat array and sections
   instructions: string[] | RecipeSection[]; // Support both flat array and sections
-  servings?: number;
   prepTime?: string;
   cookTime?: string;
   nutrition?: NutritionInfo;

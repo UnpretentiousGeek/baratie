@@ -2,6 +2,148 @@
 // This function securely proxies requests to Google's Gemini API
 // API keys are stored as Vercel environment variables and never exposed to client
 
+// Import agent modules
+const { detectRecipeSections } = require('./agents/sectionDetection');
+const { calculateNutrition } = require('./agents/nutritionCalculation');
+const { extractPinnedComment, commentContainsRecipe } = require('./agents/youtubeComments');
+const { extractAndValidateImage, extractRecipeFromImage, identifyIngredient } = require('./agents/imageOCR');
+
+// Helper function to extract page title from HTML
+function extractPageTitle(html) {
+  const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+  if (titleMatch && titleMatch[1]) {
+    // Decode HTML entities
+    return titleMatch[1]
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim();
+  }
+  return '';
+}
+
+// Helper function to extract main headings from HTML
+function extractMainHeadings(html) {
+  const headings = [];
+
+  // Extract h1 headings
+  const h1Matches = html.matchAll(/<h1[^>]*>(.*?)<\/h1>/gi);
+  for (const match of h1Matches) {
+    if (match[1]) {
+      const text = match[1]
+        .replace(/<[^>]*>/g, '') // Remove nested tags
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .trim();
+      if (text) headings.push(text);
+    }
+  }
+
+  // Extract h2 headings (limit to first 5)
+  const h2Matches = html.matchAll(/<h2[^>]*>(.*?)<\/h2>/gi);
+  let h2Count = 0;
+  for (const match of h2Matches) {
+    if (h2Count >= 5) break;
+    if (match[1]) {
+      const text = match[1]
+        .replace(/<[^>]*>/g, '')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .trim();
+      if (text) {
+        headings.push(text);
+        h2Count++;
+      }
+    }
+  }
+
+  return headings;
+}
+
+// Helper function to validate if content is cooking-related using Gemini
+async function validateCookingContent(title, headings, geminiApiKey) {
+  try {
+    const contentSummary = `Title: ${title}\nHeadings: ${headings.join(', ')}`;
+
+    const validationPrompt = `Analyze the following webpage title and headings. Determine if this page is about cooking, recipes, food preparation, or culinary topics.
+
+${contentSummary}
+
+Respond with ONLY one word: "VALID" if this is cooking/recipe related, or "INVALID" if it is not.`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+
+    const response = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: validationPrompt }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Validation API call failed:', response.status);
+      return true; // Allow through on API failure
+    }
+
+    const data = await response.json();
+    const validationResponse = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() || '';
+
+    console.log('Content validation response:', validationResponse);
+    return validationResponse.includes('VALID');
+  } catch (error) {
+    console.error('Error validating content:', error);
+    return true; // Allow through on error
+  }
+}
+
+// Helper function to validate if a message is cooking-related using Gemini
+async function validateCookingMessage(message, geminiApiKey) {
+  try {
+    const validationPrompt = `Determine if the following message is related to cooking, recipes, food preparation, culinary questions, or kitchen topics.
+
+Message: "${message}"
+
+Respond with ONLY one word: "VALID" if this is cooking/recipe related, or "INVALID" if it is not.`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+
+    const response = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: validationPrompt }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Message validation API call failed:', response.status);
+      return true; // Allow through on API failure
+    }
+
+    const data = await response.json();
+    const validationResponse = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() || '';
+
+    console.log('Message validation response:', validationResponse);
+    return validationResponse.includes('VALID');
+  } catch (error) {
+    console.error('Error validating message:', error);
+    return true; // Allow through on error
+  }
+}
+
 // Helper function to extract recipe content from HTML
 function extractRecipeContent(html) {
   // Remove script and style tags first
@@ -188,7 +330,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify, question } = req.body;
+    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify, question, action, content, type, conversationHistory = '' } = req.body;
+
+    // Get API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Gemini API key not configured' });
+    }
+
+    // Handle validation requests
+    if (action === 'validate') {
+      try {
+        let isValid = false;
+
+        if (type === 'message') {
+          // Validate chat message
+          isValid = await validateCookingMessage(content, apiKey);
+        } else if (type === 'content') {
+          // Validate URL content (title and headings)
+          const { title, headings } = content;
+          isValid = await validateCookingContent(title, headings, apiKey);
+        } else {
+          return res.status(400).json({ error: 'Invalid validation type. Use "message" or "content".' });
+        }
+
+        return res.status(200).json({ isValid });
+      } catch (validationError) {
+        console.error('Validation error:', validationError);
+        // On validation error, return true to avoid blocking legitimate requests
+        return res.status(200).json({ isValid: true });
+      }
+    }
 
     // If URL is provided, fetch and extract content from it
     let finalPrompt = prompt || '';
@@ -227,67 +399,119 @@ export default async function handler(req, res) {
           const video = youtubeData.items[0];
           const videoTitle = video.snippet.title;
           const videoDescription = video.snippet.description;
-          
-          // Check if description contains recipe links
-          const urlPattern = /(https?:\/\/[^\s\)]+)/g;
-          const urls = videoDescription.match(urlPattern) || [];
-          
-          let recipeContent = '';
-          let recipeLinks = [];
-          
-          // Filter for recipe-related URLs (common recipe site patterns)
-          const recipeSitePatterns = [
-            /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|cookieandkate|smittenkitchen|pinchofyum|halfbakedharvest|damndelicious|gimmesomeoven|recipegirl|twopeasandtheirpod|reciperunner|chefsteps|serious|recipe|food|kitchen|cookbook|cuisine|dish|meal/i
-          ];
-          
-          for (const url of urls) {
-            const cleanUrl = url.replace(/[.,;!?]+$/, ''); // Remove trailing punctuation
-            if (recipeSitePatterns.some(pattern => pattern.test(cleanUrl))) {
-              recipeLinks.push(cleanUrl);
+
+          // Step 1: Validate YouTube video title is cooking-related
+          console.log('Validating YouTube video title:', videoTitle);
+          const isCookingVideo = await validateCookingMessage(videoTitle, apiKey);
+
+          if (!isCookingVideo) {
+            return res.status(400).json({
+              error: 'This YouTube video does not appear to be cooking or recipe-related.',
+              details: 'Please provide a link to a cooking video.'
+            });
+          }
+
+          // Step 2: Check if description contains recipe directly
+          let recipeInDescription = false;
+          if (videoDescription && videoDescription.length > 200) {
+            // Check if description has recipe-like structure
+            const hasIngredients = /ingredients?:/i.test(videoDescription);
+            const hasInstructions = /instructions?:|directions?:|steps?:|process:/i.test(videoDescription);
+            recipeInDescription = hasIngredients && hasInstructions;
+
+            if (recipeInDescription) {
+              console.log('Recipe found directly in description');
+              finalPrompt = `Extract the recipe from this YouTube video description:\n\n${videoDescription}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }'}`;
+              // Skip link checking and pinned comment if recipe is in description
             }
           }
-          
-          // Fetch recipe content from linked websites
-          if (recipeLinks.length > 0) {
-            console.log('Found recipe links in description:', recipeLinks);
-            
-            for (const recipeUrl of recipeLinks.slice(0, 3)) { // Limit to first 3 links
-              try {
-                console.log('Fetching recipe from link:', recipeUrl);
-                const linkResponse = await fetch(recipeUrl, {
-                  headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                  }
-                });
-                
-                if (linkResponse.ok) {
-                  const html = await linkResponse.text();
-                  const content = extractRecipeContent(html);
-                  
-                  if (content && content.length > 100) {
-                    recipeContent += `\n\n--- Recipe from ${recipeUrl} ---\n${content}`;
-                    console.log('Successfully extracted recipe content from link');
-                    break; // Use first successful extraction
-                  }
-                }
-              } catch (linkError) {
-                console.error('Error fetching recipe link:', linkError);
-                // Continue to next link or description
+
+          // Step 3: If no recipe in description, check pinned comment
+          let pinnedCommentRecipe = '';
+          if (!recipeInDescription) {
+            console.log('No recipe in description, checking pinned comment...');
+            const pinnedComment = await extractPinnedComment(videoId, youtubeApiKey);
+
+            if (pinnedComment) {
+              const hasRecipe = await commentContainsRecipe(pinnedComment, apiKey);
+
+              if (hasRecipe) {
+                console.log('Recipe found in pinned comment');
+                finalPrompt = `Extract the recipe from this pinned comment:\n\n${pinnedComment}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }'}`;
+                recipeInDescription = true; // Set to true to skip link checking
               }
             }
           }
-          
-          // Combine video info with recipe content and prompt
-          let combinedContent = `YouTube Video:\nTitle: ${videoTitle}\n\nDescription:\n${videoDescription}`;
-          
-          if (recipeContent) {
-            combinedContent += `\n\n${recipeContent}`;
-            finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes.'}`;
-          } else {
-            finalPrompt = `Extract the recipe from this YouTube video:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. If the recipe is not in the description, please note that the recipe is in the video and provide any available information.'}`;
+
+          // Step 4: If still no recipe, check description for recipe links
+          let recipeContent = '';
+          let recipeLinks = [];
+
+          if (!recipeInDescription) {
+            // Check if description contains recipe links
+            const urlPattern = /(https?:\/\/[^\s\)]+)/g;
+            const urls = (videoDescription && videoDescription.match(urlPattern)) || [];
+
+            // Filter for recipe-related URLs (common recipe site patterns)
+            const recipeSitePatterns = [
+              /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|cookieandkate|smittenkitchen|pinchofyum|halfbakedharvest|damndelicious|gimmesomeoven|recipegirl|twopeasandtheirpod|reciperunner|chefsteps|serious|recipe|food|kitchen|cookbook|cuisine|dish|meal/i
+            ];
+
+            for (const url of urls) {
+              const cleanUrl = url.replace(/[.,;!?]+$/, ''); // Remove trailing punctuation
+              if (recipeSitePatterns.some(pattern => pattern.test(cleanUrl))) {
+                recipeLinks.push(cleanUrl);
+              }
+            }
+
+            // Fetch recipe content from linked websites
+            if (recipeLinks.length > 0) {
+              console.log('Found recipe links in description:', recipeLinks);
+
+              for (const recipeUrl of recipeLinks.slice(0, 3)) { // Limit to first 3 links
+                try {
+                  console.log('Fetching recipe from link:', recipeUrl);
+                  const linkResponse = await fetch(recipeUrl, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                  });
+
+                  if (linkResponse.ok) {
+                    const html = await linkResponse.text();
+                    const content = extractRecipeContent(html);
+
+                    if (content && content.length > 100) {
+                      recipeContent += `\n\n--- Recipe from ${recipeUrl} ---\n${content}`;
+                      console.log('Successfully extracted recipe content from link');
+                      break; // Use first successful extraction
+                    }
+                  }
+                } catch (linkError) {
+                  console.error('Error fetching recipe link:', linkError);
+                  // Continue to next link or description
+                }
+              }
+            }
+
+            // Step 5: If no recipe found anywhere, return error
+            if (!recipeContent) {
+              return res.status(400).json({
+                error: 'Recipe not found in this YouTube video.',
+                details: 'Could not find recipe in description, pinned comment, or linked websites. The recipe might be shown only in the video.'
+              });
+            }
+
+            // Combine video info with recipe content and prompt
+            let combinedContent = `YouTube Video:\nTitle: ${videoTitle}\n\nDescription:\n${videoDescription}`;
+
+            if (recipeContent) {
+              combinedContent += `\n\n${recipeContent}`;
+              finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes.'}`;
+            }
+
+            console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
           }
-          
-          console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
         } else {
           // Regular URL - fetch and scrape HTML
           console.log('Fetching content from URL:', url);
@@ -302,7 +526,22 @@ export default async function handler(req, res) {
           }
           
           const html = await urlResponse.text();
-          
+
+          // Validate that the page is cooking-related
+          const pageTitle = extractPageTitle(html);
+          const pageHeadings = extractMainHeadings(html);
+
+          console.log('Validating page content - Title:', pageTitle, 'Headings count:', pageHeadings.length);
+
+          const isValidCookingContent = await validateCookingContent(pageTitle, pageHeadings, apiKey);
+
+          if (!isValidCookingContent) {
+            return res.status(400).json({
+              error: 'This link does not appear to contain cooking or recipe content.',
+              details: 'Please provide a URL to a recipe or cooking-related page.'
+            });
+          }
+
           // Extract main content from HTML
           const content = extractRecipeContent(html);
           
@@ -331,10 +570,31 @@ export default async function handler(req, res) {
     // Handle question requests (not recipe modifications)
     if (question) {
       console.log('Answering question:', prompt);
-      // Use a simple prompt that asks for a direct answer without recipe references
-      finalPrompt = `Please provide a clear, concise, and direct answer to this question: ${prompt}
 
-Answer the question directly without referencing any recipes or providing unnecessary context. Keep the answer focused and helpful.`;
+      // Build context-aware prompt
+      let contextPrompt = '';
+
+      if (currentRecipe) {
+        // Normalize ingredients and instructions
+        let ingredientsList = [];
+        if (Array.isArray(currentRecipe.ingredients)) {
+          if (currentRecipe.ingredients.length > 0 && typeof currentRecipe.ingredients[0] === 'string') {
+            ingredientsList = currentRecipe.ingredients;
+          } else {
+            ingredientsList = currentRecipe.ingredients.flatMap(section => section.items || []);
+          }
+        }
+
+        contextPrompt += `\nCURRENT RECIPE CONTEXT:\nTitle: ${currentRecipe.title}\nIngredients: ${ingredientsList.slice(0, 10).join(', ')}${ingredientsList.length > 10 ? '...' : ''}\n\n`;
+      }
+
+      if (conversationHistory) {
+        contextPrompt += `CONVERSATION HISTORY:\n${conversationHistory}\n\n`;
+      }
+
+      finalPrompt = `${contextPrompt}USER QUESTION: ${prompt}
+
+Please provide a clear, concise, and helpful answer to this cooking-related question. If the question references the current recipe or previous conversation, use that context in your answer. Keep the answer friendly and focused.`;
     }
     // Handle recipe modification requests
     else if (modify && currentRecipe) {
@@ -364,7 +624,6 @@ Answer the question directly without referencing any recipes or providing unnece
       // Format current recipe for the prompt
       const recipeText = `CURRENT RECIPE:
 Title: ${currentRecipe.title}
-${currentRecipe.servings ? `Servings: ${currentRecipe.servings}` : ''}
 ${currentRecipe.prepTime ? `Prep Time: ${currentRecipe.prepTime}` : ''}
 ${currentRecipe.cookTime ? `Cook Time: ${currentRecipe.cookTime}` : ''}
 
@@ -374,7 +633,12 @@ ${ingredientsList.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
 Instructions:
 ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
 
-      finalPrompt = `${recipeText}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."], "changesDescription": "..." }. The "changesDescription" field should be a brief summary of what changes were made (e.g., "Made the recipe vegan by replacing chicken with tofu and eggs with a vegan alternative", or "Adjusted ingredient quantities for 2 pounds of chicken"). CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
+      let contextSection = '';
+      if (conversationHistory) {
+        contextSection = `\nCONVERSATION HISTORY:\n${conversationHistory}\n`;
+      }
+
+      finalPrompt = `${recipeText}${contextSection}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."], "changesDescription": "..." }. The "changesDescription" field should be a brief summary of what changes were made (e.g., "Made the recipe vegan by replacing chicken with tofu and eggs with a vegan alternative", or "Adjusted ingredient quantities for 2 pounds of chicken"). CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
     }
 
     // Validate request
@@ -387,11 +651,49 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
       return res.status(400).json({ error: 'Cannot modify recipe: no current recipe provided' });
     }
 
-    // Check for API key
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error('GEMINI_API_KEY not found in environment variables');
-      return res.status(500).json({ error: 'Server configuration error: API key not set' });
+    // API key already retrieved above (line 336)
+
+    // Handle image processing with OCR and validation
+    if ((filesData && filesData.length > 0) || fileData) {
+      console.log('Processing image files with OCR agent...');
+
+      // Get the first file for validation
+      const firstFile = filesData && filesData.length > 0 ? filesData[0] : fileData;
+
+      if (firstFile && firstFile.data && firstFile.mimeType) {
+        // Step 1: Validate image and extract text
+        const validation = await extractAndValidateImage(firstFile, apiKey);
+
+        console.log('Image validation result:', {
+          isCooking: validation.isCooking,
+          isRecipe: validation.isRecipe,
+          message: validation.message
+        });
+
+        // Step 2a: If not cooking-related, reject
+        if (!validation.isCooking) {
+          return res.status(400).json({
+            error: 'This image does not appear to be related to cooking.',
+            details: validation.message || 'Please provide an image of a recipe or food item.'
+          });
+        }
+
+        // Step 2b: If cooking but not a recipe, identify the ingredient
+        if (validation.isCooking && !validation.isRecipe) {
+          console.log('Image is cooking-related but not a recipe - identifying ingredient');
+          const description = await identifyIngredient(firstFile, apiKey);
+
+          return res.status(200).json({
+            answer: description,
+            text: description,
+            isIngredientIdentification: true
+          });
+        }
+
+        // Step 2c: If it's a recipe, continue with extraction
+        // The existing Gemini call will handle the actual recipe extraction
+        console.log('Image contains a recipe - proceeding with extraction');
+      }
     }
 
     // Build Gemini API URL
@@ -637,10 +939,36 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           if (parsed.changesDescription) {
             recipe.changesDescription = parsed.changesDescription;
           }
-          // If we successfully parsed JSON, return early
+          // If we successfully parsed JSON, run agents and return
           // Only return if we have at least ingredients (instructions might be empty if they were all filtered)
           if (recipe.ingredients.length > 0) {
             console.log('Returning JSON-parsed recipe. Ingredients:', recipe.ingredients.length, 'Instructions:', recipe.instructions.length);
+
+            // Run section detection agent (if not a modification)
+            if (!modify) {
+              const sectionResult = await detectRecipeSections(
+                recipe.ingredients,
+                recipe.instructions,
+                apiKey
+              );
+
+              if (sectionResult.hasSections) {
+                recipe.ingredients = sectionResult.ingredients;
+                recipe.instructions = sectionResult.instructions;
+              }
+
+              // Run nutrition calculation agent
+              const nutrition = await calculateNutrition(
+                recipe.ingredients,
+                recipe.title,
+                apiKey
+              );
+
+              if (nutrition) {
+                recipe.nutrition = nutrition;
+              }
+            }
+
             return res.status(200).json({ recipe });
           }
         }
@@ -845,6 +1173,41 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
     console.log('Ingredients count:', recipe.ingredients.length);
     console.log('Instructions count:', recipe.instructions.length);
     console.log('First 3 instructions:', recipe.instructions.slice(0, 3));
+
+    // Step 4: Detect recipe sections (only if not a modification request)
+    if (!modify && recipe.ingredients.length > 0 && recipe.instructions.length > 0) {
+      console.log('Running section detection agent...');
+      const sectionResult = await detectRecipeSections(
+        recipe.ingredients,
+        recipe.instructions,
+        apiKey
+      );
+
+      if (sectionResult.hasSections) {
+        console.log('Sections detected - updating recipe structure');
+        recipe.ingredients = sectionResult.ingredients;
+        recipe.instructions = sectionResult.instructions;
+      } else {
+        console.log('No sections detected - keeping flat structure');
+      }
+    }
+
+    // Step 5: Calculate nutrition information (only for new extractions, not modifications)
+    if (!modify && recipe.ingredients.length > 0) {
+      console.log('Running nutrition calculation agent...');
+      const nutrition = await calculateNutrition(
+        recipe.ingredients,
+        recipe.title,
+        apiKey
+      );
+
+      if (nutrition) {
+        recipe.nutrition = nutrition;
+        console.log('Nutrition calculated:', nutrition);
+      } else {
+        console.log('Nutrition calculation failed or skipped');
+      }
+    }
 
     return res.status(200).json({ recipe });
 

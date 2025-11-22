@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRecipe } from '../context/RecipeContext';
-import { normalizeInstructions, normalizeIngredients } from '../utils/recipeUtils';
+import { normalizeInstructions, normalizeIngredients, getIngredientSections } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { XIcon, DownloadIcon, CheckIcon, PortionMinusIcon, PortionPlusIcon } from './icons';
 import './CookingGuide.css';
@@ -20,6 +20,79 @@ const CookingGuide: React.FC = () => {
   const instructions = normalizeInstructions(recipe.instructions);
   const ingredients = normalizeIngredients(recipe.ingredients);
   const totalSteps = instructions.length;
+
+  // Get ingredient sections for dynamic filters
+  const ingredientSections = useMemo(() => {
+    return getIngredientSections(recipe.ingredients);
+  }, [recipe.ingredients]);
+
+  // Generate filter options dynamically
+  const filterOptions = useMemo(() => {
+    const options = ['All'];
+    if (ingredientSections && ingredientSections.length > 0) {
+      ingredientSections.forEach(section => {
+        if (section.title) {
+          // Extract clean title (remove "For" prefix if present)
+          const cleanTitle = section.title.replace(/^(For|for)\s+/i, '');
+          options.push(cleanTitle);
+        }
+      });
+    }
+    return options;
+  }, [ingredientSections]);
+
+  // Filter ingredients based on selected filter
+  const filteredIngredients = useMemo(() => {
+    if (selectedFilter === 'All' || !ingredientSections) {
+      return ingredients.map((ingredient, index) => ({ ingredient, originalIndex: index }));
+    }
+
+    // Find the matching section
+    const matchingSection = ingredientSections.find(section => {
+      if (!section.title) return false;
+      const cleanTitle = section.title.replace(/^(For|for)\s+/i, '');
+      return cleanTitle === selectedFilter;
+    });
+
+    if (!matchingSection || !matchingSection.items) {
+      return ingredients.map((ingredient, index) => ({ ingredient, originalIndex: index }));
+    }
+
+    // Map section items to their original indices in the full ingredients array
+    const filtered: Array<{ ingredient: string; originalIndex: number }> = [];
+    let currentIndex = 0;
+
+    ingredientSections.forEach(section => {
+      if (section === matchingSection) {
+        // Add items from the matching section with their original indices
+        section.items.forEach(item => {
+          filtered.push({ ingredient: item, originalIndex: currentIndex });
+          currentIndex++;
+        });
+      } else {
+        // Skip items from other sections, but advance the index
+        currentIndex += section.items ? section.items.length : 0;
+      }
+    });
+
+    return filtered;
+  }, [ingredients, ingredientSections, selectedFilter]);
+
+  // Calculate macros per portion
+  // Note: recipe.nutrition contains values for the ENTIRE recipe
+  // When portions > 1, we divide to show nutrition per portion
+  const macrosPerPortion = useMemo(() => {
+    if (!recipe.nutrition || !recipe.nutrition.calories) {
+      return null;
+    }
+
+    return {
+      calories: Math.round(recipe.nutrition.calories / portions),
+      protein: Math.round((recipe.nutrition.protein || 0) / portions),
+      carbs: Math.round((recipe.nutrition.carbs || 0) / portions),
+      fat: Math.round((recipe.nutrition.fat || 0) / portions),
+    };
+  }, [recipe.nutrition, portions]);
 
   const toggleIngredient = (index: number) => {
     setCheckedIngredients(prev => {
@@ -78,43 +151,34 @@ const CookingGuide: React.FC = () => {
         <div className="ingredient-list-panel">
           <h3 className="ingredient-list-title">Ingredient list</h3>
           
-          {/* Filter Buttons */}
-          <div className="ingredient-filters">
-            <button
-              type="button"
-              className={`ingredient-filter-btn ${selectedFilter === 'All' ? 'active' : ''}`}
-              onClick={() => setSelectedFilter('All')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`ingredient-filter-btn ${selectedFilter === 'Marination' ? 'active' : ''}`}
-              onClick={() => setSelectedFilter('Marination')}
-            >
-              Marination
-            </button>
-            <button
-              type="button"
-              className={`ingredient-filter-btn ${selectedFilter === 'Curry' ? 'active' : ''}`}
-              onClick={() => setSelectedFilter('Curry')}
-            >
-              Curry
-            </button>
-          </div>
+          {/* Filter Buttons - Dynamic based on recipe sections */}
+          {filterOptions.length > 1 && (
+            <div className="ingredient-filters">
+              {filterOptions.map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`ingredient-filter-btn ${selectedFilter === option ? 'active' : ''}`}
+                  onClick={() => setSelectedFilter(option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Ingredients List */}
           <div className="ingredients-list-container">
-            {ingredients.map((ingredient, index) => {
-              const isChecked = checkedIngredients.has(index);
+            {filteredIngredients.map(({ ingredient, originalIndex }) => {
+              const isChecked = checkedIngredients.has(originalIndex);
               return (
                 <div 
-                  key={index} 
+                  key={originalIndex} 
                   className={`ingredient-item ${isChecked ? 'checked' : ''}`}
                 >
                   <div 
                     className="ingredient-checkbox-wrapper"
-                    onClick={() => toggleIngredient(index)}
+                    onClick={() => toggleIngredient(originalIndex)}
                   >
                     <div className={`ingredient-checkbox ${isChecked ? 'checked' : ''}`}>
                       {isChecked && (
@@ -178,30 +242,61 @@ const CookingGuide: React.FC = () => {
           <div className="macros-section">
             <h3 className="macros-title">Macros</h3>
             <div className="macros-content">
-              <div className="calories-display">
-                <p className="calories-amount">1000 Calories</p>
-                <p className="calories-label">Per Portion</p>
-              </div>
-              <div className="macros-info">
-                <div className="macro-item">
-                  <div className="macro-icon">
-                    <img src="/assets/macros/protein.png" alt="Protein" />
+              {macrosPerPortion ? (
+                <>
+                  <div className="calories-display">
+                    <p className="calories-amount">{macrosPerPortion.calories} Calories</p>
+                    <p className="calories-label">{portions === 1 ? 'Total' : `For ${portions} Portions`}</p>
                   </div>
-                  <p className="macro-label">10g Protein</p>
-                </div>
-                <div className="macro-item">
-                  <div className="macro-icon">
-                    <img src="/assets/macros/carbs.png" alt="Carbohydrates" />
+                  <div className="macros-info">
+                    <div className="macro-item">
+                      <div className="macro-icon">
+                        <img src="/assets/macros/protein.png" alt="Protein" />
+                      </div>
+                      <p className="macro-label">{macrosPerPortion.protein}g Protein</p>
+                    </div>
+                    <div className="macro-item">
+                      <div className="macro-icon">
+                        <img src="/assets/macros/carbs.png" alt="Carbohydrates" />
+                      </div>
+                      <p className="macro-label">{macrosPerPortion.carbs}g Carbs</p>
+                    </div>
+                    <div className="macro-item">
+                      <div className="macro-icon">
+                        <img src="/assets/macros/fat.png" alt="Fat" />
+                      </div>
+                      <p className="macro-label">{macrosPerPortion.fat}g Fat</p>
+                    </div>
                   </div>
-                  <p className="macro-label">10g Carbohydrates</p>
-                </div>
-                <div className="macro-item">
-                  <div className="macro-icon">
-                    <img src="/assets/macros/fat.png" alt="Fat" />
+                </>
+              ) : (
+                <>
+                  <div className="calories-display">
+                    <p className="calories-amount">Calculating...</p>
+                    <p className="calories-label">Nutrition Info</p>
                   </div>
-                  <p className="macro-label">10g Fat</p>
-                </div>
-              </div>
+                  <div className="macros-info">
+                    <div className="macro-item">
+                      <div className="macro-icon">
+                        <img src="/assets/macros/protein.png" alt="Protein" />
+                      </div>
+                      <p className="macro-label">-- Protein</p>
+                    </div>
+                    <div className="macro-item">
+                      <div className="macro-icon">
+                        <img src="/assets/macros/carbs.png" alt="Carbohydrates" />
+                      </div>
+                      <p className="macro-label">-- Carbs</p>
+                    </div>
+                    <div className="macro-item">
+                      <div className="macro-icon">
+                        <img src="/assets/macros/fat.png" alt="Fat" />
+                      </div>
+                      <p className="macro-label">-- Fat</p>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="portions-selector">
                 <div className="portions-control">
                   <button 

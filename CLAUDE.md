@@ -110,7 +110,6 @@ interface Recipe {
   title: string;
   ingredients: string[] | RecipeSection[];  // Flat array or sections with titles
   instructions: string[] | RecipeSection[]; // Flat array or sections with titles
-  servings?: number;
   prepTime?: string;
   cookTime?: string;
   nutrition?: NutritionInfo;

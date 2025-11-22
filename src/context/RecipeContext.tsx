@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 import { AttachedFile, Recipe, Stage, RecipeContextType, ChatMessage } from '../types';
 import { processFiles } from '../utils/recipeManager';
 import { extractRecipeFromFiles } from '../utils/api';
+import { validateCookingMessage } from '../utils/validation';
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
 
@@ -22,6 +23,18 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [currentStage, setCurrentStage] = useState<Stage>('capture');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Build conversation context from recent messages
+  const buildConversationContext = useCallback(() => {
+    // Get last 5 messages for context (excluding recipe-preview messages)
+    const contextMessages = messages
+      .filter(msg => msg.type !== 'recipe-preview')
+      .slice(-5)
+      .map(msg => `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.text || ''}`)
+      .join('\n');
+
+    return contextMessages;
+  }, [messages]);
 
   const addFiles = useCallback(async (files: File[]) => {
     try {
@@ -66,11 +79,45 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   const extractRecipe = useCallback(async (prompt: string) => {
     try {
+      // Check if this input contains a URL or has files attached
+      const hasUrl = /(https?:\/\/[^\s]+)/.test(prompt);
+      const hasFiles = attachedFiles.length > 0;
+
+      // Validate cooking relevance for messages without URL/files and no existing recipe
+      // Skip validation if:
+      // - URL is provided (validated server-side)
+      // - Files are attached (assumed to be recipe-related)
+      // - Recipe already exists (context is already cooking-related)
+      if (!hasUrl && !hasFiles && !recipe) {
+        const isValid = await validateCookingMessage(prompt);
+
+        if (!isValid) {
+          // Switch to chat mode to show the error message
+          if (currentStage === 'capture') {
+            setCurrentStage('preview');
+          }
+
+          // Add user message first
+          addMessage({
+            type: 'user',
+            text: prompt,
+          });
+
+          // Add validation error message
+          addMessage({
+            type: 'system',
+            text: 'Please ask a cooking or recipe-related question. Baratie specializes in helping you cook!',
+          });
+
+          return; // Don't proceed with API call
+        }
+      }
+
       // Switch to chat mode immediately when user sends first message
       if (currentStage === 'capture') {
         setCurrentStage('preview');
       }
-      
+
       // Store attached files before clearing
       const filesToSend = attachedFiles.length > 0 ? [...attachedFiles] : undefined;
       
@@ -98,8 +145,9 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         if (isQuestion && !isModification) {
           // This is a question - answer it without modifying the recipe
           const { answerQuestion } = await import('../utils/api');
-          const answer = await answerQuestion(prompt);
-          
+          const conversationContext = buildConversationContext();
+          const answer = await answerQuestion(prompt, recipe, conversationContext);
+
           addMessage({
             type: 'system',
             text: answer,
@@ -108,7 +156,8 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         } else if (isModification || (!isQuestion && !isModification)) {
           // This is a modification request (or ambiguous - treat as modification)
           const { modifyRecipe } = await import('../utils/api');
-          const modifiedRecipe = await modifyRecipe(recipe, prompt);
+          const conversationContext = buildConversationContext();
+          const modifiedRecipe = await modifyRecipe(recipe, prompt, conversationContext);
           
           setRecipe(modifiedRecipe);
           setCurrentStage('preview');
@@ -134,7 +183,8 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // If it's a question but no recipe, still answer it
       if (isQuestion && !hasUrl && (!filesToSend || filesToSend.length === 0) && !recipe) {
         const { answerQuestion } = await import('../utils/api');
-        const answer = await answerQuestion(prompt);
+        const conversationContext = buildConversationContext();
+        const answer = await answerQuestion(prompt, null, conversationContext);
         
         addMessage({
           type: 'system',
