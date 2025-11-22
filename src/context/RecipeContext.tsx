@@ -135,15 +135,18 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const isQuestion = /^(\?|how|what|when|where|why|who|which|is|are|can|could|would|should|do|does|did|will|may|might)\s/i.test(prompt.trim()) || 
                         prompt.trim().endsWith('?');
       
-      // Check if it's a modification request (contains modification keywords)
-      const isModification = /\b(make|adjust|change|modify|convert|update|replace|remove|add|increase|decrease|scale|double|halve|reduce|substitute|swap|use|try)\b/i.test(prompt);
+      // Check if user is asking about alternatives/substitutions (should suggest, not auto-update)
+      const isAlternativeRequest = /\b(don't have|do not have|missing|alternative|substitute|instead of|can i use|what can i use|what to use|replace with|suggest|recommend|options?)\b/i.test(prompt);
+      
+      // Check if it's a modification request (contains modification keywords, but not alternative requests)
+      const isModification = !isAlternativeRequest && /\b(make|adjust|change|modify|convert|update|replace|remove|add|increase|decrease|scale|double|halve|reduce|swap|use|try)\b/i.test(prompt);
       
       // Check if we have an existing recipe and this is a question or modification request
       // Question/modification: has recipe, no URL in prompt, no new files attached
       const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
       if (recipe && !urlMatches && (!filesToSend || filesToSend.length === 0)) {
-        if (isQuestion && !isModification) {
-          // This is a question - answer it without modifying the recipe
+        if ((isQuestion || isAlternativeRequest) && !isModification) {
+          // This is a question or alternative request - answer it without modifying the recipe
           const { answerQuestion } = await import('../utils/api');
           const conversationContext = buildConversationContext();
           const answer = await answerQuestion(prompt, recipe, conversationContext);
@@ -153,7 +156,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
             text: answer,
           });
           return;
-        } else if (isModification || (!isQuestion && !isModification)) {
+        } else if (isModification || (!isQuestion && !isAlternativeRequest && !isModification)) {
           // This is a modification request (or ambiguous - treat as modification)
           
           // Add loading message
@@ -171,8 +174,8 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
             setRecipe(modifiedRecipe);
             setCurrentStage('preview');
 
-            // Remove loading message
-            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+            // Remove loading message and any existing recipe-preview messages
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading' && msg.type !== 'recipe-preview'));
 
             // Add system message with description of changes
             const changesText = modifiedRecipe.changesDescription 
