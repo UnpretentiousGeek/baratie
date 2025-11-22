@@ -330,6 +330,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Validate request body
+    if (!req.body) {
+      return res.status(400).json({ error: 'Missing request body' });
+    }
+
     const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify, question, action, content, type, conversationHistory = '' } = req.body;
 
     // Get API key
@@ -398,7 +403,12 @@ export default async function handler(req, res) {
           }
 
           if (!youtubeResponse.ok) {
-            const errorText = await youtubeResponse.text();
+            let errorText = '';
+            try {
+              errorText = await youtubeResponse.text();
+            } catch (e) {
+              errorText = 'Could not read error response';
+            }
             console.error('YouTube API error response:', youtubeResponse.status, errorText);
             return res.status(400).json({
               error: `YouTube API error: ${youtubeResponse.status}`,
@@ -417,8 +427,15 @@ export default async function handler(req, res) {
           }
           
           const video = youtubeData.items[0];
-          const videoTitle = video.snippet.title;
-          const videoDescription = video.snippet.description;
+          if (!video || !video.snippet) {
+             console.error('YouTube API returned invalid video data:', video);
+             return res.status(500).json({
+               error: 'YouTube API returned invalid data',
+               details: 'Video snippet is missing'
+             });
+          }
+          const videoTitle = video.snippet.title || 'Unknown Title';
+          const videoDescription = video.snippet.description || '';
 
           // Step 1: Validate YouTube video title is cooking-related
           console.log('Validating YouTube video title:', videoTitle);

@@ -15,7 +15,7 @@ export async function extractRecipeFromFiles(
       if (base64Data.includes(',')) {
         base64Data = base64Data.split(',')[1];
       }
-      
+
       return {
         mimeType: f.type,
         data: base64Data,
@@ -24,7 +24,7 @@ export async function extractRecipeFromFiles(
 
     console.log('Sending request to:', GEMINI_API_ENDPOINT);
     console.log('Files count:', filesData.length);
-    
+
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -49,7 +49,7 @@ export async function extractRecipeFromFiles(
     return data.recipe;
   } catch (error) {
     console.error('Error extracting recipe:', error);
-    
+
     // Provide more helpful error messages
     if (error instanceof TypeError && error.message.includes('fetch')) {
       const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -57,7 +57,7 @@ export async function extractRecipeFromFiles(
         throw new Error('API endpoint not accessible. Make sure to run "vercel dev" in a separate terminal to start the API server, or use "yarn dev:all" to run both frontend and API together.');
       }
     }
-    
+
     throw error;
   }
 }
@@ -76,10 +76,20 @@ export async function extractRecipeFromURL(url: string, prompt: string): Promise
     if (!response.ok) {
       let errorMessage = 'Failed to extract recipe from URL';
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-        if (errorData.details) {
-          errorMessage += `: ${errorData.details}`;
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          if (errorData.details) {
+            errorMessage += `: ${errorData.details}`;
+          }
+        } catch (e) {
+          // If response is not JSON, use the text directly if it's short enough
+          if (errorText.length < 200) {
+            errorMessage = `Server Error: ${errorText}`;
+          } else {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
         }
       } catch (e) {
         errorMessage = `HTTP ${response.status}: ${response.statusText}`;
