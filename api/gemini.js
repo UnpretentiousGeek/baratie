@@ -458,23 +458,29 @@ export default async function handler(req, res) {
 
           // Step 2: Check if description contains recipe directly
           let recipeInDescription = false;
-          if (videoDescription && videoDescription.length > 200) {
+          // Relaxed check: Lower length limit and be more lenient with keywords
+          if (videoDescription && videoDescription.length > 50) {
             // Check if description has recipe-like structure
-            const hasIngredients = /ingredients?:/i.test(videoDescription);
-            const hasInstructions = /instructions?:|directions?:|steps?:|process:/i.test(videoDescription);
-            recipeInDescription = hasIngredients && hasInstructions;
+            const hasIngredients = /ingredients?:|what you need|shopping list/i.test(videoDescription);
+            const hasInstructions = /instructions?:|directions?:|steps?:|process:|how to make|method/i.test(videoDescription);
+            const hasLists = /[•\-\*]/.test(videoDescription); // Check for bullet points
+
+            // If it has ingredients OR instructions OR bullet points, it might be a recipe
+            recipeInDescription = hasIngredients || hasInstructions || hasLists;
 
             if (recipeInDescription) {
-              console.log('Recipe found directly in description');
+              console.log('Recipe likely in description (relaxed check)');
               finalPrompt = `Extract the recipe from this YouTube video description:\n\n${videoDescription}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }'}`;
-              // Skip link checking and pinned comment if recipe is in description
+              // We still check for links/pinned comments as they might be better sources, 
+              // but we have a fallback now.
             }
           }
 
-          // Step 3: If no recipe in description, check pinned comment
+          // Step 3: If no recipe in description (or we want to check for better sources), check pinned comment
           let pinnedCommentRecipe = '';
-          if (!recipeInDescription) {
-            console.log('No recipe in description, checking pinned comment...');
+          // Always check pinned comment if description is short or ambiguous
+          if (!recipeInDescription || videoDescription.length < 500) {
+            console.log('Checking pinned comment for better recipe source...');
             const pinnedComment = await extractPinnedComment(videoId, youtubeApiKey);
 
             if (pinnedComment) {
@@ -483,80 +489,86 @@ export default async function handler(req, res) {
               if (hasRecipe) {
                 console.log('Recipe found in pinned comment');
                 finalPrompt = `Extract the recipe from this pinned comment:\n\n${pinnedComment}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }'}`;
-                recipeInDescription = true; // Set to true to skip link checking
+                recipeInDescription = true;
+                // Pinned comment is usually the best source if it contains a recipe
               }
             }
           }
 
-          // Step 4: If still no recipe, check description for recipe links
+          // Step 4: Check description for recipe links (highest priority if found)
           let recipeContent = '';
           let recipeLinks = [];
 
-          if (!recipeInDescription) {
-            // Check if description contains recipe links
-            const urlPattern = /(https?:\/\/[^\s\)]+)/g;
-            const urls = (videoDescription && videoDescription.match(urlPattern)) || [];
+          // Check if description contains recipe links
+          const urlPattern = /(https?:\/\/[^\s\)]+)/g;
+          const urls = (videoDescription && videoDescription.match(urlPattern)) || [];
 
-            // Filter for recipe-related URLs (common recipe site patterns)
-            const recipeSitePatterns = [
-              /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|cookieandkate|smittenkitchen|pinchofyum|halfbakedharvest|damndelicious|gimmesomeoven|recipegirl|twopeasandtheirpod|reciperunner|chefsteps|serious|recipe|food|kitchen|cookbook|cuisine|dish|meal/i
-            ];
+          // Filter for recipe-related URLs (common recipe site patterns)
+          const recipeSitePatterns = [
+            /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|cookieandkate|smittenkitchen|pinchofyum|halfbakedharvest|damndelicious|gimmesomeoven|recipegirl|twopeasandtheirpod|reciperunner|chefsteps|serious|recipe|food|kitchen|cookbook|cuisine|dish|meal/i
+          ];
 
-            for (const url of urls) {
-              const cleanUrl = url.replace(/[.,;!?]+$/, ''); // Remove trailing punctuation
-              if (recipeSitePatterns.some(pattern => pattern.test(cleanUrl))) {
-                recipeLinks.push(cleanUrl);
-              }
+          for (const url of urls) {
+            const cleanUrl = url.replace(/[.,;!?]+$/, ''); // Remove trailing punctuation
+            if (recipeSitePatterns.some(pattern => pattern.test(cleanUrl))) {
+              recipeLinks.push(cleanUrl);
             }
-
-            // Fetch recipe content from linked websites
-            if (recipeLinks.length > 0) {
-              console.log('Found recipe links in description:', recipeLinks);
-
-              for (const recipeUrl of recipeLinks.slice(0, 3)) { // Limit to first 3 links
-                try {
-                  console.log('Fetching recipe from link:', recipeUrl);
-                  const linkResponse = await fetch(recipeUrl, {
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                    }
-                  });
-
-                  if (linkResponse.ok) {
-                    const html = await linkResponse.text();
-                    const content = extractRecipeContent(html);
-
-                    if (content && content.length > 100) {
-                      recipeContent += `\n\n--- Recipe from ${recipeUrl} ---\n${content}`;
-                      console.log('Successfully extracted recipe content from link');
-                      break; // Use first successful extraction
-                    }
-                  }
-                } catch (linkError) {
-                  console.error('Error fetching recipe link:', linkError);
-                  // Continue to next link or description
-                }
-              }
-            }
-
-            // Step 5: If no recipe found anywhere, return error
-            if (!recipeContent) {
-              return res.status(400).json({
-                error: 'Recipe not found in this YouTube video.',
-                details: 'Could not find recipe in description, pinned comment, or linked websites. The recipe might be shown only in the video.'
-              });
-            }
-
-            // Combine video info with recipe content and prompt
-            let combinedContent = `YouTube Video:\nTitle: ${videoTitle}\n\nDescription:\n${videoDescription}`;
-
-            if (recipeContent) {
-              combinedContent += `\n\n${recipeContent}`;
-              finalPrompt = `Extract the recipe from the following content. The YouTube video description may contain a link to the full recipe, and I've included the recipe content from that link below:\n\n${combinedContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }. CRITICAL INSTRUCTIONS: For the instructions array, extract ALL step-by-step instructions from the "Process" or "Instructions" section. Instructions may be numbered (e.g., "1. Add chicken...") OR bullet points (e.g., "• Add chicken..."). Each instruction must be a complete, detailed sentence describing what to do. DO NOT include section headings like "To Make the Chicken Rice", "To Make the Omelettes", "To Serve", "To Store", or "Process" - these are NOT instructions. Combine all steps from the Process/Instructions section into a single sequential array. For ingredients, combine all ingredients from all sections into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit", "1 tbsp ginger, chopped", "Salt to taste". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown", "Mix well and set aside". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes.'}`;
-            }
-
-            console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
           }
+
+          // Fetch recipe content from linked websites
+          if (recipeLinks.length > 0) {
+            console.log('Found recipe links in description:', recipeLinks);
+
+            for (const recipeUrl of recipeLinks.slice(0, 3)) { // Limit to first 3 links
+              try {
+                console.log('Fetching recipe from link:', recipeUrl);
+                const linkResponse = await fetch(recipeUrl, {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                  }
+                });
+
+                if (linkResponse.ok) {
+                  const html = await linkResponse.text();
+                  const content = extractRecipeContent(html);
+
+                  if (content && content.length > 100) {
+                    recipeContent += `\n\n--- Recipe from ${recipeUrl} ---\n${content}`;
+                    console.log('Successfully extracted recipe content from link');
+                    // If we found a link, use it as the primary source
+                    finalPrompt = `Extract the recipe from the following content. The YouTube video description contained a link to the full recipe:\n\n${recipeContent}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }'}`;
+                    recipeInDescription = true;
+                    break; // Use first successful extraction
+                  }
+                }
+              } catch (linkError) {
+                console.error('Error fetching recipe link:', linkError);
+                // Continue to next link or description
+              }
+            }
+          }
+
+          // Step 5: Fallback - if no specific recipe found but we have a description, try to use it
+          if (!recipeInDescription && !recipeContent && videoDescription) {
+            console.log('No specific recipe structure found, but using description as fallback');
+            finalPrompt = `Extract the recipe from this YouTube video description. It might be unstructured or brief:\n\n${videoDescription}\n\n${prompt || 'Extract the complete recipe and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }'}`;
+            recipeInDescription = true;
+          }
+
+          // Step 6: If still no content to process, return error
+          if (!finalPrompt) {
+            return res.status(400).json({
+              error: 'Recipe not found in this YouTube video.',
+              details: 'Could not find recipe in description, pinned comment, or linked websites. The recipe might be shown only in the video.'
+            });
+          }
+
+          // Combine video info with recipe content and prompt (if not already set by link extraction)
+          if (!recipeContent) {
+            // Logic handled above by setting finalPrompt directly for description/comment
+          }
+
+          console.log('Extracted YouTube video info - Title:', videoTitle, 'Recipe links found:', recipeLinks.length);
         } else {
           // Regular URL - fetch and scrape HTML
           console.log('Fetching content from URL:', url);
