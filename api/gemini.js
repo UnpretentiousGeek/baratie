@@ -996,21 +996,242 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             if (recipe.instructions.length > 0) {
               console.log('First 5 filtered instructions:', recipe.instructions.slice(0, 5));
             } else {
-              console.log('WARNING: All instructions were filtered out!');
-              console.log('All raw instructions:', parsed.instructions);
             }
-          } else {
-            console.log('WARNING: No instructions array found in parsed JSON');
-            console.log('Parsed keys:', Object.keys(parsed));
-          }
-          // Include changesDescription if present (for modifications)
-          if (parsed.changesDescription) {
-            recipe.changesDescription = parsed.changesDescription;
-          }
-          // If we successfully parsed JSON, run agents and return
-          // Only return if we have at least ingredients (instructions might be empty if they were all filtered)
-          if (recipe.ingredients.length > 0) {
-            console.log('Returning JSON-parsed recipe. Ingredients:', recipe.ingredients.length, 'Instructions:', recipe.instructions.length);
+
+            // Fallback to text parsing with improved logic
+            const lines = recipeText.split('\n').filter(line => line.trim());
+
+            // Look for title (usually first line or after "Recipe:" or "Title:")
+            // Improved logic to skip conversational openers
+            let titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i);
+
+            if (!titleMatch) {
+              // If no explicit "Recipe:" prefix, look for the first line that looks like a title
+              // and isn't a conversational opener
+              const potentialTitleMatch = recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
+              if (potentialTitleMatch) {
+                let potentialTitle = potentialTitleMatch[1].trim();
+
+                // Check if it's a conversational opener
+                const conversationalPattern = /^(okay|sure|here|certainly|i found|based on|extracted|from the|this is|recipe for|extracted from)/i;
+
+                if (conversationalPattern.test(potentialTitle)) {
+                  // It's conversational, try to find the real title
+                  // Look for a line that is short, capitalized, and not conversational
+                  const titleLine = lines.find(line => {
+                    const trimmed = line.trim();
+                    return trimmed.length > 3 &&
+                      trimmed.length < 60 &&
+                      !conversationalPattern.test(trimmed) &&
+                      !/^(ingredients?|instructions?|directions?|steps?)/i.test(trimmed);
+                  });
+
+                  if (titleLine) {
+                    recipe.title = titleLine.trim();
+                  } else {
+                    // Fallback: clean the conversational part if possible
+                    recipe.title = potentialTitle.replace(/^(okay|sure|here|certainly|i found|based on|extracted|from the|this is|recipe for|extracted from).*?(?:is|:)\s*/i, '');
+                  }
+                } else {
+                  recipe.title = potentialTitle;
+                }
+              }
+            } else {
+              recipe.title = titleMatch[1].trim();
+            }
+
+            // Look for ingredients section
+            const ingredientsStart = lines.findIndex(line =>
+              /ingredients?/i.test(line)
+            );
+            if (ingredientsStart !== -1) {
+              const instructionsStart = lines.findIndex((line, idx) =>
+                idx > ingredientsStart && /instructions?|directions?|steps?/i.test(line)
+              );
+              const ingredientsEnd = instructionsStart !== -1 ? instructionsStart : lines.length;
+              recipe.ingredients = lines
+                .slice(ingredientsStart + 1, ingredientsEnd)
+                .filter(line => {
+                  const trimmed = line.trim();
+                  if (!trimmed) return false;
+
+                  // Filter out section headers
+                  if (/^(instructions?|directions?|steps?|process|method|for\s+(marination|curry|sauce|dressing|garnish|topping|filling|base|mixture)):?$/i.test(trimmed)) {
+                    return false;
+                  }
+
+                  // Filter out numbered steps
+                  if (/^\d+[.)]\s/.test(trimmed)) {
+                    return false;
+                  }
+
+                  // Filter out lines that start with action verbs
+                  if (/^(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|chop|slice|dice|mince|crush|beat|whisk|process|marinate|remove|drain|rinse|wash|peel|cut|trim|prepare|bring|reduce|lower|raise|increase)\s/i.test(trimmed)) {
+                    return false;
+                  }
+
+                  // Filter out sentences that describe a process
+                  const actionVerbMatches = trimmed.match(/\b(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|then|and\s+then|until|till|when|leave|rest|starts?|floating|turn|becomes?)\b/gi);
+                  if (actionVerbMatches && actionVerbMatches.length >= 2) {
+                    return false;
+                  }
+
+                  // Filter out very long lines (likely instructions, not ingredients)
+                  if (trimmed.length > 120) {
+                    return false;
+                  }
+
+                  // Filter out lines with multiple sentences
+                  if ((trimmed.match(/\./g) || []).length > 1) {
+                    return false;
+                  }
+
+                  // Filter out instruction patterns
+                  if (/\b(till|until|when|after|before|while|then|and then|mix well|cover and|set aside|leave|rest|marinate for|starts?\s+(to\s+)?(floating|boiling|bubbling)|turn(s|ed)?\s+(brown|golden|soft|tender)|becomes?\s+)/i.test(trimmed)) {
+                    return false;
+                  }
+
+                  // Filter out sentence structure patterns
+                  if (/^(cook|add|mix|heat|stir|sauté|saute)\s+(the|till|until|for|about|some|all)/i.test(trimmed)) {
+                    return false;
+                  }
+
+                  // Filter out "Procedure" headers (often bolded in markdown)
+                  if (/^\*+Procedure:?\*+/i.test(trimmed) || /^Procedure:?/i.test(trimmed)) {
+                    return false;
+                  }
+
+                  // Filter out "Enjoy!" and similar closing remarks
+                  if (/^(enjoy|bon appetit|happy cooking)!*$/i.test(trimmed)) {
+                    return false;
+                  }
+
+                  return true;
+                })
+                .map(line => line.replace(/^[-•*]\s*/, '').trim())
+                .filter(line => line.length > 0);
+            }
+
+            // Improved instructions parsing - extract all numbered steps
+            // Look for instructions section (including "Process" which is common in Indian recipes)
+            const instructionsStart = lines.findIndex(line =>
+              /instructions?|directions?|steps?|process/i.test(line)
+            );
+
+            if (instructionsStart !== -1) {
+              const instructionLines = lines.slice(instructionsStart + 1);
+              const instructions = [];
+              let currentStep = '';
+
+              for (let i = 0; i < instructionLines.length; i++) {
+                const line = instructionLines[i];
+                const trimmed = line.trim();
+
+                // Skip empty lines
+                if (!trimmed) continue;
+
+                // Check if this line starts a new numbered step (e.g., "1. Add chicken...")
+                const stepMatch = trimmed.match(/^(\d+)[.)]\s*(.+)/);
+                if (stepMatch) {
+                  // Save previous step if exists
+                  if (currentStep.trim()) {
+                    instructions.push(currentStep.trim());
+                  }
+                  // Start new step
+                  currentStep = stepMatch[2];
+                }
+                // Check if this line starts with a bullet point (•, -, *, etc.)
+                else if (/^[•\-\*]\s*(.+)/.test(trimmed)) {
+                  const bulletMatch = trimmed.match(/^[•\-\*]\s*(.+)/);
+                  if (bulletMatch) {
+                    // Save previous step if exists
+                    if (currentStep.trim()) {
+                      instructions.push(currentStep.trim());
+                    }
+                    // Start new step from bullet point
+                    currentStep = bulletMatch[1];
+                  }
+                }
+                else {
+                  // Continue current step (might be multi-line)
+                  if (currentStep) {
+                    currentStep += ' ' + trimmed;
+                  } else if (trimmed && !/^(ingredients?|instructions?|directions?|steps?|process|title|recipe|for\s+(marination|curry)):?$/i.test(trimmed)) {
+                    // If no current step but line looks like content, start one
+                    // But skip section headers
+                    currentStep = trimmed;
+                  }
+                }
+              }
+
+              // Add last step
+              if (currentStep.trim()) {
+                instructions.push(currentStep.trim());
+              }
+
+              // Filter out section headings (common patterns like "To Make...", "To Serve", "To Store")
+              const filteredInstructions = instructions.filter(instruction => {
+                const trimmed = instruction.trim();
+                if (!trimmed) return false;
+
+                const lower = trimmed.toLowerCase();
+
+                // Filter out section headings (but be more lenient - only filter if it's clearly just a heading)
+                if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)\s*$/i.test(lower)) {
+                  console.log('Text parsing: Filtered out section heading:', trimmed);
+                  return false; // Likely a section heading, not an instruction
+                }
+
+                // Filter out very short lines that look like headings (but be more lenient)
+                if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
+                  console.log('Text parsing: Filtered out short heading:', trimmed);
+                  return false; // Looks like a title/heading
+                }
+
+                // Keep all other instructions
+                return true;
+              });
+
+              console.log('Text parsing: Extracted', instructions.length, 'instructions, filtered to', filteredInstructions.length);
+
+              // If we found numbered steps, use them; otherwise fall back to simple parsing
+              if (filteredInstructions.length > 0) {
+                recipe.instructions = filteredInstructions;
+              } else if (instructions.length > 0) {
+                // Use original if filtering removed everything (shouldn't happen, but safety check)
+                recipe.instructions = instructions;
+              } else {
+                // Fallback: simple line-by-line parsing with filtering
+                recipe.instructions = instructionLines
+                  .filter(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return false;
+                    // Filter out section headings
+                    const lower = trimmed.toLowerCase();
+                    if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && trimmed.length < 50) {
+                      return false;
+                    }
+                    // Filter out metadata lines
+                    if (/^(ingredients?|instructions?|directions?|steps?|title|recipe|changesDescription):/i.test(trimmed)) {
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map(line => line.replace(/^\d+[.)]\s*/, '').trim())
+                  .filter(line => line.length > 0);
+              }
+            }
+
+            // Final check: If we still have no ingredients, return an error
+            if (!recipe.ingredients || recipe.ingredients.length === 0) {
+              console.log('Failed to extract any ingredients from the content');
+              return res.status(400).json({
+                error: 'Could not extract a recipe from this content.',
+                details: 'The content did not appear to contain a structured recipe with ingredients.'
+              });
+            }
+
+            console.log('Returning text-parsed recipe. Ingredients:', recipe.ingredients.length, 'Instructions:', recipe.instructions.length);
 
             // Run section detection agent (if not a modification)
             if (!modify) {
@@ -1038,295 +1259,13 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             }
 
             return res.status(200).json({ recipe });
-          }
-        }
-      } catch (jsonError) {
-        // JSON parsing failed, continue with text parsing
-        console.log('JSON parsing failed, falling back to text parsing');
-      }
 
-      // Fallback to text parsing with improved logic
-      const lines = recipeText.split('\n').filter(line => line.trim());
-
-      // Look for title (usually first line or after "Recipe:" or "Title:")
-      // Improved logic to skip conversational openers
-      let titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i);
-
-      if (!titleMatch) {
-        // If no explicit "Recipe:" prefix, look for the first line that looks like a title
-        // and isn't a conversational opener
-        const potentialTitleMatch = recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
-        if (potentialTitleMatch) {
-          let potentialTitle = potentialTitleMatch[1].trim();
-
-          // Check if it's a conversational opener
-          const conversationalPattern = /^(okay|sure|here|certainly|i found|based on|extracted|from the|this is|recipe for|extracted from)/i;
-
-          if (conversationalPattern.test(potentialTitle)) {
-            // It's conversational, try to find the real title
-            // Look for a line that is short, capitalized, and not conversational
-            const titleLine = lines.find(line => {
-              const trimmed = line.trim();
-              return trimmed.length > 3 &&
-                trimmed.length < 60 &&
-                !conversationalPattern.test(trimmed) &&
-                !/^(ingredients?|instructions?|directions?|steps?)/i.test(trimmed);
+          } catch (error) {
+            console.error('Serverless function error:', error);
+            return res.status(500).json({
+              error: 'Internal server error',
+              message: error.message
             });
-
-            if (titleLine) {
-              recipe.title = titleLine.trim();
-            } else {
-              // Fallback: clean the conversational part if possible
-              recipe.title = potentialTitle.replace(/^(okay|sure|here|certainly|i found|based on|extracted|from the|this is|recipe for|extracted from).*?(?:is|:)\s*/i, '');
-            }
-          } else {
-            recipe.title = potentialTitle;
           }
         }
-      } else {
-        recipe.title = titleMatch[1].trim();
-      }
-
-      // Look for ingredients section
-      const ingredientsStart = lines.findIndex(line =>
-        /ingredients?/i.test(line)
-      );
-      if (ingredientsStart !== -1) {
-        const instructionsStart = lines.findIndex((line, idx) =>
-          idx > ingredientsStart && /instructions?|directions?|steps?/i.test(line)
-        );
-        const ingredientsEnd = instructionsStart !== -1 ? instructionsStart : lines.length;
-        recipe.ingredients = lines
-          .slice(ingredientsStart + 1, ingredientsEnd)
-          .filter(line => {
-            const trimmed = line.trim();
-            if (!trimmed) return false;
-
-            // Filter out section headers
-            if (/^(instructions?|directions?|steps?|process|method|for\s+(marination|curry|sauce|dressing|garnish|topping|filling|base|mixture)):?$/i.test(trimmed)) {
-              return false;
-            }
-
-            // Filter out numbered steps
-            if (/^\d+[.)]\s/.test(trimmed)) {
-              return false;
-            }
-
-            // Filter out lines that start with action verbs
-            if (/^(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|separate|divide|transfer|place|arrange|layer|spread|brush|drizzle|dip|coat|dust|flour|batter|chop|slice|dice|mince|crush|beat|whisk|process|marinate|remove|drain|rinse|wash|peel|cut|trim|prepare|bring|reduce|lower|raise|increase)\s/i.test(trimmed)) {
-              return false;
-            }
-
-            // Filter out sentences that describe a process
-            const actionVerbMatches = trimmed.match(/\b(add|mix|heat|cook|stir|sauté|saute|roast|garnish|serve|cover|set|fry|boil|simmer|bake|grill|steam|blend|pour|sprinkle|toss|fold|melt|dissolve|combine|then|and\s+then|until|till|when|leave|rest|starts?|floating|turn|becomes?)\b/gi);
-            if (actionVerbMatches && actionVerbMatches.length >= 2) {
-              return false;
-            }
-
-            // Filter out very long lines (likely instructions, not ingredients)
-            if (trimmed.length > 120) {
-              return false;
-            }
-
-            // Filter out lines with multiple sentences
-            if ((trimmed.match(/\./g) || []).length > 1) {
-              return false;
-            }
-
-            // Filter out instruction patterns
-            if (/\b(till|until|when|after|before|while|then|and then|mix well|cover and|set aside|leave|rest|marinate for|starts?\s+(to\s+)?(floating|boiling|bubbling)|turn(s|ed)?\s+(brown|golden|soft|tender)|becomes?\s+)/i.test(trimmed)) {
-              return false;
-            }
-
-            // Filter out sentence structure patterns
-            if (/^(cook|add|mix|heat|stir|sauté|saute)\s+(the|till|until|for|about|some|all)/i.test(trimmed)) {
-              return false;
-            }
-
-            // Filter out "Procedure" headers (often bolded in markdown)
-            if (/^\*+Procedure:?\*+/i.test(trimmed) || /^Procedure:?/i.test(trimmed)) {
-              return false;
-            }
-
-            // Filter out "Enjoy!" and similar closing remarks
-            if (/^(enjoy|bon appetit|happy cooking)!*$/i.test(trimmed)) {
-              return false;
-            }
-
-            return true;
-          })
-          .map(line => line.replace(/^[-•*]\s*/, '').trim())
-          .filter(line => line.length > 0);
-      }
-
-      // Improved instructions parsing - extract all numbered steps
-      // Look for instructions section (including "Process" which is common in Indian recipes)
-      const instructionsStart = lines.findIndex(line =>
-        /instructions?|directions?|steps?|process/i.test(line)
-      );
-
-      if (instructionsStart !== -1) {
-        const instructionLines = lines.slice(instructionsStart + 1);
-        const instructions = [];
-        let currentStep = '';
-
-        for (let i = 0; i < instructionLines.length; i++) {
-          const line = instructionLines[i];
-          const trimmed = line.trim();
-
-          // Skip empty lines
-          if (!trimmed) continue;
-
-          // Check if this line starts a new numbered step (e.g., "1. Add chicken...")
-          const stepMatch = trimmed.match(/^(\d+)[.)]\s*(.+)/);
-          if (stepMatch) {
-            // Save previous step if exists
-            if (currentStep.trim()) {
-              instructions.push(currentStep.trim());
-            }
-            // Start new step
-            currentStep = stepMatch[2];
-          }
-          // Check if this line starts with a bullet point (•, -, *, etc.)
-          else if (/^[•\-\*]\s*(.+)/.test(trimmed)) {
-            const bulletMatch = trimmed.match(/^[•\-\*]\s*(.+)/);
-            if (bulletMatch) {
-              // Save previous step if exists
-              if (currentStep.trim()) {
-                instructions.push(currentStep.trim());
-              }
-              // Start new step from bullet point
-              currentStep = bulletMatch[1];
-            }
-          }
-          else {
-            // Continue current step (might be multi-line)
-            if (currentStep) {
-              currentStep += ' ' + trimmed;
-            } else if (trimmed && !/^(ingredients?|instructions?|directions?|steps?|process|title|recipe|for\s+(marination|curry)):?$/i.test(trimmed)) {
-              // If no current step but line looks like content, start one
-              // But skip section headers
-              currentStep = trimmed;
-            }
-          }
-        }
-
-        // Add last step
-        if (currentStep.trim()) {
-          instructions.push(currentStep.trim());
-        }
-
-        // Filter out section headings (common patterns like "To Make...", "To Serve", "To Store")
-        const filteredInstructions = instructions.filter(instruction => {
-          const trimmed = instruction.trim();
-          if (!trimmed) return false;
-
-          const lower = trimmed.toLowerCase();
-
-          // Filter out section headings (but be more lenient - only filter if it's clearly just a heading)
-          if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)\s*$/i.test(lower)) {
-            console.log('Text parsing: Filtered out section heading:', trimmed);
-            return false; // Likely a section heading, not an instruction
-          }
-
-          // Filter out very short lines that look like headings (but be more lenient)
-          if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
-            console.log('Text parsing: Filtered out short heading:', trimmed);
-            return false; // Looks like a title/heading
-          }
-
-          // Keep all other instructions
-          return true;
-        });
-
-        console.log('Text parsing: Extracted', instructions.length, 'instructions, filtered to', filteredInstructions.length);
-
-        // If we found numbered steps, use them; otherwise fall back to simple parsing
-        if (filteredInstructions.length > 0) {
-          recipe.instructions = filteredInstructions;
-        } else if (instructions.length > 0) {
-          // Use original if filtering removed everything (shouldn't happen, but safety check)
-          recipe.instructions = instructions;
-        } else {
-          // Fallback: simple line-by-line parsing with filtering
-          recipe.instructions = instructionLines
-            .filter(line => {
-              const trimmed = line.trim();
-              if (!trimmed) return false;
-              // Filter out section headings
-              const lower = trimmed.toLowerCase();
-              if (/^to\s+(make|serve|store|prepare|assemble|finish|garnish|plate)/i.test(lower) && trimmed.length < 50) {
-                return false;
-              }
-              // Filter out metadata lines
-              if (/^(ingredients?|instructions?|directions?|steps?|title|recipe|changesDescription):/i.test(trimmed)) {
-                return false;
-              }
-              return true;
-            })
-            .map(line => line.replace(/^\d+[.)]\s*/, '').trim())
-            .filter(line => line.length > 0);
-        }
-      }
-
-      // Try to extract changesDescription from text (fallback if not in JSON)
-      if (modify && !recipe.changesDescription) {
-        const changesMatch = recipeText.match(/(?:changesDescription|changes?|modifications?):\s*(.+?)(?:\n|$)/i);
-        if (changesMatch) {
-          recipe.changesDescription = changesMatch[1].trim();
-        }
-      }
-    }
-
-    console.log('=== FINAL RECIPE ===');
-    console.log('Title:', recipe.title);
-    console.log('Ingredients count:', recipe.ingredients.length);
-    console.log('Instructions count:', recipe.instructions.length);
-    console.log('First 3 instructions:', recipe.instructions.slice(0, 3));
-
-    // Step 4: Detect recipe sections (only if not a modification request)
-    if (!modify && recipe.ingredients.length > 0 && recipe.instructions.length > 0) {
-      console.log('Running section detection agent...');
-      const sectionResult = await detectRecipeSections(
-        recipe.ingredients,
-        recipe.instructions,
-        apiKey
-      );
-
-      if (sectionResult.hasSections) {
-        console.log('Sections detected - updating recipe structure');
-        recipe.ingredients = sectionResult.ingredients;
-        recipe.instructions = sectionResult.instructions;
-      } else {
-        console.log('No sections detected - keeping flat structure');
-      }
-    }
-
-    // Step 5: Calculate nutrition information (only for new extractions, not modifications)
-    if (!modify && recipe.ingredients.length > 0) {
-      console.log('Running nutrition calculation agent...');
-      const nutrition = await calculateNutrition(
-        recipe.ingredients,
-        recipe.title,
-        apiKey
-      );
-
-      if (nutrition) {
-        recipe.nutrition = nutrition;
-        console.log('Nutrition calculated:', nutrition);
-      } else {
-        console.log('Nutrition calculation failed or skipped');
-      }
-    }
-
-    return res.status(200).json({ recipe });
-
-  } catch (error) {
-    console.error('Serverless function error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
-  }
-}
 
