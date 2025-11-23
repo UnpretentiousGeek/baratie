@@ -33,7 +33,7 @@
 .message-bubble {
   padding: 12px;
   border-radius: 12px;
-  max-width: 522px;
+  max-width: 360px;
 }
 
 .message-bubble-user {
@@ -74,7 +74,7 @@
   background: linear-gradient(135deg, rgba(254, 245, 244, 1) 0%, rgba(252, 192, 185, 0.35) 100%);
   border-radius: 12px;
   padding: 24px;
-  max-width: 522px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
   gap: 16px;
