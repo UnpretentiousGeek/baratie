@@ -373,7 +373,7 @@ export default async function handler(req, res) {
     if (url) {
       try {
         // Check if it's a YouTube URL
-        const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
         const youtubeMatch = url.match(youtubeRegex);
 
         if (youtubeMatch) {

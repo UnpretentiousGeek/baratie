@@ -245,17 +245,32 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const urls = prompt.match(urlPattern) || [];
       const url = urls[0] || null;
 
+      // Add loading message
+      addMessage({
+        type: 'loading',
+        text: 'Extracting recipe...',
+      });
+
       let extractedResult;
-      if (url && (!filesToSend || filesToSend.length === 0)) {
-        // Extract from URL
-        const { extractRecipeFromURL } = await import('../utils/api');
-        extractedResult = await extractRecipeFromURL(url, prompt);
-      } else if (filesToSend && filesToSend.length > 0) {
-        // Extract from files
-        extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
-      } else {
-        throw new Error('Please provide a URL or attach files');
+      try {
+        if (url && (!filesToSend || filesToSend.length === 0)) {
+          // Extract from URL
+          const { extractRecipeFromURL } = await import('../utils/api');
+          extractedResult = await extractRecipeFromURL(url, prompt);
+        } else if (filesToSend && filesToSend.length > 0) {
+          // Extract from files
+          extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
+        } else {
+          throw new Error('Please provide a URL or attach files');
+        }
+      } catch (error) {
+        // Remove loading message on error
+        setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+        throw error;
       }
+
+      // Remove loading message
+      setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
       // Check if result is a recipe or an answer
       if ('answer' in extractedResult) {
@@ -270,16 +285,34 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // It's a recipe
       const extractedRecipe = extractedResult as Recipe;
 
+      // Clean title - remove markdown characters (*, #, _, etc.)
+      if (extractedRecipe.title) {
+        extractedRecipe.title = extractedRecipe.title.replace(/[*#_`~]/g, '').trim();
+      }
+
+      // Validate extracted recipe
+      const isErrorTitle = /^(I'm sorry|I apologize|I cannot|I could not|Error|No recipe|Unable to)/i.test(extractedRecipe.title || '');
+      const hasNoIngredients = !extractedRecipe.ingredients || extractedRecipe.ingredients.length === 0;
+
+      if (isErrorTitle || hasNoIngredients) {
+        // Treat as an error/system message
+        addMessage({
+          type: 'system',
+          text: extractedRecipe.title || 'Could not extract a valid recipe from the provided content.',
+        });
+        return;
+      }
+
       // Only switch context if we don't have an active recipe
       if (!recipe) {
         setRecipe(extractedRecipe);
         setCurrentStage('preview');
       }
 
-      // Add system message with recipe title
+      // Add system message
       addMessage({
         type: 'system',
-        text: extractedRecipe.title || 'Here is the Extracted Recipe',
+        text: 'Here is the extracted recipe',
       });
 
       // Add recipe preview message
@@ -288,6 +321,9 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         recipe: extractedRecipe,
       });
     } catch (error) {
+      // Ensure loading message is removed in case of error in the outer block
+      setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
       console.error('Error extracting recipe:', error);
 
       // Get a more helpful error message
@@ -326,4 +362,3 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     </RecipeContext.Provider>
   );
 };
-
