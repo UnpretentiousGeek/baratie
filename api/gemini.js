@@ -1270,21 +1270,6 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             .filter(line => line.length > 0);
         }
       }
-    }
-
-    // Final check: If we still have no ingredients, return an error
-    if (!recipe.ingredients || recipe.ingredients.length === 0) {
-      console.log('Failed to extract any ingredients from the content');
-      return res.status(400).json({
-        error: 'Could not extract a recipe from this content.',
-        details: 'The content did not appear to contain a structured recipe with ingredients.'
-      });
-    }
-
-    console.log('Returning text-parsed recipe. Ingredients:', recipe.ingredients.length, 'Instructions:', recipe.instructions.length);
-
-    // Run section detection agent (if not a modification)
-    if (!modify) {
       const sectionResult = await detectRecipeSections(
         recipe.ingredients,
         recipe.instructions,
