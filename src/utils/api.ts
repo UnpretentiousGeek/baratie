@@ -6,7 +6,7 @@ const YOUTUBE_API_ENDPOINT = import.meta.env.VITE_YOUTUBE_API_ENDPOINT || '/api/
 export async function extractRecipeFromFiles(
   files: AttachedFile[],
   prompt: string
-): Promise<Recipe> {
+): Promise<Recipe | { answer: string }> {
   try {
     // Convert files to the format expected by the API
     const filesData = files.map(f => {
@@ -46,6 +46,12 @@ export async function extractRecipeFromFiles(
     }
 
     const data = await response.json();
+
+    // Check if it's an answer/description instead of a recipe
+    if (data.answer || data.text || data.isIngredientIdentification) {
+      return { answer: data.answer || data.text };
+    }
+
     return data.recipe;
   } catch (error) {
     console.error('Error extracting recipe:', error);

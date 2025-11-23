@@ -245,18 +245,30 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const urls = prompt.match(urlPattern) || [];
       const url = urls[0] || null;
 
-      let extractedRecipe;
+      let extractedResult;
       if (url && (!filesToSend || filesToSend.length === 0)) {
         // Extract from URL
         const { extractRecipeFromURL } = await import('../utils/api');
-        extractedRecipe = await extractRecipeFromURL(url, prompt);
+        extractedResult = await extractRecipeFromURL(url, prompt);
       } else if (filesToSend && filesToSend.length > 0) {
         // Extract from files
-        extractedRecipe = await extractRecipeFromFiles(filesToSend, prompt);
+        extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
       } else {
         throw new Error('Please provide a URL or attach files');
       }
 
+      // Check if result is a recipe or an answer
+      if ('answer' in extractedResult) {
+        // It's an answer/description (e.g. "This is a Mojito")
+        addMessage({
+          type: 'system',
+          text: extractedResult.answer,
+        });
+        return;
+      }
+
+      // It's a recipe
+      const extractedRecipe = extractedResult as Recipe;
       setRecipe(extractedRecipe);
       setCurrentStage('preview');
 
