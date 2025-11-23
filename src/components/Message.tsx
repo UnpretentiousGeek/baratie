@@ -13,7 +13,7 @@ interface MessageProps {
 
 const UserMessage: React.FC<{ text: string; attachedFiles?: AttachedFile[] }> = ({ text, attachedFiles }) => {
   const hasFiles = attachedFiles && attachedFiles.length > 0;
-  
+
   return (
     <div className="message-container message-user">
       {hasFiles && (
@@ -41,12 +41,13 @@ const SystemMessage: React.FC<{ text: string }> = ({ text }) => {
 };
 
 const RecipePreviewMessage: React.FC<{ recipe: any }> = ({ recipe }) => {
-  const { setStage } = useRecipe();
+  const { setStage, setRecipe } = useRecipe();
   const ingredients = normalizeIngredients(recipe.ingredients);
 
   const handleStartCooking = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setRecipe(recipe);
     setStage('cooking');
   };
 
@@ -82,9 +83,9 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <UserMessage 
-          text={message.text || ''} 
-          attachedFiles={message.attachedFiles} 
+        <UserMessage
+          text={message.text || ''}
+          attachedFiles={message.attachedFiles}
         />
       </motion.div>
     );

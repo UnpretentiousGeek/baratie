@@ -269,8 +269,12 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
       // It's a recipe
       const extractedRecipe = extractedResult as Recipe;
-      setRecipe(extractedRecipe);
-      setCurrentStage('preview');
+
+      // Only switch context if we don't have an active recipe
+      if (!recipe) {
+        setRecipe(extractedRecipe);
+        setCurrentStage('preview');
+      }
 
       // Add system message with recipe title
       addMessage({
