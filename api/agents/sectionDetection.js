@@ -45,8 +45,8 @@ RESPOND IN THIS EXACT JSON FORMAT:
 {
   "hasSections": true/false,
   "ingredientSections": [
-    { "title": "For Marination", "items": ["ingredient1", "ingredient2"] },
-    { "title": "For Curry", "items": ["ingredient3", "ingredient4"] }
+    { "title": "Marination", "items": ["ingredient1", "ingredient2"] },
+    { "title": "Curry", "items": ["ingredient3", "ingredient4"] }
   ],
   "instructionSections": [
     { "title": "Marination", "items": ["step1", "step2"] },
@@ -56,7 +56,8 @@ RESPOND IN THIS EXACT JSON FORMAT:
 
 If no clear sections exist, set hasSections to false and return empty arrays for sections.
 Make sure all original ingredients and instructions are included in the sections.
-CRITICAL: Do NOT create artificial sections like "Preparation" and "Cooking" for a simple, single-part recipe. Only create sections if there are distinct components (e.g., "Marinade", "Sauce", "Dough", "Filling"). If the recipe is a standard flat list, return hasSections: false.`;
+CRITICAL: Do NOT create artificial sections like "Preparation" and "Cooking" for a simple, single-part recipe. Only create sections if there are distinct components (e.g., "Marinade", "Sauce", "Dough", "Filling"). If the recipe is a standard flat list, return hasSections: false.
+CRITICAL: Format section titles cleanly. Remove "For", "The" from the start and ":" from the end. Example: "For Marination:" -> "Marination", "The Sauce:" -> "Sauce".`;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
 
@@ -105,6 +106,28 @@ CRITICAL: Do NOT create artificial sections like "Preparation" and "Cooking" for
         instructions,
         hasSections: false
       };
+    }
+
+    // Clean up titles programmatically to be safe
+    if (result.hasSections) {
+      const cleanTitle = (title) => {
+        if (!title) return '';
+        return title
+          .replace(/^(for\s+|the\s+|to\s+make\s+)/i, '') // Remove "For", "The", "To make"
+          .replace(/[:\-]+$/, '') // Remove trailing colon or dash
+          .trim();
+      };
+
+      if (result.ingredientSections) {
+        result.ingredientSections.forEach(section => {
+          section.title = cleanTitle(section.title);
+        });
+      }
+      if (result.instructionSections) {
+        result.instructionSections.forEach(section => {
+          section.title = cleanTitle(section.title);
+        });
+      }
     }
 
     // If sections detected, return them
