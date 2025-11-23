@@ -982,7 +982,8 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
               }
 
               // Filter out very short lines that look like headings (but be more lenient)
-              if (trimmed.length < 15 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed)) {
+              // Only filter if it matches Title Case and has NO punctuation at the end
+              if (trimmed.length < 20 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/.test(trimmed) && !/[.!?,]$/.test(trimmed)) {
                 console.log('Filtered out short heading:', trimmed);
                 return false; // Looks like a title/heading
               }
