@@ -28,6 +28,15 @@ const CookingGuide: React.FC = () => {
     }
   }, [totalSteps, currentStep]);
 
+  // Reset state when recipe changes
+  React.useEffect(() => {
+    setCurrentStep(0);
+    setCompletedSteps(new Set());
+    setCheckedIngredients(new Set());
+    setSelectedFilter('All');
+    setPortions(1);
+  }, [recipe?.title]);
+
   // Get ingredient sections for dynamic filters
   const ingredientSections = useMemo(() => {
     return getIngredientSections(recipe.ingredients);
