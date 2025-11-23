@@ -55,7 +55,8 @@ RESPOND IN THIS EXACT JSON FORMAT:
 }
 
 If no clear sections exist, set hasSections to false and return empty arrays for sections.
-Make sure all original ingredients and instructions are included in the sections.`;
+Make sure all original ingredients and instructions are included in the sections.
+CRITICAL: Do NOT create artificial sections like "Preparation" and "Cooking" for a simple, single-part recipe. Only create sections if there are distinct components (e.g., "Marinade", "Sauce", "Dough", "Filling"). If the recipe is a standard flat list, return hasSections: false.`;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
 

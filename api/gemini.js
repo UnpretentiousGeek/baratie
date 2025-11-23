@@ -937,9 +937,19 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
                 return false;
               }
 
-              // Filter out lines that have sentence structure (subject + verb + object patterns)
+              // Filter out sentence structure patterns
               // Common instruction patterns: "Cook till...", "Add the...", etc.
               if (/^(cook|add|mix|heat|stir|sauté|saute)\s+(the|till|until|for|about|some|all)/i.test(trimmed)) {
+                return false;
+              }
+
+              // Filter out "Procedure" headers (often bolded in markdown)
+              if (/^\*+Procedure:?\*+/i.test(trimmed) || /^Procedure:?/i.test(trimmed)) {
+                return false;
+              }
+
+              // Filter out "Enjoy!" and similar closing remarks
+              if (/^(enjoy|bon appetit|happy cooking)!*$/i.test(trimmed)) {
                 return false;
               }
 
@@ -1097,6 +1107,16 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
 
             // Filter out sentence structure patterns
             if (/^(cook|add|mix|heat|stir|sauté|saute)\s+(the|till|until|for|about|some|all)/i.test(trimmed)) {
+              return false;
+            }
+
+            // Filter out "Procedure" headers (often bolded in markdown)
+            if (/^\*+Procedure:?\*+/i.test(trimmed) || /^Procedure:?/i.test(trimmed)) {
+              return false;
+            }
+
+            // Filter out "Enjoy!" and similar closing remarks
+            if (/^(enjoy|bon appetit|happy cooking)!*$/i.test(trimmed)) {
               return false;
             }
 
