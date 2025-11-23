@@ -1048,9 +1048,41 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
       const lines = recipeText.split('\n').filter(line => line.trim());
 
       // Look for title (usually first line or after "Recipe:" or "Title:")
-      const titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i) ||
-        recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
-      if (titleMatch) {
+      // Improved logic to skip conversational openers
+      let titleMatch = recipeText.match(/(?:Recipe|Title):\s*(.+)/i);
+
+      if (!titleMatch) {
+        // If no explicit "Recipe:" prefix, look for the first line that looks like a title
+        // and isn't a conversational opener
+        const potentialTitleMatch = recipeText.match(/^(.+?)(?:\n|Ingredients|Instructions)/i);
+        if (potentialTitleMatch) {
+          let potentialTitle = potentialTitleMatch[1].trim();
+
+          // Check if it's a conversational opener
+          const conversationalPattern = /^(okay|sure|here|certainly|i found|based on|extracted|from the|this is|recipe for|extracted from)/i;
+
+          if (conversationalPattern.test(potentialTitle)) {
+            // It's conversational, try to find the real title
+            // Look for a line that is short, capitalized, and not conversational
+            const titleLine = lines.find(line => {
+              const trimmed = line.trim();
+              return trimmed.length > 3 &&
+                trimmed.length < 60 &&
+                !conversationalPattern.test(trimmed) &&
+                !/^(ingredients?|instructions?|directions?|steps?)/i.test(trimmed);
+            });
+
+            if (titleLine) {
+              recipe.title = titleLine.trim();
+            } else {
+              // Fallback: clean the conversational part if possible
+              recipe.title = potentialTitle.replace(/^(okay|sure|here|certainly|i found|based on|extracted|from the|this is|recipe for|extracted from).*?(?:is|:)\s*/i, '');
+            }
+          } else {
+            recipe.title = potentialTitle;
+          }
+        }
+      } else {
         recipe.title = titleMatch[1].trim();
       }
 
