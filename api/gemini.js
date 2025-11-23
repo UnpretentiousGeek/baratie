@@ -1095,7 +1095,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
       );
       if (ingredientsStart !== -1) {
         const instructionsStart = lines.findIndex((line, idx) =>
-          idx > ingredientsStart && /instructions?|directions?|steps?/i.test(line)
+          idx > ingredientsStart && /instructions?|directions?|steps?|process/i.test(line)
         );
         const ingredientsEnd = instructionsStart !== -1 ? instructionsStart : lines.length;
         recipe.ingredients = lines
