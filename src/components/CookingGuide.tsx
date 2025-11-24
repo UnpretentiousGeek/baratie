@@ -6,6 +6,7 @@ import { XIcon, DownloadIcon, CheckIcon, PortionMinusIcon, PortionPlusIcon } fro
 import TimerPopup from './TimerPopup';
 import TimerCompleteModal from './TimerCompleteModal';
 import { useTimer } from '../hooks/useTimer';
+import { generateRecipePDF } from '../utils/pdfUtils';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -208,7 +209,12 @@ const CookingGuide: React.FC = () => {
             </button>
           )}
 
-          <button type="button" className="recipe-action-btn" aria-label="Download">
+          <button
+            type="button"
+            className="recipe-action-btn"
+            aria-label="Download"
+            onClick={() => generateRecipePDF(recipe)}
+          >
             <DownloadIcon size={24} />
           </button>
           <button type="button" className="recipe-action-btn" onClick={() => setStage('preview')} aria-label="Close">
