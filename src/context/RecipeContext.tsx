@@ -144,7 +144,33 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // Check if we have an existing recipe and this is a question or modification request
       // Question/modification: has recipe, no URL in prompt, no new files attached
       const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
-      if (recipe && !urlMatches && (!filesToSend || filesToSend.length === 0)) {
+
+      // Detect if the prompt looks like a complete recipe (many lines, recipe keywords)
+      const looksLikeNewRecipe = (() => {
+        // Check if text is long (more than 200 chars) and has recipe-like structure
+        if (prompt.length < 200) return false;
+
+        // Count newlines - recipes typically have many lines
+        const lineCount = (prompt.match(/\n/g) || []).length;
+        if (lineCount < 5) return false;
+
+        // Check for typical recipe section headers or patterns
+        const recipePatterns = [
+          /ingredients?:/i,
+          /instructions?:/i,
+          /directions?:/i,
+          /steps?:/i,
+          /method:/i,
+          /preparation:/i,
+          /\d+\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|gram|kg|ml|liter)/i, // measurements
+          /\d+\.\s+[A-Z]/m, // numbered steps like "1. Cook"
+        ];
+
+        const patternMatches = recipePatterns.filter(pattern => pattern.test(prompt)).length;
+        return patternMatches >= 2; // At least 2 recipe patterns
+      })();
+
+      if (recipe && !urlMatches && (!filesToSend || filesToSend.length === 0) && !looksLikeNewRecipe) {
         if ((isQuestion || isAlternativeRequest) && !isModification) {
           // This is a question or alternative request - answer it without modifying the recipe
           const { answerQuestion } = await import('../utils/api');
@@ -260,6 +286,10 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         } else if (filesToSend && filesToSend.length > 0) {
           // Extract from files
           extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
+        } else if (looksLikeNewRecipe) {
+          // Extract from recipe text in prompt
+          const { extractRecipeFromText } = await import('../utils/api');
+          extractedResult = await extractRecipeFromText(prompt);
         } else {
           throw new Error('Please provide a URL or attach files');
         }

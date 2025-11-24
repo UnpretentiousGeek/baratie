@@ -68,6 +68,37 @@ export async function extractRecipeFromFiles(
   }
 }
 
+export async function extractRecipeFromText(recipeText: string): Promise<Recipe> {
+  try {
+    // Send the recipe text as the prompt - the backend will extract it
+    const response = await fetch(GEMINI_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: `Extract the recipe from the following text and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."] }\n\n${recipeText}`,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to extract recipe from text';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.recipe;
+  } catch (error) {
+    console.error('Error extracting recipe from text:', error);
+    throw error;
+  }
+}
+
+
 export async function extractRecipeFromURL(url: string, prompt: string): Promise<Recipe> {
   try {
     const response = await fetch(GEMINI_API_ENDPOINT, {
