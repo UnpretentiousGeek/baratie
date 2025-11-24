@@ -4,6 +4,8 @@ import { normalizeInstructions, normalizeIngredients, getIngredientSections } fr
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { XIcon, DownloadIcon, CheckIcon, PortionMinusIcon, PortionPlusIcon } from './icons';
 import TimerPopup from './TimerPopup';
+import TimerCompleteModal from './TimerCompleteModal';
+import { useTimer } from '../hooks/useTimer';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -15,6 +17,21 @@ const CookingGuide: React.FC = () => {
   const [portions, setPortions] = useState(1);
   const [isTimerOpen, setIsTimerOpen] = useState(false);
   const timerButtonRef = useRef<HTMLButtonElement>(null);
+
+  const {
+    minutes,
+    seconds,
+    isActive,
+    isComplete,
+    note,
+    originalMinutes,
+    setNote,
+    start,
+    pause,
+    reset,
+    adjustMinutes,
+    closeCompleteModal
+  } = useTimer();
 
   if (!recipe) {
     return null;
@@ -155,19 +172,42 @@ const CookingGuide: React.FC = () => {
       <div className="recipe-name-header">
         <h2 className="recipe-name-title">{recipe.title || 'Recipe Name'}</h2>
         <div className="recipe-name-actions">
-          <button
-            ref={timerButtonRef}
-            type="button"
-            className="recipe-action-btn"
-            onClick={() => setIsTimerOpen(true)}
-            aria-label="Timer"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 21C16.5563 21 20.25 17.3063 20.25 12.75C20.25 8.19365 16.5563 4.5 12 4.5C7.44365 4.5 3.75 8.19365 3.75 12.75C3.75 17.3063 7.44365 21 12 21Z" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 12.75L15.75 9" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M9.75 1.5H14.25" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+          {isActive ? (
+            <button
+              ref={timerButtonRef}
+              type="button"
+              className="recipe-action-btn running-timer-btn"
+              onClick={() => setIsTimerOpen(true)}
+              aria-label="Timer Running"
+              style={{
+                borderRadius: '20px',
+                border: '1px solid var(--stroke-default, #e5e1dd)',
+                padding: '4px 12px',
+                width: 'auto',
+                fontFamily: 'Manrope, sans-serif',
+                fontSize: '19px',
+                fontWeight: 400,
+                color: '#000000'
+              }}
+            >
+              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            </button>
+          ) : (
+            <button
+              ref={timerButtonRef}
+              type="button"
+              className="recipe-action-btn"
+              onClick={() => setIsTimerOpen(true)}
+              aria-label="Timer"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 21C16.5563 21 20.25 17.3063 20.25 12.75C20.25 8.19365 16.5563 4.5 12 4.5C7.44365 4.5 3.75 8.19365 3.75 12.75C3.75 17.3063 7.44365 21 12 21Z" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 12.75L15.75 9" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M9.75 1.5H14.25" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+
           <button type="button" className="recipe-action-btn" aria-label="Download">
             <DownloadIcon size={24} />
           </button>
@@ -177,7 +217,27 @@ const CookingGuide: React.FC = () => {
         </div>
       </div>
 
-      <TimerPopup isOpen={isTimerOpen} onClose={() => setIsTimerOpen(false)} anchorRef={timerButtonRef} />
+      <TimerPopup
+        isOpen={isTimerOpen}
+        onClose={() => setIsTimerOpen(false)}
+        anchorRef={timerButtonRef}
+        minutes={minutes}
+        seconds={seconds}
+        isActive={isActive}
+        note={note}
+        onNoteChange={setNote}
+        onStart={start}
+        onPause={pause}
+        onReset={reset}
+        onAdjust={adjustMinutes}
+      />
+
+      <TimerCompleteModal
+        isOpen={isComplete}
+        onClose={closeCompleteModal}
+        originalMinutes={originalMinutes}
+        note={note}
+      />
 
       {/* Main Content: Two Column Layout */}
       <div className="recipe-main-content">

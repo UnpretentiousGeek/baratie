@@ -5,42 +5,33 @@ interface TimerPopupProps {
     isOpen: boolean;
     onClose: () => void;
     anchorRef: React.RefObject<HTMLElement>;
+    minutes: number;
+    seconds: number;
+    isActive: boolean;
+    note: string;
+    onNoteChange: (note: string) => void;
+    onStart: () => void;
+    onPause: () => void;
+    onReset: () => void;
+    onAdjust: (amount: number) => void;
 }
 
-const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) => {
-    const [minutes, setMinutes] = useState(5);
-    const [seconds, setSeconds] = useState(0);
-    const [isActive, setIsActive] = useState(false);
-    const [note, setNote] = useState('');
+const TimerPopup: React.FC<TimerPopupProps> = ({
+    isOpen,
+    onClose,
+    anchorRef,
+    minutes,
+    seconds,
+    isActive,
+    note,
+    onNoteChange,
+    onStart,
+    onPause,
+    onReset,
+    onAdjust
+}) => {
     const popupRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ top: 0, right: 0 });
-
-    useEffect(() => {
-        let interval: NodeJS.Timeout | null = null;
-
-        if (isActive) {
-            interval = setInterval(() => {
-                if (seconds === 0) {
-                    if (minutes === 0) {
-                        setIsActive(false);
-                        if (interval) clearInterval(interval);
-                        // Optional: Play sound or notification
-                    } else {
-                        setMinutes(minutes - 1);
-                        setSeconds(59);
-                    }
-                } else {
-                    setSeconds(seconds - 1);
-                }
-            }, 1000);
-        } else if (!isActive && seconds !== 0) {
-            if (interval) clearInterval(interval);
-        }
-
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [isActive, seconds, minutes]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -73,23 +64,6 @@ const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) =
         };
     }, [isOpen, onClose, anchorRef]);
 
-    const toggleTimer = () => {
-        setIsActive(!isActive);
-    };
-
-    const resetTimer = () => {
-        setIsActive(false);
-        setMinutes(5);
-        setSeconds(0);
-    };
-
-    const adjustMinutes = (amount: number) => {
-        const newMinutes = minutes + amount;
-        if (newMinutes >= 1 && newMinutes <= 99) {
-            setMinutes(newMinutes);
-        }
-    };
-
     if (!isOpen) return null;
 
     return (
@@ -108,7 +82,7 @@ const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) =
             <div className="timer-display-container">
                 <button
                     className="timer-adjust-btn"
-                    onClick={() => adjustMinutes(-1)}
+                    onClick={() => onAdjust(-1)}
                     disabled={isActive || minutes <= 1}
                 >
                     {minutes <= 1 ? (
@@ -128,7 +102,7 @@ const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) =
 
                 <button
                     className="timer-adjust-btn"
-                    onClick={() => adjustMinutes(1)}
+                    onClick={() => onAdjust(1)}
                     disabled={isActive}
                 >
                     <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -143,17 +117,17 @@ const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) =
                 <input
                     type="text"
                     value={note}
-                    onChange={(e) => setNote(e.target.value)}
+                    onChange={(e) => onNoteChange(e.target.value)}
                     placeholder="Add a note..."
                     className="timer-note-input"
                 />
             </div>
 
             <div className="timer-actions">
-                <button className="timer-btn secondary" onClick={resetTimer}>
+                <button className="timer-btn secondary" onClick={onReset}>
                     Reset
                 </button>
-                <button className="timer-btn primary" onClick={toggleTimer}>
+                <button className="timer-btn primary" onClick={isActive ? onPause : onStart}>
                     {isActive ? 'Pause' : 'Start'}
                 </button>
             </div>
