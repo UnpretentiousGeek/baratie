@@ -78,6 +78,37 @@ export const useTimer = (initialMinutes: number = 5): UseTimerReturn => {
         reset();
     }, [reset]);
 
+    const playTimerSound = () => {
+        try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContext) return;
+
+            const ctx = new AudioContext();
+
+            // Play 3 beeps
+            const now = ctx.currentTime;
+            [0, 0.8, 1.6].forEach(offset => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now + offset); // A5
+                osc.frequency.exponentialRampToValueAtTime(440, now + offset + 0.5); // Drop to A4
+
+                gain.gain.setValueAtTime(0.3, now + offset);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.5);
+
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.5);
+            });
+        } catch (e) {
+            console.error('Error playing timer sound:', e);
+        }
+    };
+
     useEffect(() => {
         let interval: NodeJS.Timeout;
 
@@ -94,6 +125,7 @@ export const useTimer = (initialMinutes: number = 5): UseTimerReturn => {
                     setIsComplete(true);
                     endTimeRef.current = null;
                     clearInterval(interval);
+                    playTimerSound();
                 } else {
                     // Update display
                     const totalSeconds = Math.ceil(diff / 1000);
