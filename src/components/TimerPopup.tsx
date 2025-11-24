@@ -85,7 +85,7 @@ const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) =
 
     const adjustMinutes = (amount: number) => {
         const newMinutes = minutes + amount;
-        if (newMinutes >= 0 && newMinutes <= 99) {
+        if (newMinutes >= 1 && newMinutes <= 99) {
             setMinutes(newMinutes);
         }
     };
@@ -109,11 +109,17 @@ const TimerPopup: React.FC<TimerPopupProps> = ({ isOpen, onClose, anchorRef }) =
                 <button
                     className="timer-adjust-btn"
                     onClick={() => adjustMinutes(-1)}
-                    disabled={isActive}
+                    disabled={isActive || minutes <= 1}
                 >
-                    <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3.90625 12.5H21.0938" stroke="#B8B3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    {minutes <= 1 ? (
+                        <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.90625 12.5H21.0938" stroke="#B8B3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    ) : (
+                        <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.90625 12.5H21.0938" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    )}
                 </button>
 
                 <div className="timer-display">
