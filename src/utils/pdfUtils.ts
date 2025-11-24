@@ -92,10 +92,10 @@ export const generateRecipePDF = (recipe: Recipe) => {
     });
 
     // Update yPos after table
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as any).lastAutoTable?.finalY || yPos + 20;
 
     // Instructions
-    checkPageBreak(20);
+    checkPageBreak(30); // Ensure enough space for header
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('Instructions', margin, yPos);
@@ -116,7 +116,6 @@ export const generateRecipePDF = (recipe: Recipe) => {
         margin: { left: margin, right: margin },
     });
 
-    // Save
-    const safeTitle = recipe.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    doc.save(`${safeTitle}_recipe.pdf`);
+    // Open in new tab
+    window.open(doc.output('bloburl'), '_blank');
 };
