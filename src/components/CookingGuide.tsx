@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients, getIngredientSections } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -14,6 +14,7 @@ const CookingGuide: React.FC = () => {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [portions, setPortions] = useState(1);
   const [isTimerOpen, setIsTimerOpen] = useState(false);
+  const timerButtonRef = useRef<HTMLButtonElement>(null);
 
   if (!recipe) {
     return null;
@@ -154,7 +155,13 @@ const CookingGuide: React.FC = () => {
       <div className="recipe-name-header">
         <h2 className="recipe-name-title">{recipe.title || 'Recipe Name'}</h2>
         <div className="recipe-name-actions">
-          <button type="button" className="recipe-action-btn" onClick={() => setIsTimerOpen(true)} aria-label="Timer">
+          <button
+            ref={timerButtonRef}
+            type="button"
+            className="recipe-action-btn"
+            onClick={() => setIsTimerOpen(true)}
+            aria-label="Timer"
+          >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 21C16.5563 21 20.25 17.3063 20.25 12.75C20.25 8.19365 16.5563 4.5 12 4.5C7.44365 4.5 3.75 8.19365 3.75 12.75C3.75 17.3063 7.44365 21 12 21Z" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M12 12.75L15.75 9" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -170,7 +177,7 @@ const CookingGuide: React.FC = () => {
         </div>
       </div>
 
-      <TimerPopup isOpen={isTimerOpen} onClose={() => setIsTimerOpen(false)} />
+      <TimerPopup isOpen={isTimerOpen} onClose={() => setIsTimerOpen(false)} anchorRef={timerButtonRef} />
 
       {/* Main Content: Two Column Layout */}
       <div className="recipe-main-content">
@@ -349,7 +356,7 @@ const CookingGuide: React.FC = () => {
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 
