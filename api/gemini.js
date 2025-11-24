@@ -1014,29 +1014,27 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
           if (recipe.ingredients.length > 0) {
             console.log('Returning JSON-parsed recipe. Ingredients:', recipe.ingredients.length, 'Instructions:', recipe.instructions.length);
 
-            // Run section detection agent (if not a modification)
-            if (!modify) {
-              const sectionResult = await detectRecipeSections(
-                recipe.ingredients,
-                recipe.instructions,
-                apiKey
-              );
+            // Run section detection agent (for both new and modified recipes)
+            const sectionResult = await detectRecipeSections(
+              recipe.ingredients,
+              recipe.instructions,
+              apiKey
+            );
 
-              if (sectionResult.hasSections) {
-                recipe.ingredients = sectionResult.ingredients;
-                recipe.instructions = sectionResult.instructions;
-              }
+            if (sectionResult.hasSections) {
+              recipe.ingredients = sectionResult.ingredients;
+              recipe.instructions = sectionResult.instructions;
+            }
 
-              // Run nutrition calculation agent
-              const nutrition = await calculateNutrition(
-                recipe.ingredients,
-                recipe.title,
-                apiKey
-              );
+            // Run nutrition calculation agent
+            const nutrition = await calculateNutrition(
+              recipe.ingredients,
+              recipe.title,
+              apiKey
+            );
 
-              if (nutrition) {
-                recipe.nutrition = nutrition;
-              }
+            if (nutrition) {
+              recipe.nutrition = nutrition;
             }
 
             return res.status(200).json({ recipe });
@@ -1270,6 +1268,7 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
             .filter(line => line.length > 0);
         }
       }
+      // Run section detection agent (for both new and modified recipes)
       const sectionResult = await detectRecipeSections(
         recipe.ingredients,
         recipe.instructions,
