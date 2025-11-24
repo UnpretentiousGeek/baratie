@@ -3,6 +3,7 @@ import { useRecipe } from '../context/RecipeContext';
 import { normalizeInstructions, normalizeIngredients, getIngredientSections } from '../utils/recipeUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { XIcon, DownloadIcon, CheckIcon, PortionMinusIcon, PortionPlusIcon } from './icons';
+import TimerPopup from './TimerPopup';
 import './CookingGuide.css';
 
 const CookingGuide: React.FC = () => {
@@ -12,6 +13,7 @@ const CookingGuide: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [portions, setPortions] = useState(1);
+  const [isTimerOpen, setIsTimerOpen] = useState(false);
 
   if (!recipe) {
     return null;
@@ -152,6 +154,13 @@ const CookingGuide: React.FC = () => {
       <div className="recipe-name-header">
         <h2 className="recipe-name-title">{recipe.title || 'Recipe Name'}</h2>
         <div className="recipe-name-actions">
+          <button type="button" className="recipe-action-btn" onClick={() => setIsTimerOpen(true)} aria-label="Timer">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 21C16.5563 21 20.25 17.3063 20.25 12.75C20.25 8.19365 16.5563 4.5 12 4.5C7.44365 4.5 3.75 8.19365 3.75 12.75C3.75 17.3063 7.44365 21 12 21Z" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 12.75L15.75 9" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M9.75 1.5H14.25" stroke="#2D2925" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <button type="button" className="recipe-action-btn" aria-label="Download">
             <DownloadIcon size={24} />
           </button>
@@ -160,6 +169,8 @@ const CookingGuide: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <TimerPopup isOpen={isTimerOpen} onClose={() => setIsTimerOpen(false)} />
 
       {/* Main Content: Two Column Layout */}
       <div className="recipe-main-content">
@@ -338,7 +349,7 @@ const CookingGuide: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -1,0 +1,153 @@
+.timer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.timer-popup {
+    background: var(--background-primary, #ffffff);
+    padding: 24px;
+    border-radius: 16px;
+    width: 320px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    animation: popup-fade-in 0.2s ease-out;
+}
+
+@keyframes popup-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.timer-header h3 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary, #2D2925);
+    margin: 0;
+    text-align: center;
+}
+
+.timer-display-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--brand-light, #FFF5F3);
+    padding: 16px;
+    border-radius: 12px;
+}
+
+.timer-display {
+    font-family: 'Manrope', sans-serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text-primary, #2D2925);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.timer-adjust-btn {
+    background: white;
+    border: 1px solid var(--stroke-default, #EBEBEB);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary, #2D2925);
+    transition: all 0.2s ease;
+}
+
+.timer-adjust-btn:hover:not(:disabled) {
+    background: var(--background-fill, #F7F7F7);
+    border-color: var(--text-secondary, #666666);
+}
+
+.timer-adjust-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.timer-note-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.timer-note-container label {
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+    color: var(--text-secondary, #666666);
+    font-weight: 500;
+}
+
+.timer-note-input {
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--stroke-default, #EBEBEB);
+    border-radius: 8px;
+    outline: none;
+    color: var(--text-primary, #2D2925);
+    transition: border-color 0.2s ease;
+}
+
+.timer-note-input:focus {
+    border-color: var(--brand-default, #F08B7D);
+}
+
+.timer-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.timer-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.timer-btn.primary {
+    background: var(--button-primary-default, #F08B7D);
+    color: white;
+}
+
+.timer-btn.primary:hover {
+    background: var(--button-primary-hover, #E07A6C);
+}
+
+.timer-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--stroke-default, #EBEBEB);
+    color: var(--text-secondary, #666666);
+}
+
+.timer-btn.secondary:hover {
+    background: var(--background-fill, #F7F7F7);
+    color: var(--text-primary, #2D2925);
+}
