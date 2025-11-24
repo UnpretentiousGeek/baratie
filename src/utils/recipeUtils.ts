@@ -1,21 +1,31 @@
 import { RecipeSection } from '../types';
 
 /**
+ * Decodes HTML entities in a string
+ */
+export function decodeHtmlEntities(text: string): string {
+  if (!text) return '';
+  const textArea = document.createElement('textarea');
+  textArea.innerHTML = text;
+  return textArea.value;
+}
+
+/**
  * Normalizes recipe ingredients to always return a flat array
  */
 export function normalizeIngredients(ingredients: string[] | RecipeSection[]): string[] {
   if (!ingredients || ingredients.length === 0) {
     return [];
   }
-  
+
   // Check if it's already a flat array of strings
   if (typeof ingredients[0] === 'string') {
-    return ingredients as string[];
+    return (ingredients as string[]).map(decodeHtmlEntities);
   }
-  
+
   // It's an array of sections, flatten it
   const sections = ingredients as RecipeSection[];
-  return sections.flatMap(section => section.items || []);
+  return sections.flatMap(section => section.items || []).map(decodeHtmlEntities);
 }
 
 /**
@@ -25,15 +35,15 @@ export function normalizeInstructions(instructions: string[] | RecipeSection[]):
   if (!instructions || instructions.length === 0) {
     return [];
   }
-  
+
   // Check if it's already a flat array of strings
   if (typeof instructions[0] === 'string') {
-    return instructions as string[];
+    return (instructions as string[]).map(decodeHtmlEntities);
   }
-  
+
   // It's an array of sections, flatten it
   const sections = instructions as RecipeSection[];
-  return sections.flatMap(section => section.items || []);
+  return sections.flatMap(section => section.items || []).map(decodeHtmlEntities);
 }
 
 /**
@@ -43,12 +53,12 @@ export function getIngredientSections(ingredients: string[] | RecipeSection[]): 
   if (!ingredients || ingredients.length === 0) {
     return null;
   }
-  
+
   // Check if it's already a flat array of strings
   if (typeof ingredients[0] === 'string') {
     return null;
   }
-  
+
   // It's an array of sections
   return ingredients as RecipeSection[];
 }
@@ -60,12 +70,12 @@ export function getInstructionSections(instructions: string[] | RecipeSection[])
   if (!instructions || instructions.length === 0) {
     return null;
   }
-  
+
   // Check if it's already a flat array of strings
   if (typeof instructions[0] === 'string') {
     return null;
   }
-  
+
   // It's an array of sections
   return instructions as RecipeSection[];
 }

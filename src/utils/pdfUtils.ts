@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Recipe } from '../types';
+import { decodeHtmlEntities } from './recipeUtils';
 
 export const generateRecipePDF = (recipe: Recipe) => {
     const doc = new jsPDF();
@@ -21,7 +22,7 @@ export const generateRecipePDF = (recipe: Recipe) => {
     // Title
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    const titleLines = doc.splitTextToSize(recipe.title, pageWidth - 2 * margin);
+    const titleLines = doc.splitTextToSize(decodeHtmlEntities(recipe.title), pageWidth - 2 * margin);
     doc.text(titleLines, margin, yPos);
     yPos += titleLines.length * 10 + 5;
 
@@ -51,22 +52,24 @@ export const generateRecipePDF = (recipe: Recipe) => {
     if (recipe.ingredients) {
         recipe.ingredients.forEach(ing => {
             if (typeof ing === 'string') {
+                const decodedIng = decodeHtmlEntities(ing);
                 // Check if it looks like a section header
-                if (ing.trim().endsWith(':') || (ing.trim().toUpperCase() === ing.trim() && ing.length < 30)) {
-                    ingredientRows.push([ing]);
+                if (decodedIng.trim().endsWith(':') || (decodedIng.trim().toUpperCase() === decodedIng.trim() && decodedIng.length < 30)) {
+                    ingredientRows.push([decodedIng]);
                 } else {
-                    ingredientRows.push([ing]);
+                    ingredientRows.push([decodedIng]);
                 }
             } else {
                 // Handle RecipeSection
                 if (ing.title) {
+                    const decodedTitle = decodeHtmlEntities(ing.title);
                     // Add title, ensure it looks like a header for the bold check
-                    const title = ing.title.trim().endsWith(':') ? ing.title : `${ing.title}:`;
+                    const title = decodedTitle.trim().endsWith(':') ? decodedTitle : `${decodedTitle}:`;
                     ingredientRows.push([title]);
                 }
                 if (ing.items) {
                     ing.items.forEach(item => {
-                        ingredientRows.push([item]);
+                        ingredientRows.push([decodeHtmlEntities(item)]);
                     });
                 }
             }
@@ -101,7 +104,27 @@ export const generateRecipePDF = (recipe: Recipe) => {
     doc.text('Instructions', margin, yPos);
     yPos += 10;
 
-    const instructionRows = recipe.instructions.map((inst, index) => [String(index + 1), inst]);
+    const instructionRows: string[][] = [];
+    let stepCount = 1;
+
+    if (recipe.instructions) {
+        recipe.instructions.forEach(inst => {
+            if (typeof inst === 'string') {
+                instructionRows.push([String(stepCount++), decodeHtmlEntities(inst)]);
+            } else {
+                // Handle RecipeSection for instructions
+                if (inst.title) {
+                    // Add section title as a row without number, maybe bold it
+                    instructionRows.push(['', decodeHtmlEntities(inst.title)]);
+                }
+                if (inst.items) {
+                    inst.items.forEach(item => {
+                        instructionRows.push([String(stepCount++), decodeHtmlEntities(item)]);
+                    });
+                }
+            }
+        });
+    }
 
     autoTable(doc, {
         startY: yPos,
@@ -114,6 +137,12 @@ export const generateRecipePDF = (recipe: Recipe) => {
             1: { cellWidth: 'auto', valign: 'top' }
         },
         margin: { left: margin, right: margin },
+        didParseCell: (data) => {
+            // Bold section headers in instructions (where first col is empty)
+            if (data.column.index === 1 && data.row.raw && (data.row.raw as string[])[0] === '') {
+                data.cell.styles.fontStyle = 'bold';
+            }
+        }
     });
 
     // Open in new tab
