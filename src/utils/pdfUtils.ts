@@ -3,73 +3,86 @@ import autoTable from 'jspdf-autotable';
 import { Recipe } from '../types';
 import { decodeHtmlEntities } from './recipeUtils';
 
+// Helper to sanitize text for PDF (handle fractions and special chars)
+function sanitizeTextForPdf(text: string): string {
+    if (!text) return '';
+    let decoded = decodeHtmlEntities(text);
+
+    // Replace non-breaking spaces with regular spaces
+    decoded = decoded.replace(/\u00A0/g, ' ');
+
+    // Replace fraction characters with text equivalents
+    const replacements: Record<string, string> = {
+        '⅛': '1/8',
+        '⅜': '3/8',
+        '⅝': '5/8',
+        '⅞': '7/8',
+        '⅓': '1/3',
+        '⅔': '2/3',
+        '⅙': '1/6',
+        '⅚': '5/6',
+        '⅕': '1/5',
+        '⅖': '2/5',
+        '⅗': '3/5',
+        '⅘': '4/5',
+        '¼': '1/4',
+        '½': '1/2',
+        '¾': '3/4',
+    };
+
+    return decoded.replace(/[⅛⅜⅝⅞⅓⅔⅙⅚⅕⅖⅗⅘¼½¾]/g, char => replacements[char] || char);
+}
+
 export const generateRecipePDF = (recipe: Recipe) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
     let yPos = 20;
 
-    // Helper to check page break
-    const checkPageBreak = (height: number) => {
-        if (yPos + height >= doc.internal.pageSize.getHeight() - margin) {
+    // Helper to check for page break
+    const checkPageBreak = (heightNeeded: number) => {
+        if (yPos + heightNeeded > doc.internal.pageSize.getHeight() - margin) {
             doc.addPage();
-            yPos = 20;
-            return true;
+            yPos = margin;
         }
-        return false;
     };
 
     // Title
-    doc.setFontSize(24);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    const titleLines = doc.splitTextToSize(decodeHtmlEntities(recipe.title), pageWidth - 2 * margin);
+    const titleLines = doc.splitTextToSize(sanitizeTextForPdf(recipe.title), pageWidth - 2 * margin);
     doc.text(titleLines, margin, yPos);
-    yPos += titleLines.length * 10 + 5;
+    yPos += (titleLines.length * 10) + 5;
 
     // Macros
     if (recipe.nutrition) {
-        doc.setFontSize(12);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        const macros = [
-            `${recipe.nutrition.calories || 0} Calories`,
-            `${recipe.nutrition.protein || 0}g Protein`,
-            `${recipe.nutrition.carbs || 0}g Carbs`,
-            `${recipe.nutrition.fat || 0}g Fat`
-        ].join('  •  ');
-
-        doc.text(macros, margin, yPos);
-        yPos += 15;
+        const macrosText = `Calories: ${recipe.nutrition.calories || 0} | Protein: ${recipe.nutrition.protein || 0}g | Carbs: ${recipe.nutrition.carbs || 0}g | Fat: ${recipe.nutrition.fat || 0}g`;
+        doc.text(sanitizeTextForPdf(macrosText), margin, yPos);
+        yPos += 10;
     }
 
     // Ingredients
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('Ingredients', margin, yPos);
-    yPos += 10;
+    yPos += 8;
 
     const ingredientRows: string[][] = [];
 
     if (recipe.ingredients) {
         recipe.ingredients.forEach(ing => {
             if (typeof ing === 'string') {
-                const decodedIng = decodeHtmlEntities(ing);
-                // Check if it looks like a section header
-                if (decodedIng.trim().endsWith(':') || (decodedIng.trim().toUpperCase() === decodedIng.trim() && decodedIng.length < 30)) {
-                    ingredientRows.push([decodedIng]);
-                } else {
-                    ingredientRows.push([decodedIng]);
-                }
+                ingredientRows.push([sanitizeTextForPdf(ing)]);
             } else {
                 // Handle RecipeSection
                 if (ing.title) {
-                    const decodedTitle = decodeHtmlEntities(ing.title);
-                    // Add title, ensure it looks like a header for the bold check
-                    const title = decodedTitle.trim().endsWith(':') ? decodedTitle : `${decodedTitle}:`;
-                    ingredientRows.push([title]);
+                    ingredientRows.push([sanitizeTextForPdf(ing.title)]);
                 }
                 if (ing.items) {
                     ing.items.forEach(item => {
-                        ingredientRows.push([decodeHtmlEntities(item)]);
+                        ingredientRows.push([sanitizeTextForPdf(item)]);
                     });
                 }
             }
@@ -85,11 +98,12 @@ export const generateRecipePDF = (recipe: Recipe) => {
         columnStyles: { 0: { cellWidth: 'auto' } },
         margin: { left: margin, right: margin },
         didParseCell: (data) => {
-            // Bold section headers
+            // Bold section headers (simple heuristic: if it matches a section title)
             const text = data.cell.raw as string;
-            if (typeof text === 'string' && (text.trim().endsWith(':') || (text === text.toUpperCase() && text.length > 3 && text.length < 40))) {
+            // Check if this text was a section title in the original data
+            const isSectionTitle = recipe.ingredients.some(i => typeof i !== 'string' && sanitizeTextForPdf(i.title || '') === text);
+            if (isSectionTitle) {
                 data.cell.styles.fontStyle = 'bold';
-                data.cell.styles.textColor = [0, 0, 0]; // Black
             }
         }
     });
@@ -98,6 +112,7 @@ export const generateRecipePDF = (recipe: Recipe) => {
     yPos = (doc as any).lastAutoTable?.finalY || yPos + 20;
 
     // Instructions
+    yPos += 10; // Add extra space before instructions header
     checkPageBreak(30); // Ensure enough space for header
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -110,16 +125,16 @@ export const generateRecipePDF = (recipe: Recipe) => {
     if (recipe.instructions) {
         recipe.instructions.forEach(inst => {
             if (typeof inst === 'string') {
-                instructionRows.push([String(stepCount++), decodeHtmlEntities(inst)]);
+                instructionRows.push([String(stepCount++), sanitizeTextForPdf(inst)]);
             } else {
                 // Handle RecipeSection for instructions
                 if (inst.title) {
                     // Add section title as a row without number, maybe bold it
-                    instructionRows.push(['', decodeHtmlEntities(inst.title)]);
+                    instructionRows.push(['', sanitizeTextForPdf(inst.title)]);
                 }
                 if (inst.items) {
                     inst.items.forEach(item => {
-                        instructionRows.push([String(stepCount++), decodeHtmlEntities(item)]);
+                        instructionRows.push([String(stepCount++), sanitizeTextForPdf(item)]);
                     });
                 }
             }
@@ -133,7 +148,7 @@ export const generateRecipePDF = (recipe: Recipe) => {
         theme: 'plain',
         styles: { fontSize: 11, cellPadding: 4, overflow: 'linebreak' },
         columnStyles: {
-            0: { cellWidth: 10, fontStyle: 'bold', valign: 'top' },
+            0: { cellWidth: 15, fontStyle: 'bold', valign: 'top' }, // Increased width for step numbers
             1: { cellWidth: 'auto', valign: 'top' }
         },
         margin: { left: margin, right: margin },
