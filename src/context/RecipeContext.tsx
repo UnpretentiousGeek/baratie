@@ -34,10 +34,10 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     });
   };
 
-  // Load initial state from localStorage
+  // Load initial state from sessionStorage
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>(() => {
     try {
-      const saved = localStorage.getItem('baratie_files');
+      const saved = sessionStorage.getItem('baratie_files');
       if (saved) {
         const parsed = JSON.parse(saved);
         return restoreFilePreviews(parsed);
@@ -51,7 +51,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   const [recipe, setRecipe] = useState<Recipe | null>(() => {
     try {
-      const saved = localStorage.getItem('baratie_recipe');
+      const saved = sessionStorage.getItem('baratie_recipe');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
       console.error('Failed to load recipe from storage', e);
@@ -61,7 +61,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   const [currentStage, setCurrentStage] = useState<Stage>(() => {
     try {
-      const saved = localStorage.getItem('baratie_stage');
+      const saved = sessionStorage.getItem('baratie_stage');
       return (saved as Stage) || 'capture';
     } catch (e) {
       console.error('Failed to load stage from storage', e);
@@ -71,7 +71,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
-      const saved = localStorage.getItem('baratie_messages');
+      const saved = sessionStorage.getItem('baratie_messages');
       if (saved) {
         const parsed = JSON.parse(saved);
         // Restore Date objects and file previews
@@ -91,7 +91,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
   // Persist state changes
   React.useEffect(() => {
     try {
-      localStorage.setItem('baratie_files', JSON.stringify(attachedFiles));
+      sessionStorage.setItem('baratie_files', JSON.stringify(attachedFiles));
     } catch (e) {
       console.error('Failed to save files to storage', e);
     }
@@ -100,9 +100,9 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
   React.useEffect(() => {
     try {
       if (recipe) {
-        localStorage.setItem('baratie_recipe', JSON.stringify(recipe));
+        sessionStorage.setItem('baratie_recipe', JSON.stringify(recipe));
       } else {
-        localStorage.removeItem('baratie_recipe');
+        sessionStorage.removeItem('baratie_recipe');
       }
     } catch (e) {
       console.error('Failed to save recipe to storage', e);
@@ -111,7 +111,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   React.useEffect(() => {
     try {
-      localStorage.setItem('baratie_stage', currentStage);
+      sessionStorage.setItem('baratie_stage', currentStage);
     } catch (e) {
       console.error('Failed to save stage to storage', e);
     }
@@ -119,7 +119,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   React.useEffect(() => {
     try {
-      localStorage.setItem('baratie_messages', JSON.stringify(messages));
+      sessionStorage.setItem('baratie_messages', JSON.stringify(messages));
     } catch (e) {
       console.error('Failed to save messages to storage', e);
     }
