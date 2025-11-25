@@ -6,7 +6,7 @@ const Header: React.FC = () => {
     <header className="app-header-new">
       <Link to="/" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Baratie</Link>
       <nav className="nav-links">
-        <a href="#extension" className="nav-link">Get Extension</a>
+        <a href="https://github.com/UnpretentiousGeek/baratie/tree/master/extensions" target="_blank" rel="noopener noreferrer" className="nav-link">Get Extension</a>
         <Link to="/about" className="nav-link">About</Link>
         <a href="#contact" className="nav-link">Contact</a>
       </nav>

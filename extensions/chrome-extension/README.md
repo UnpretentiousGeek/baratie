@@ -24,8 +24,7 @@ See **INSTALL.txt** for detailed instructions.
 - 📋 **Text Capture**: Select recipe text, right-click, and capture
 - 🔗 **URL Capture**: Send any recipe URL directly to Baratie
 - 💾 **Smart Storage**: Automatically handles large recipes
-- ⚙️ **Configurable**: Set your Baratie URL (local or deployed)
-- 🔔 **Notifications**: Get feedback on capture actions
+https://github.com/UnpretentiousGeek/baratie/tree/master/extensions- 🔔 **Notifications**: Get feedback on capture actions
 
 ## Usage
 
@@ -37,10 +36,6 @@ See **INSTALL.txt** for detailed instructions.
 1. Click the extension icon
 2. Click "Capture Recipe" button
 3. Captures selected text or current URL
-
-## Configuration
-
-Configuration is currently pre-set to use the Vercel deployment (`https://baratie-piece.vercel.app`).
 
 ## Files
 
