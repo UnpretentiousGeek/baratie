@@ -19,11 +19,30 @@ interface RecipeProviderProps {
 }
 
 export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
+  // Helper to restore file previews from base64 data
+  const restoreFilePreviews = (files: AttachedFile[]): AttachedFile[] => {
+    return files.map(file => {
+      // If it's an image and has data but no preview (or we want to ensure it works),
+      // create a data URI from the base64 data
+      if (file.type.startsWith('image/') && file.data) {
+        return {
+          ...file,
+          preview: `data:${file.type};base64,${file.data}`
+        };
+      }
+      return file;
+    });
+  };
+
   // Load initial state from localStorage
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>(() => {
     try {
       const saved = localStorage.getItem('baratie_files');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return restoreFilePreviews(parsed);
+      }
+      return [];
     } catch (e) {
       console.error('Failed to load files from storage', e);
       return [];
@@ -55,10 +74,11 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const saved = localStorage.getItem('baratie_messages');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Restore Date objects
+        // Restore Date objects and file previews
         return parsed.map((msg: any) => ({
           ...msg,
-          timestamp: new Date(msg.timestamp)
+          timestamp: new Date(msg.timestamp),
+          attachedFiles: msg.attachedFiles ? restoreFilePreviews(msg.attachedFiles) : undefined
         }));
       }
       return [];
