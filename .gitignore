@@ -32,3 +32,13 @@ dist-ssr
 .env.production.local
 .env.development.local
 .vercel
+
+# Unused/Documentation Files
+reproduce_issue.js
+.bashrc
+V0_PROMPT.md
+V0_PROMPT_CONCISE.md
+AGENT_ARCHITECTURE.md
+DEPLOYMENT.md
+README.md
+CLAUDE.md
