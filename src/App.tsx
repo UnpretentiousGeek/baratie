@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { RecipeProvider, useRecipe } from './context/RecipeContext';
 import BackgroundBlobs from './components/BackgroundBlobs';
 import Header from './components/Header';
@@ -10,8 +10,10 @@ import './App.css';
 const AppContent: React.FC = () => {
   const { currentStage, extractRecipe } = useRecipe();
   const location = useLocation();
+  const navigate = useNavigate();
   const isCookingMode = currentStage === 'cooking';
   const isAboutPage = location.pathname === '/about';
+  const processedRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -19,21 +21,27 @@ const AppContent: React.FC = () => {
     const recipeUrl = params.get('recipe_url');
     const sourceUrl = params.get('source_url');
 
-    if (recipeText) {
-      // Append source URL if available for context
-      const prompt = sourceUrl
-        ? `${recipeText}\n\nSource: ${sourceUrl}`
-        : recipeText;
+    // Create a unique key for this request to prevent duplicate processing
+    const requestKey = recipeText || recipeUrl;
 
-      extractRecipe(prompt);
+    if (requestKey && processedRef.current !== requestKey) {
+      processedRef.current = requestKey;
 
-      // Clear URL params to prevent re-processing
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (recipeUrl) {
-      extractRecipe(recipeUrl);
-      window.history.replaceState({}, '', window.location.pathname);
+      if (recipeText) {
+        // Append source URL if available for context
+        const prompt = sourceUrl
+          ? `${recipeText}\n\nSource: ${sourceUrl}`
+          : recipeText;
+
+        extractRecipe(prompt);
+      } else if (recipeUrl) {
+        extractRecipe(recipeUrl);
+      }
+
+      // Clear URL params using navigate to update React Router state
+      navigate(location.pathname, { replace: true });
     }
-  }, [location.search, extractRecipe]);
+  }, [location.search, location.pathname, extractRecipe, navigate]);
 
   return (
     <>
