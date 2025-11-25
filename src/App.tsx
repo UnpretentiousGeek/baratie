@@ -8,10 +8,32 @@ import About from './components/About';
 import './App.css';
 
 const AppContent: React.FC = () => {
-  const { currentStage } = useRecipe();
+  const { currentStage, extractRecipe } = useRecipe();
   const location = useLocation();
   const isCookingMode = currentStage === 'cooking';
   const isAboutPage = location.pathname === '/about';
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const recipeText = params.get('recipe_text');
+    const recipeUrl = params.get('recipe_url');
+    const sourceUrl = params.get('source_url');
+
+    if (recipeText) {
+      // Append source URL if available for context
+      const prompt = sourceUrl
+        ? `${recipeText}\n\nSource: ${sourceUrl}`
+        : recipeText;
+
+      extractRecipe(prompt);
+
+      // Clear URL params to prevent re-processing
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (recipeUrl) {
+      extractRecipe(recipeUrl);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [location.search, extractRecipe]);
 
   return (
     <>
