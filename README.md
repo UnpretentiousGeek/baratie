@@ -16,6 +16,7 @@ Baratie is an AI-powered recipe manager that transforms how you cook. It extract
 -   **AI Chef Assistant**: Chat with the AI to ask questions about substitutions, techniques, or nutrition while you cook.
 -   **Data Persistence**: Your current recipe, chat history, and timer state are saved automatically, so you never lose your place.
 -   **PDF Export**: Download your recipes as beautifully formatted PDFs.
+-   **Browser Extensions**: Capture recipes from any website using our [Chrome](extensions/chrome-extension) and [Firefox](extensions/firefox-extension) extensions.
 
 ## 🛠️ Tech Stack
 

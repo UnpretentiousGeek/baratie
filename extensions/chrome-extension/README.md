@@ -40,9 +40,7 @@ See **INSTALL.txt** for detailed instructions.
 
 ## Configuration
 
-Click extension icon → Settings (⚙️) → Enter Baratie URL:
-- **Vercel**: `https://baratie-piece.vercel.app` (default)
-- **Local**: `file:///path/to/Baratie/app/index.html`
+Configuration is currently pre-set to use the Vercel deployment (`https://baratie-piece.vercel.app`).
 
 ## Files
 
@@ -68,7 +66,6 @@ Both versions use the same JavaScript code with a cross-browser compatibility la
 
 **Baratie doesn't open?**
 - Enable "Allow access to file URLs"
-- Verify Baratie URL in settings
 
 **Context menu missing?**
 - Reload extension from chrome://extensions
@@ -76,6 +73,6 @@ Both versions use the same JavaScript code with a cross-browser compatibility la
 
 ## Learn More
 
-- Main project: `../README.md`
-- Complete guide: `INSTALL.txt`
-- Cross-browser details: `../docs/CROSS_BROWSER.md`
+- Main project: `../../README.md`
+- Complete guide: `../../INSTALL.txt`
+- Cross-browser details: `../../docs/CROSS_BROWSER.md`

@@ -34,13 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Event listeners
   captureBtn.addEventListener('click', handleCapture);
-  settingsLink.addEventListener('click', handleSettings);
-  if (resetLink) {
-    resetLink.addEventListener('click', handleReset);
-  }
-
-  // Load saved settings
-  loadSettings();
 
   // Auto-detect selection on popup open
   detectSelection();
@@ -316,50 +309,5 @@ async function getBaratiePath() {
   } catch (error) {
     console.error('Error loading Baratie path:', error);
     return DEFAULT_LOCAL_PATH;
-  }
-}
-
-// Load saved settings
-async function loadSettings() {
-  try {
-    const result = await browserAPI.storage.sync.get(['baratiePath']);
-    if (result.baratiePath) {
-      // User has customized path
-      console.log('Using custom Baratie path:', result.baratiePath);
-    } else {
-      console.log('Using default Baratie path');
-    }
-  } catch (error) {
-    console.error('Error loading settings:', error);
-  }
-}
-
-// Handle settings link click
-async function handleSettings(e) {
-  e.preventDefault();
-  const currentPath = await getBaratiePath();
-  const newPath = prompt(
-    'Enter the full path to your Baratie app:\n\n' +
-    'Local file: file:///D:/Vibe%20Coding%20Projects/Baratie/app/index.html\n' +
-    'Localhost: http://localhost:8000\n' +
-    'Vercel: https://baratie-piece.vercel.app',
-    currentPath
-  );
-
-  if (newPath && newPath.trim()) {
-    await browserAPI.storage.sync.set({ baratiePath: newPath.trim() });
-    showStatus('Settings saved!', 'success');
-    loadSettings(); // Refresh display
-  }
-}
-
-// Handle reset link click - Reset to default Vercel URL
-async function handleReset(e) {
-  e.preventDefault();
-  if (confirm('Reset to default Vercel URL?\n\nhttps://baratie-piece.vercel.app')) {
-    await browserAPI.storage.sync.remove('baratiePath');
-    showStatus('Reset to Vercel URL!', 'success');
-    loadSettings(); // Refresh display
-    console.log('Path reset to default Vercel:', DEFAULT_VERCEL_PATH);
   }
 }
