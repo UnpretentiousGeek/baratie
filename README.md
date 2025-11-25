@@ -2,7 +2,7 @@
 
 Baratie is an AI-powered recipe manager that transforms how you cook. It extracts recipes from various sources and converts them into an interactive, step-by-step cooking guide.
 
-![Baratie Icon](/public/assets/Icon.png)
+![Baratie Icon](/public/assets/favicon.png)
 
 ## ✨ Features
 
