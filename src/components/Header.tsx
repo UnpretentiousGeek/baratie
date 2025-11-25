@@ -1,13 +1,13 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import './Header.css';
 
 const Header: React.FC = () => {
   return (
     <header className="app-header-new">
-      <h1 className="logo">Baratie</h1>
+      <Link to="/" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Baratie</Link>
       <nav className="nav-links">
         <a href="#extension" className="nav-link">Get Extension</a>
-        <a href="#about" className="nav-link">About</a>
+        <Link to="/about" className="nav-link">About</Link>
         <a href="#contact" className="nav-link">Contact</a>
       </nav>
     </header>

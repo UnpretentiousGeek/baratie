@@ -5,18 +5,24 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import './App.css';
 
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import About from './components/About';
+
 const AppContent: React.FC = () => {
   const { currentStage } = useRecipe();
   const isCookingMode = currentStage === 'cooking';
-  
+
   return (
-    <>
+    <Router>
       {!isCookingMode && <BackgroundBlobs />}
       <div className="app-container">
         <Header />
-        <Hero />
+        <Routes>
+          <Route path="/" element={<Hero />} />
+          <Route path="/about" element={<About />} />
+        </Routes>
       </div>
-    </>
+    </Router>
   );
 };
 
