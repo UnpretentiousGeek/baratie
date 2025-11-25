@@ -19,10 +19,91 @@ interface RecipeProviderProps {
 }
 
 export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [currentStage, setCurrentStage] = useState<Stage>('capture');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Load initial state from localStorage
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>(() => {
+    try {
+      const saved = localStorage.getItem('baratie_files');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Failed to load files from storage', e);
+      return [];
+    }
+  });
+
+  const [recipe, setRecipe] = useState<Recipe | null>(() => {
+    try {
+      const saved = localStorage.getItem('baratie_recipe');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error('Failed to load recipe from storage', e);
+      return null;
+    }
+  });
+
+  const [currentStage, setCurrentStage] = useState<Stage>(() => {
+    try {
+      const saved = localStorage.getItem('baratie_stage');
+      return (saved as Stage) || 'capture';
+    } catch (e) {
+      console.error('Failed to load stage from storage', e);
+      return 'capture';
+    }
+  });
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem('baratie_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Restore Date objects
+        return parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+      }
+      return [];
+    } catch (e) {
+      console.error('Failed to load messages from storage', e);
+      return [];
+    }
+  });
+
+  // Persist state changes
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('baratie_files', JSON.stringify(attachedFiles));
+    } catch (e) {
+      console.error('Failed to save files to storage', e);
+    }
+  }, [attachedFiles]);
+
+  React.useEffect(() => {
+    try {
+      if (recipe) {
+        localStorage.setItem('baratie_recipe', JSON.stringify(recipe));
+      } else {
+        localStorage.removeItem('baratie_recipe');
+      }
+    } catch (e) {
+      console.error('Failed to save recipe to storage', e);
+    }
+  }, [recipe]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('baratie_stage', currentStage);
+    } catch (e) {
+      console.error('Failed to save stage to storage', e);
+    }
+  }, [currentStage]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('baratie_messages', JSON.stringify(messages));
+    } catch (e) {
+      console.error('Failed to save messages to storage', e);
+    }
+  }, [messages]);
 
   // Build conversation context from recent messages
   const buildConversationContext = useCallback(() => {

@@ -16,16 +16,87 @@ interface UseTimerReturn {
 }
 
 export const useTimer = (initialMinutes: number = 5): UseTimerReturn => {
-    const [minutes, setMinutes] = useState(initialMinutes);
-    const [seconds, setSeconds] = useState(0);
-    const [isActive, setIsActive] = useState(false);
-    const [isComplete, setIsComplete] = useState(false);
-    const [note, setNote] = useState('');
-    const [originalMinutes, setOriginalMinutes] = useState(initialMinutes);
+    // Initialize state from localStorage
+    const [minutes, setMinutes] = useState<number>(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        return saved ? JSON.parse(saved).minutes : initialMinutes;
+    });
+    const [seconds, setSeconds] = useState<number>(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        return saved ? JSON.parse(saved).seconds : 0;
+    });
+    const [isActive, setIsActive] = useState<boolean>(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        return saved ? JSON.parse(saved).isActive : false;
+    });
+    const [isComplete, setIsComplete] = useState<boolean>(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        return saved ? JSON.parse(saved).isComplete : false;
+    });
+    const [note, setNote] = useState<string>(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        return saved ? JSON.parse(saved).note : '';
+    });
+    const [originalMinutes, setOriginalMinutes] = useState<number>(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        return saved ? JSON.parse(saved).originalMinutes : initialMinutes;
+    });
 
-    // Keep track of the target end time to handle background throttling
+    // Keep track of the target end time to handle background throttling and persistence
     const endTimeRef = useRef<number | null>(null);
+
+    // Initialize ref from storage in effect or directly if possible (refs don't trigger re-renders)
+    // Actually, we can just read it once during render, but side-effects in render are bad.
+    // Better to set it in the resume effect.
+    // But wait, if we initialize state from storage, we should initialize ref too to match.
+    // We can do:
+    const savedState = localStorage.getItem('baratie_timer_state');
+    if (savedState && !endTimeRef.current) {
+        const parsed = JSON.parse(savedState);
+        if (parsed.endTime) {
+            endTimeRef.current = parsed.endTime;
+        }
+    }
     const rafRef = useRef<number | null>(null);
+
+    // Persist state whenever it changes
+    useEffect(() => {
+        const state = {
+            minutes,
+            seconds,
+            isActive,
+            isComplete,
+            note,
+            originalMinutes,
+            endTime: endTimeRef.current
+        };
+        localStorage.setItem('baratie_timer_state', JSON.stringify(state));
+    }, [minutes, seconds, isActive, isComplete, note, originalMinutes]);
+
+    // Resume timer on mount if it was active
+    useEffect(() => {
+        const saved = localStorage.getItem('baratie_timer_state');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.isActive && parsed.endTime) {
+                const now = Date.now();
+                const diff = parsed.endTime - now;
+
+                if (diff > 0) {
+                    // Timer is still running
+                    endTimeRef.current = parsed.endTime;
+                    setIsActive(true);
+                } else {
+                    // Timer finished while away
+                    setMinutes(0);
+                    setSeconds(0);
+                    setIsActive(false);
+                    setIsComplete(true);
+                    endTimeRef.current = null;
+                }
+            }
+        }
+    }, []);
 
     const start = useCallback(() => {
         if (minutes === 0 && seconds === 0) return;
@@ -59,6 +130,8 @@ export const useTimer = (initialMinutes: number = 5): UseTimerReturn => {
             cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
         }
+        // Clear storage for clean state
+        localStorage.removeItem('baratie_timer_state');
     }, []);
 
     const adjustMinutes = useCallback((amount: number) => {
