@@ -36,11 +36,15 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start;
+  /* Ensure children align to start */
 }
 
 .recipe-suggestion-list {
-  width: 100%;
+  width: fit-content;
+  /* Hug contents */
+  min-width: 100%;
+  /* But allow expanding to card width if needed, though card hugs list so this is circular. fit-content is safer. */
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -61,14 +65,22 @@
   transition: all 0.2s ease;
 }
 
+/* Default Hover */
 .recipe-suggestion-item:hover {
-  border-color: #f08b7d;
   background: #fffcfc;
+  border-color: #f08b7d;
 }
 
+/* Selected State */
 .recipe-suggestion-item.selected {
   background: #f08b7d;
   border-color: #f08b7d;
+}
+
+/* Selected Hover State */
+.recipe-suggestion-item.selected:hover {
+  background: #e6725f;
+  border-color: #e6725f;
 }
 
 .recipe-suggestion-item-text {
@@ -76,13 +88,10 @@
   font-size: 16px;
   font-weight: 400;
   line-height: 1.5;
-  color: #2d2925;
+  color: #5a544e;
+  /* Updated from Figma */
   margin: 0;
   white-space: nowrap;
-  /* overflow: hidden;  With fit-content, we probably want to see the whole text or wrap? 
-     Usually hug contents implies showing everything. I'll remove overflow hidden to allow full text visibility or keep it but with max-width. 
-     Figma designs for "hug" usually mean "expand to fit". 
-  */
   width: 100%;
   text-align: left;
 }
