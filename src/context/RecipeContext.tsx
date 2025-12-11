@@ -242,6 +242,18 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // Check if it's a modification request (contains modification keywords, but not alternative requests)
       const isModification = !isAlternativeRequest && /\b(make|adjust|change|modify|convert|update|replace|remove|add|increase|decrease|scale|double|halve|reduce|swap|use|try)\b/i.test(prompt);
 
+      // Check for suggestion intent
+      // Heuristics:
+      // 1. Explicit suggestion keywords
+      // 2. "What can I cook" patterns
+      // 3. "Recipes for" patterns
+      // 4. Inventory statements ("I have", "Got")
+      const isSuggestion =
+        ((/\b(suggest|recommend|ideas|options)\b/i.test(prompt)) && !/\b(substitute|replace|instead)\b/i.test(prompt)) ||
+        /\bwhat (can|should|to) (i|we) (make|cook|eat|prepare)\b/i.test(prompt) ||
+        /\b(recipes? for)\b/i.test(prompt) ||
+        /\b(i (have|got)|leftover)\b/i.test(prompt);
+
       // Check if we have an existing recipe and this is a question or modification request
       // Question/modification: has recipe, no URL in prompt, no new files attached
       const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
@@ -271,6 +283,48 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         return patternMatches >= 2; // At least 2 recipe patterns
       })();
 
+      // HANDLE SUGGESTIONS (Priority over Q&A)
+      if (isSuggestion && !urlMatches && (!filesToSend || filesToSend.length === 0) && !looksLikeNewRecipe) {
+        addMessage({
+          type: 'loading',
+          text: 'Generating suggestions...',
+        });
+
+        try {
+          const conversationContext = buildConversationContext();
+          const suggestions = await suggestRecipes(prompt, conversationContext);
+
+          // Remove loading message
+          setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+          if (suggestions && suggestions.length > 0) {
+            // Add message with suggestions
+            addMessage({
+              type: 'recipe-suggestion',
+              text: 'Here are recommended recipes based on your request:',
+              suggestions: suggestions,
+            });
+            return;
+          } else {
+            // Fallback if no suggestions returned
+            addMessage({
+              type: 'system',
+              text: 'I couldn\'t find any specific recipes for that. Could you provide more details about what you\'re looking for?',
+            });
+            return;
+          }
+        } catch (error) {
+          setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+          console.error('Error generating suggestions:', error);
+
+          addMessage({
+            type: 'system',
+            text: 'I had trouble generating recipe suggestions. Please try again.',
+          });
+          return;
+        }
+      }
+
       if (recipe && !urlMatches && (!filesToSend || filesToSend.length === 0) && !looksLikeNewRecipe) {
         if ((isQuestion || isAlternativeRequest) && !isModification) {
           // This is a question or alternative request - answer it without modifying the recipe
@@ -284,52 +338,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           });
           return;
         } else if (isModification || (!isQuestion && !isAlternativeRequest && !isModification)) {
-          // Check if it's a suggestion request
-          // Heuristics:
-          // 1. Explicit suggestion keywords
-          // 2. "I have [x]" pattern
-          const isSuggestion = /\b(suggest|recommend|what (can|should|to) (i|we) (make|cook|eat|prepare)|ideas|options?|recipes? for)\b/i.test(prompt) ||
-            /\b(i have|got|leftover)\b/i.test(prompt);
 
-          if (isSuggestion && !isModification) {
-            addMessage({
-              type: 'loading',
-              text: 'Generating suggestions...',
-            });
-
-            try {
-              const conversationContext = buildConversationContext();
-              const suggestions = await suggestRecipes(prompt, conversationContext);
-
-              // Remove loading message
-              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-
-              if (suggestions && suggestions.length > 0) {
-                // Add message with suggestions
-                addMessage({
-                  type: 'recipe-suggestion',
-                  text: 'Here are recommended recipes based on your request:',
-                  suggestions: suggestions,
-                });
-                return;
-              } else {
-                // Fallback if no suggestions returned
-                addMessage({
-                  type: 'system',
-                  text: 'I couldn\'t find any specific recipes for that. Could you provide more details?',
-                });
-                return;
-              }
-            } catch (error) {
-              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-              console.error('Error generating suggestions:', error);
-              addMessage({
-                type: 'system',
-                text: 'I had trouble generating suggestions. Please try again.',
-              });
-              return;
-            }
-          }
 
           // This is a modification request (or ambiguous - treat as modification)
 
