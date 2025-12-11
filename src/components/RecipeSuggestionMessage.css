@@ -1,0 +1,120 @@
+.recipe-suggestion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.recipe-suggestion-header {
+  background: #fef5f4;
+  border-radius: 12px 12px 4px 12px;
+  padding: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recipe-suggestion-text {
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #2d2925;
+  margin: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.recipe-suggestion-list-card {
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(135deg, rgba(254, 245, 244, 1) 0%, rgba(252, 192, 185, 0.35) 100%);
+  border-radius: 4px 12px 12px 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.recipe-suggestion-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recipe-suggestion-item {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e5e1dd;
+  border-radius: 4px;
+  padding: 8px 16px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.recipe-suggestion-item:hover {
+  background: #fdfdfd;
+  border-color: #d0cdc9;
+}
+
+.recipe-suggestion-item.selected {
+  background: #f08b7d;
+  border-color: #f08b7d;
+}
+
+.recipe-suggestion-item-text {
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #2d2925;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recipe-suggestion-item.selected .recipe-suggestion-item-text {
+  color: #ffffff;
+}
+
+.recipe-suggestion-confirm-button {
+  background: #f08b7d;
+  border: none;
+  border-radius: 4px;
+  height: 40px;
+  padding: 8px 16px;
+  width: 100%;
+  cursor: pointer;
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.recipe-suggestion-confirm-button:hover:not(:disabled) {
+  background: #e6725f;
+  transform: translateY(-1px);
+}
+
+.recipe-suggestion-confirm-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.recipe-suggestion-confirm-button:disabled {
+  background: #e5e1dd;
+  cursor: not-allowed;
+  opacity: 0.7;
+}

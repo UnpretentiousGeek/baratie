@@ -697,9 +697,41 @@ ${instructionsList.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}`;
 
       finalPrompt = `${recipeText}${contextSection}\n\nUSER REQUEST: ${prompt}\n\nPlease modify the recipe according to the user's request and return it as JSON with this structure: { "title": "...", "ingredients": ["..."], "instructions": ["..."], "changesDescription": "..." }. The "changesDescription" field should be a brief summary of what changes were made (e.g., "Made the recipe vegan by replacing chicken with tofu and eggs with a vegan alternative", or "Adjusted ingredient quantities for 2 pounds of chicken"). CRITICAL INSTRUCTIONS: For the instructions array, extract ONLY the numbered step-by-step instructions. DO NOT include section headings. Each instruction must be a complete, detailed sentence describing what to do. Combine all numbered steps into a single sequential array. For ingredients, combine all ingredients into a single array. CRITICAL SEPARATION: Ingredients should ONLY be ingredient names with quantities and measurements. Examples of CORRECT ingredients: "750 gms chicken on bone, curry cut", "1/2 cup yogurt, beaten", "2-3 green chillies, slit". Examples of INCORRECT (these are instructions, NOT ingredients): "Add chicken, yogurt, salt and mix well", "Heat ghee in a pan", "Add onions and sauté till brown". Ingredients are just the raw materials - they do NOT contain action verbs at the start (like "add", "mix", "heat", "cook", "stir") or describe cooking processes. Make sure to preserve the recipe structure and format while applying the requested modifications.`;
     }
+    // Handle recipe suggestion requests
+    else if (req.body.suggest) {
+      console.log('Generating recipe suggestions for:', prompt);
+
+      let contextSection = '';
+      if (conversationHistory) {
+        contextSection = `\nCONVERSATION HISTORY:\n${conversationHistory}\n`;
+      }
+
+      finalPrompt = `${contextSection}USER REQUEST: ${prompt}
+
+Based on the user's request, please suggest 2-4 recipes. 
+Return the response as a JSON object with this structure: 
+{ 
+  "suggestions": [
+    { 
+      "title": "Recipe Title", 
+      "ingredients": ["Ingredient 1", "Ingredient 2"], 
+      "instructions": ["Step 1", "Step 2"] 
+    }
+  ]
+}
+
+Each recipe in the "suggestions" array must have:
+1. A clear "title".
+2. A list of "ingredients" (with quantities if possible).
+3. A list of "instructions" (brief but clear steps).
+
+If the user lists ingredients, suggest recipes that use those ingredients.
+If the user asks for a specific type of dish (e.g., "healthy dinner"), suggest relevant recipes.
+Make sure the recipes are distinct and appetizing.`;
+    }
 
     // Validate request
-    if (!finalPrompt && !modify && !question) {
+    if (!finalPrompt && !modify && !question && !req.body.suggest) {
       return res.status(400).json({ error: 'Missing required field: prompt or url' });
     }
 

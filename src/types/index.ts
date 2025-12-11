@@ -31,7 +31,7 @@ export interface NutritionInfo {
 
 export type Stage = 'capture' | 'preview' | 'cooking' | 'complete';
 
-export type MessageType = 'user' | 'system' | 'recipe-preview' | 'loading';
+export type MessageType = 'user' | 'system' | 'recipe-preview' | 'loading' | 'recipe-suggestion';
 
 export interface ChatMessage {
   id: string;
@@ -39,6 +39,7 @@ export interface ChatMessage {
   text?: string;
   recipe?: Recipe | null;
   attachedFiles?: AttachedFile[];
+  suggestions?: Recipe[];
   timestamp: Date;
 }
 

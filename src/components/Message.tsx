@@ -4,6 +4,7 @@ import { ChatMessage, AttachedFile } from '../types';
 import { normalizeIngredients } from '../utils/recipeUtils';
 import { useRecipe } from '../context/RecipeContext';
 import { SentAttachedFilesGroup } from './SentAttachedFiles';
+import RecipeSuggestionMessage from './RecipeSuggestionMessage';
 import LoadingMessage from './LoadingMessage';
 import './Message.css';
 
@@ -123,6 +124,18 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         transition={{ duration: 0.3 }}
       >
         <RecipePreviewMessage recipe={message.recipe} />
+      </motion.div>
+    );
+  }
+
+  if (message.type === 'recipe-suggestion' && message.suggestions) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <RecipeSuggestionMessage suggestions={message.suggestions} text={message.text} />
       </motion.div>
     );
   }

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { AttachedFile, Recipe, Stage, RecipeContextType, ChatMessage } from '../types';
 import { processFiles } from '../utils/recipeManager';
-import { extractRecipeFromFiles } from '../utils/api';
+import { extractRecipeFromFiles, suggestRecipes } from '../utils/api';
 import { validateCookingMessage } from '../utils/validation';
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
@@ -284,7 +284,55 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           });
           return;
         } else if (isModification || (!isQuestion && !isAlternativeRequest && !isModification)) {
+          // Check if it's a suggestion request
+          // Heuristics:
+          // 1. Explicit suggestion keywords
+          // 2. "I have [x]" pattern
+          const isSuggestion = /\b(suggest|recommend|what (can|should|to) (i|we) (make|cook|eat|prepare)|ideas|options?|recipes? for)\b/i.test(prompt) ||
+            /\b(i have|got|leftover)\b/i.test(prompt);
+
+          if (isSuggestion && !isModification) {
+            addMessage({
+              type: 'loading',
+              text: 'Generating suggestions...',
+            });
+
+            try {
+              const conversationContext = buildConversationContext();
+              const suggestions = await suggestRecipes(prompt, conversationContext);
+
+              // Remove loading message
+              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+              if (suggestions && suggestions.length > 0) {
+                // Add message with suggestions
+                addMessage({
+                  type: 'recipe-suggestion',
+                  text: 'Here are recommended recipes based on your request:',
+                  suggestions: suggestions,
+                });
+                return;
+              } else {
+                // Fallback if no suggestions returned
+                addMessage({
+                  type: 'system',
+                  text: 'I couldn\'t find any specific recipes for that. Could you provide more details?',
+                });
+                return;
+              }
+            } catch (error) {
+              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+              console.error('Error generating suggestions:', error);
+              addMessage({
+                type: 'system',
+                text: 'I had trouble generating suggestions. Please try again.',
+              });
+              return;
+            }
+          }
+
           // This is a modification request (or ambiguous - treat as modification)
+
 
           // Add loading message
           addMessage({

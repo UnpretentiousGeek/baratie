@@ -228,3 +228,30 @@ export async function modifyRecipe(
   }
 }
 
+export async function suggestRecipes(
+  prompt: string,
+  conversationHistory: string = ''
+): Promise<Recipe[]> {
+  try {
+    const response = await fetch(GEMINI_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        suggest: true,
+        conversationHistory,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get recipe suggestions');
+    }
+
+    const data = await response.json();
+    return data.suggestions || [];
+  } catch (error) {
+    console.error('Error getting specific suggestions:', error);
+    throw error;
+  }
+}
+
