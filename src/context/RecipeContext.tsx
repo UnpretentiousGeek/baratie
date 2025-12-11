@@ -317,9 +317,15 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
           console.error('Error generating suggestions:', error);
 
+          let errorMessage = 'I had trouble generating recipe suggestions. Please try again.';
+
+          if (error instanceof Error && (error.message.includes('429') || error.message.includes('quota') || error.message.includes('Rate limit'))) {
+            errorMessage = 'You have hit the rate limit for the free tier of the AI model. Please wait a minute before trying again.';
+          }
+
           addMessage({
             type: 'system',
-            text: 'I had trouble generating recipe suggestions. Please try again.',
+            text: errorMessage,
           });
           return;
         }
