@@ -84,7 +84,6 @@ async function callOpenAI(prompt, systemPrompt, apiKey, model, jsonMode = false)
     const body = {
         model: model,
         messages: messages,
-        temperature: 0.7,
     };
 
     if (jsonMode) {
@@ -185,7 +184,7 @@ export default async function handler(req, res) {
         }
 
         // 3. Construct System Prompt & User Prompt based on Request Type
-        let systemPrompt = "You are a helpful cooking assistant and recipe parser.";
+        let systemPrompt = "You are Baratie, an AI Recipe Manager. You are helpful, friendly, and expert at parsing and organizing recipes.";
         let userMessageContent = finalPrompt;
         let messages = [];
 
@@ -201,13 +200,13 @@ export default async function handler(req, res) {
 
         // Define specific task prompts
         if (question) {
-            systemPrompt = "You are a cooking expert. Answer the user's question. If a recipe is provided in context, refer to it.";
+            systemPrompt = "You are Baratie, an AI Recipe Manager and cooking expert. Answer the user's question. If a recipe is provided in context, refer to it.";
             // Add context
             if (currentRecipe) userMessageContent += `\nCurrent Recipe: ${JSON.stringify(currentRecipe)}`;
             if (conversationHistory) userMessageContent += `\nHistory: ${conversationHistory}`;
 
         } else if (modify && currentRecipe) {
-            systemPrompt = `You are a recipe editor. Modify the provided recipe based on the user's request.
+            systemPrompt = `You are Baratie, an AI Recipe Manager. Modify the provided recipe based on the user's request.
        Return JSON format: { "title": string, "ingredients": string[], "instructions": string[], "changesDescription": string }.
        Ingredients should be strings with quantity and name. Instructions should be step-by-step strings.
        "changesDescription" should briefly summarize the modifications.`;
@@ -215,14 +214,14 @@ export default async function handler(req, res) {
             userMessageContent = `Current Recipe: ${JSON.stringify(currentRecipe)}\nUser Request: ${prompt}\nHistory: ${conversationHistory}`;
 
         } else if (req.body.suggest) {
-            systemPrompt = `You are a chef. Suggest 2-4 recipes based on the user's request.
+            systemPrompt = `You are Baratie, an AI Recipe Manager and Chef. Suggest 2-4 recipes based on the user's request.
        Return JSON format: { "suggestions": [{ "title": string, "ingredients": string[], "instructions": string[] }] }.`;
 
             userMessageContent = `User Request: ${prompt}\nHistory: ${conversationHistory}`;
 
         } else {
             // Default: Extraction (from URL, text, or image)
-            systemPrompt = `You are a recipe extracting robot. Extract a single recipe from the provided text or image.
+            systemPrompt = `You are Baratie, an AI Recipe Manager. Extract a single recipe from the provided text or image.
        Return JSON format: { "title": string, "ingredients": string[], "instructions": string[] }.
        If the input is just a food image without text, make a best-guess recipe for that dish.
        Do not include markdown formatting like \`\`\`json. Return raw JSON.`;
@@ -259,7 +258,6 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: model,
                 messages: messages,
-                temperature: 0.7,
                 response_format: { type: "json_object" } // Force JSON to solve parsing issues
             })
         });
