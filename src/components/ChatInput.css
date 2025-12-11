@@ -40,8 +40,8 @@
     align-items: flex-start;
     width: 100%;
     max-width: 720px;
-    height: 116px;
-    min-height: 116px;
+    height: fit-content;
+    min-height: fit-content;
     box-sizing: border-box;
     position: relative;
     outline: none !important;
@@ -97,8 +97,11 @@
     width: 100%;
     padding: 0;
     margin: 0;
-    min-height: auto;
+    min-height: 24px;
+    max-height: 240px;
     flex-shrink: 0;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .hero-chat-input::placeholder {

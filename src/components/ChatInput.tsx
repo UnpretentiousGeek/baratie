@@ -1,4 +1,4 @@
-import React, { useState, useRef, KeyboardEvent } from 'react';
+import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRecipe } from '../context/RecipeContext';
 import AttachedFiles from './AttachedFiles';
@@ -15,6 +15,27 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Calculate max height for 10 lines (16px font * 1.5 line-height * 10 lines = 240px)
+      const maxHeight = 240;
+      const scrollHeight = textarea.scrollHeight;
+      
+      // Set height to scrollHeight, but cap at maxHeight
+      if (scrollHeight <= maxHeight) {
+        textarea.style.height = `${Math.max(24, scrollHeight)}px`;
+        textarea.style.overflowY = 'hidden';
+      } else {
+        textarea.style.height = `${maxHeight}px`;
+        textarea.style.overflowY = 'auto';
+      }
+    }
+  }, [inputValue, isChatMode]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -35,6 +56,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
     const currentInput = inputValue;
     // Clear input immediately after sending
     setInputValue('');
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
     setIsLoading(true);
     
     try {
