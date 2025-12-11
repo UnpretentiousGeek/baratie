@@ -336,7 +336,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing request body' });
     }
 
-    const { prompt, method = 'generateContent', model = 'gemini-2.0-flash', fileData, filesData, url, currentRecipe, modify, question, action, content, type, conversationHistory = '' } = req.body;
+    const { prompt, method = 'generateContent', model = 'gemini-1.5-flash', fileData, filesData, url, currentRecipe, modify, question, action, content, type, conversationHistory = '' } = req.body;
 
     // Get API key
     const apiKey = process.env.GEMINI_API_KEY;
