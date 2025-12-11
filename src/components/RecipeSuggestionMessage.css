@@ -9,7 +9,8 @@
   background: #fef5f4;
   border-radius: 12px 12px 4px 12px;
   padding: 12px;
-  width: 100%;
+  width: fit-content;
+  max-width: 360px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -27,7 +28,7 @@
 }
 
 .recipe-suggestion-list-card {
-  width: 100%;
+  width: fit-content;
   max-width: 360px;
   background: linear-gradient(135deg, rgba(254, 245, 244, 1) 0%, rgba(252, 192, 185, 0.35) 100%);
   border-radius: 4px 12px 12px 12px;
@@ -67,6 +68,9 @@
 .recipe-suggestion-item.selected {
   background: #f08b7d;
   border-color: #f08b7d;
+  width: fit-content;
+  align-self: flex-start;
+  min-width: 100%;
 }
 
 .recipe-suggestion-item-text {
@@ -91,7 +95,8 @@
   border-radius: 4px;
   height: 40px;
   padding: 8px 16px;
-  width: 100%;
+  width: auto;
+  align-self: flex-end;
   cursor: pointer;
   font-family: 'Sora', sans-serif;
   font-size: 16px;

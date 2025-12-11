@@ -9,7 +9,7 @@ interface RecipeSuggestionMessageProps {
 }
 
 const RecipeSuggestionMessage: React.FC<RecipeSuggestionMessageProps> = ({ suggestions, text }) => {
-    const { setRecipe, setStage } = useRecipe();
+    const { setRecipe, setStage, addMessage } = useRecipe();
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
     const handleSelect = (index: number) => {
@@ -18,8 +18,16 @@ const RecipeSuggestionMessage: React.FC<RecipeSuggestionMessageProps> = ({ sugge
 
     const handleConfirm = () => {
         if (selectedIndex !== null && suggestions[selectedIndex]) {
-            setRecipe(suggestions[selectedIndex]);
+            const selectedRecipe = suggestions[selectedIndex];
+            setRecipe(selectedRecipe);
             setStage('preview');
+
+            // Add a preview message to show the selected recipe details
+            addMessage({
+                type: 'recipe-preview',
+                recipe: selectedRecipe,
+                text: 'Here is the recipe you selected:'
+            });
         }
     };
 
