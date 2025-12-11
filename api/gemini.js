@@ -911,23 +911,57 @@ Make sure the recipes are distinct and appetizing.`;
     // Handle suggestion response
     if (req.body.suggest) {
       try {
-        const jsonMatch = recipeText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ||
-          recipeText.match(/(\{[\s\S]*\})/);
+        console.log('Parsing suggestions from Gemini response...');
+        let parsed = null;
+        let parsingMethod = '';
 
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[1]);
-          if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
-            console.log('Successfully parsed suggestions:', parsed.suggestions.length);
-            return res.status(200).json({ suggestions: parsed.suggestions });
+        // Try parsing the whole text first (in case it's pure JSON)
+        try {
+          parsed = JSON.parse(recipeText);
+          parsingMethod = 'direct';
+        } catch (e) {
+          // If strict parse fails, try extracting JSON block
+          const jsonMatch = recipeText.match(/```(?:json)?\s*(\{[\s\S]*\}|\[[\s\S]*\])\s*```/) ||
+            recipeText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+
+          if (jsonMatch) {
+            try {
+              parsed = JSON.parse(jsonMatch[1]);
+              parsingMethod = 'extracted';
+            } catch (innerE) {
+              console.error('Failed to parse extracted JSON block:', innerE);
+            }
+          }
+        }
+
+        if (parsed) {
+          // Normalizer: Ensure we have an array of suggestions
+          let suggestions = [];
+
+          if (Array.isArray(parsed)) {
+            suggestions = parsed;
+          } else if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
+            suggestions = parsed.suggestions;
+          } else if (parsed.recipes && Array.isArray(parsed.recipes)) {
+            suggestions = parsed.recipes;
+          }
+
+          if (suggestions.length > 0) {
+            console.log(`Successfully parsed ${suggestions.length} suggestions using ${parsingMethod} method`);
+            return res.status(200).json({ suggestions: suggestions });
           }
         }
 
         // Fallback or error if structure not found
-        console.error('Failed to parse suggestions from response');
-        return res.status(500).json({ error: 'Failed to generate valid suggestions' });
+        console.error('Failed to parse suggestions. Raw response preview:', recipeText.substring(0, 500));
+        return res.status(500).json({
+          error: 'Failed to generate valid suggestions',
+          details: 'Could not parse JSON from Gemini response',
+          rawResponse: recipeText.substring(0, 1000)
+        });
       } catch (e) {
-        console.error('Error parsing suggestions JSON:', e);
-        return res.status(500).json({ error: 'Failed to parse suggestions' });
+        console.error('Error in suggestion parsing block:', e);
+        return res.status(500).json({ error: 'Failed to process suggestion response' });
       }
     }
 

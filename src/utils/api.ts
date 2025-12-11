@@ -244,7 +244,9 @@ export async function suggestRecipes(
     });
 
     if (!response.ok) {
-      throw new Error('Failed to get recipe suggestions');
+      const errorText = await response.text();
+      console.error('Recipe suggestion API failed:', response.status, errorText);
+      throw new Error(`Failed to get recipe suggestions: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
