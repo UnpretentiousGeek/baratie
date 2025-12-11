@@ -50,24 +50,34 @@
 
 .recipe-suggestion-item {
   width: 100%;
-  background: #ffffff;
-  border: 1px solid #e5e1dd;
-  border-radius: 4px;
-  padding: 8px 16px;
-  height: 44px;
+  background: var(--background-primary);
+  border: 1px solid var(--stroke-default);
+  border-radius: var(--2);
+  padding: var(--3);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
-/* Selected Hover State */
+/* Hover state (not selected) */
+.recipe-suggestion-item:not(.selected):hover {
+  background: var(--brand-light);
+  border-color: var(--stroke-default);
+}
+
+/* Selected state (default) */
+.recipe-suggestion-item.selected {
+  background: var(--brand-default);
+  border-color: var(--button-primary-default);
+}
+
+/* Selected hover state */
 .recipe-suggestion-item.selected:hover {
-  background: #f08b7d;
-  /* Brand/Dark */
-  border-color: #f08b7d;
-  /* Button/Primary/Default */
+  background: var(--brand-primary);
+  border-color: var(--button-primary-default);
 }
 
 .recipe-suggestion-item-text {
@@ -75,16 +85,16 @@
   font-size: 16px;
   font-weight: 400;
   line-height: 1.5;
-  color: #5a544e;
-  /* Updated from Figma */
+  color: var(--text-secondary);
   margin: 0;
   white-space: nowrap;
-  width: 100%;
-  text-align: left;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.recipe-suggestion-item.selected .recipe-suggestion-item-text {
-  color: #ffffff;
+/* Selected hover state - text becomes white */
+.recipe-suggestion-item.selected:hover .recipe-suggestion-item-text {
+  color: var(--button-primary-foreground);
 }
 
 .recipe-suggestion-confirm-button {
