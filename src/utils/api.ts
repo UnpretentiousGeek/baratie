@@ -1,6 +1,6 @@
 import { AttachedFile, Recipe } from '../types';
 
-const GEMINI_API_ENDPOINT = import.meta.env.VITE_GEMINI_API_ENDPOINT || '/api/gemini';
+const GEMINI_API_ENDPOINT = '/api/openai';
 const YOUTUBE_API_ENDPOINT = import.meta.env.VITE_YOUTUBE_API_ENDPOINT || '/api/youtube';
 
 export async function extractRecipeFromFiles(
