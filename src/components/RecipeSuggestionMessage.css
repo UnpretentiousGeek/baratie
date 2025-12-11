@@ -29,7 +29,7 @@
 
 .recipe-suggestion-list-card {
   width: fit-content;
-  max-width: 360px;
+  /* max-width removed */
   background: linear-gradient(135deg, rgba(254, 245, 244, 1) 0%, rgba(252, 192, 185, 0.35) 100%);
   border-radius: 4px 12px 12px 12px;
   padding: 24px;
@@ -41,10 +41,7 @@
 }
 
 .recipe-suggestion-list {
-  width: fit-content;
-  /* Hug contents */
-  min-width: 100%;
-  /* But allow expanding to card width if needed, though card hugs list so this is circular. fit-content is safer. */
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -52,7 +49,7 @@
 }
 
 .recipe-suggestion-item {
-  width: fit-content;
+  width: 100%;
   background: #ffffff;
   border: 1px solid #e5e1dd;
   border-radius: 4px;
@@ -65,22 +62,12 @@
   transition: all 0.2s ease;
 }
 
-/* Default Hover */
-.recipe-suggestion-item:hover {
-  background: #fffcfc;
-  border-color: #f08b7d;
-}
-
-/* Selected State */
-.recipe-suggestion-item.selected {
-  background: #f08b7d;
-  border-color: #f08b7d;
-}
-
 /* Selected Hover State */
 .recipe-suggestion-item.selected:hover {
-  background: #e6725f;
-  border-color: #e6725f;
+  background: #f08b7d;
+  /* Brand/Dark */
+  border-color: #f08b7d;
+  /* Button/Primary/Default */
 }
 
 .recipe-suggestion-item-text {
