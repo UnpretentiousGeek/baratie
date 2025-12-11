@@ -230,7 +230,7 @@ export default async function handler(req, res) {
 
         // Define specific task prompts
         if (question) {
-            systemPrompt = "You are Baratie, an AI Recipe Manager and cooking expert. Answer the user's question. If a recipe is provided in context, refer to it.";
+            systemPrompt = "You are Baratie, an AI Recipe Manager and cooking expert. Answer the user's question. If a recipe is provided in context, refer to it.\nReturn JSON format: { \"answer\": \"string\" }.";
             // Add context
             if (currentRecipe) userMessageContent += `\nCurrent Recipe: ${JSON.stringify(currentRecipe)}`;
             if (conversationHistory) userMessageContent += `\nHistory: ${conversationHistory}`;
