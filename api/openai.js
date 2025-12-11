@@ -125,7 +125,7 @@ export default async function handler(req, res) {
 
         if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
 
-        // 1. Validation Logic
+        // 1. Validation & Nutrition Logic
         if (action === 'validate') {
             const validationSystemPrompt = `You are a content filter. Respond with JSON: { "isValid": boolean }. Valid content is related to cooking, recipes, food, ingredients, or culinary techniques.`;
             let validationPrompt = '';
@@ -143,6 +143,36 @@ export default async function handler(req, res) {
             } catch (e) {
                 console.error('Validation error', e);
                 return res.status(200).json({ isValid: true }); // Fail open
+            }
+        }
+
+        if (action === 'calculateNutrition') {
+            const ingredients = req.body.ingredients;
+            const title = req.body.title || 'Recipe';
+
+            // Check if ingredients are present
+            if (!ingredients || (Array.isArray(ingredients) && ingredients.length === 0)) {
+                return res.status(200).json({ nutrition: null });
+            }
+
+            const nutritionSystemPrompt = `You are a nutritionist. Calculate estimated macros for the ENTIRE recipe.
+             Return JSON: { "calories": number, "protein": number, "carbs": number, "fat": number, "fiber": number }.
+             All values should be total for the whole recipe (not per serving). Use standard USDA data.`;
+
+            let ingredientsList = [];
+            if (Array.isArray(ingredients)) {
+                ingredientsList = ingredients.flatMap(i => (typeof i === 'object' && i.items) ? i.items : i);
+            }
+
+            const nutritionPrompt = `Recipe: ${title}\nIngredients:\n${ingredientsList.join('\n')}`;
+
+            try {
+                const resp = await callOpenAI(nutritionPrompt, nutritionSystemPrompt, apiKey, model, true);
+                const json = JSON.parse(resp);
+                return res.status(200).json({ nutrition: json });
+            } catch (e) {
+                console.error('Nutrition calc error', e);
+                return res.status(200).json({ nutrition: null });
             }
         }
 
@@ -214,8 +244,9 @@ export default async function handler(req, res) {
             userMessageContent = `Current Recipe: ${JSON.stringify(currentRecipe)}\nUser Request: ${prompt}\nHistory: ${conversationHistory}`;
 
         } else if (req.body.suggest) {
-            systemPrompt = `You are Baratie, an AI Recipe Manager and Chef. Suggest 2-4 recipes based on the user's request.
-       Return JSON format: { "suggestions": [{ "title": string, "ingredients": string[], "instructions": string[] }] }.`;
+            systemPrompt = `You are Baratie, an AI Recipe Manager and Chef. Suggest 4 recipes based on the user's request.
+       Return JSON format: { "suggestions": [{ "title": string, "description": string }] }.
+       Do NOT include ingredients or instructions yet. Just the title and a short 1-sentence description.`;
 
             userMessageContent = `User Request: ${prompt}\nHistory: ${conversationHistory}`;
 

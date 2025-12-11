@@ -257,3 +257,41 @@ export async function suggestRecipes(
   }
 }
 
+
+export async function calculateNutrition(
+  recipe: Recipe,
+  conversationHistory: string = ''
+): Promise<any> {
+  try {
+    const response = await fetch(GEMINI_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'calculateNutrition',
+        title: recipe.title,
+        ingredients: recipe.ingredients,
+        conversationHistory,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn('Nutrition calculation failed');
+      return null;
+    }
+
+    const data = await response.json();
+    return data.nutrition;
+  } catch (error) {
+    console.error('Error calculating nutrition:', error);
+    return null;
+  }
+}
+
+export async function generateRecipe(
+  title: string,
+  context: string = ''
+): Promise<Recipe> {
+  const prompt = `Generate a detailed cooking recipe for "${title}". ${context ? `Context: ${context}` : ''}`;
+  // Reuse the extraction logic which handles generation from text prompts
+  return extractRecipeFromText(prompt);
+}

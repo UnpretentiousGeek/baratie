@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { AttachedFile, Recipe, Stage, RecipeContextType, ChatMessage } from '../types';
 import { processFiles } from '../utils/recipeManager';
-import { extractRecipeFromFiles, suggestRecipes } from '../utils/api';
+import { extractRecipeFromFiles, suggestRecipes, generateRecipe } from '../utils/api';
 import { validateCookingMessage } from '../utils/validation';
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
@@ -88,6 +88,9 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     }
   });
 
+  // Calculate nutrition logic state
+  const [isCalculatingNutrition, setIsCalculatingNutrition] = useState(false);
+
   // Persist state changes
   React.useEffect(() => {
     try {
@@ -107,6 +110,50 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     } catch (e) {
       console.error('Failed to save recipe to storage', e);
     }
+  }, [recipe]);
+
+  // Calculate nutrition when recipe changes
+  React.useEffect(() => {
+    let active = true;
+
+    const fetchNutrition = async () => {
+      if (recipe && !recipe.nutrition) {
+        setIsCalculatingNutrition(true);
+        try {
+          // Import explicitly to assume it's there now
+          const { calculateNutrition } = await import('../utils/api');
+          const nutrition = await calculateNutrition(recipe);
+
+          if (active && nutrition && recipe) {
+            // Only update if we're still on the same recipe
+            setRecipe(prev => {
+              // Double check preventing race condition where recipe changed
+              if (prev && prev.title === recipe.title) {
+                return { ...prev, nutrition };
+              }
+              return prev;
+            });
+          }
+        } catch (e) {
+          console.error('Failed to calculate macros', e);
+        } finally {
+          if (active) setIsCalculatingNutrition(false);
+        }
+      } else if (recipe?.nutrition) {
+        // If nutrition exists, we are not calculating
+        if (active) setIsCalculatingNutrition(false);
+      }
+    };
+
+    // Debounce slightly to prevent thrashing
+    const timer = setTimeout(() => {
+      fetchNutrition();
+    }, 500);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [recipe]);
 
   React.useEffect(() => {
@@ -535,6 +582,64 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     }
   }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage]);
 
+  const selectSuggestion = useCallback(async (selectedRecipe: Recipe) => {
+    try {
+      // Check if recipe is "lite" (missing details)
+      const isLite = !selectedRecipe.ingredients || selectedRecipe.ingredients.length === 0;
+
+      if (isLite) {
+        addMessage({
+          type: 'loading',
+          text: `Creating full recipe for ${selectedRecipe.title}...`
+        });
+
+        // Generate full details
+        const conversationContext = buildConversationContext();
+        const fullRecipe = await generateRecipe(selectedRecipe.title, conversationContext);
+
+        // Remove loading
+        setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+        // Update with full details
+        setRecipe(fullRecipe);
+        setCurrentStage('preview');
+
+        addMessage({
+          type: 'system',
+          text: `Here is the detailed recipe for ${selectedRecipe.title}:`
+        });
+
+        addMessage({
+          type: 'recipe-preview',
+          recipe: fullRecipe,
+        });
+
+      } else {
+        // Already full recipe
+        setRecipe(selectedRecipe);
+        setCurrentStage('preview');
+
+        addMessage({
+          type: 'system',
+          text: `Here is the recipe for ${selectedRecipe.title}:`
+        });
+
+        addMessage({
+          type: 'recipe-preview',
+          recipe: selectedRecipe,
+        });
+      }
+    } catch (error) {
+      console.error('Error selecting suggestion:', error);
+      setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+      addMessage({
+        type: 'system',
+        text: 'Failed to load recipe details. Please try again.',
+      });
+    }
+  }, [addMessage, buildConversationContext]);
+
+
   const value: RecipeContextType = {
     attachedFiles,
     recipe,
@@ -548,6 +653,8 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     setRecipe,
     addMessage,
     clearMessages,
+    selectSuggestion,
+    isCalculatingNutrition,
   };
 
   return (

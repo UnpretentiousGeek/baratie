@@ -13,6 +13,7 @@ export interface RecipeSection {
 
 export interface Recipe {
   title: string;
+  description?: string; // Short description for suggestions
   ingredients: string[] | RecipeSection[]; // Support both flat array and sections
   instructions: string[] | RecipeSection[]; // Support both flat array and sections
   prepTime?: string;
@@ -56,5 +57,7 @@ export interface RecipeContextType {
   setRecipe: (recipe: Recipe | null) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearMessages: () => void;
+  selectSuggestion: (recipe: Recipe) => Promise<void>;
+  isCalculatingNutrition: boolean;
 }
 
