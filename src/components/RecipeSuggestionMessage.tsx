@@ -38,7 +38,6 @@ const RecipeSuggestionMessage: React.FC<RecipeSuggestionMessageProps> = ({ sugge
                             onClick={() => handleSelect(index)}
                         >
                             <p className="recipe-suggestion-item-text">{recipe.title}</p>
-                            {recipe.description && <p className="recipe-suggestion-item-desc">{recipe.description}</p>}
                         </div>
                     ))}
                 </div>
