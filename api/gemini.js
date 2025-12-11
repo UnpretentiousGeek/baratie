@@ -908,6 +908,29 @@ Make sure the recipes are distinct and appetizing.`;
       });
     }
 
+    // Handle suggestion response
+    if (req.body.suggest) {
+      try {
+        const jsonMatch = recipeText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ||
+          recipeText.match(/(\{[\s\S]*\})/);
+
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
+            console.log('Successfully parsed suggestions:', parsed.suggestions.length);
+            return res.status(200).json({ suggestions: parsed.suggestions });
+          }
+        }
+
+        // Fallback or error if structure not found
+        console.error('Failed to parse suggestions from response');
+        return res.status(500).json({ error: 'Failed to generate valid suggestions' });
+      } catch (e) {
+        console.error('Error parsing suggestions JSON:', e);
+        return res.status(500).json({ error: 'Failed to parse suggestions' });
+      }
+    }
+
     // Parse the recipe text into structured format
     const recipe = {
       title: 'Extracted Recipe',
