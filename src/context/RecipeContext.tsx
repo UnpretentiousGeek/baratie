@@ -254,10 +254,46 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         attachedFiles: filesToSend,
       });
 
-      // --- Smart Intent Routing ---
-      // We no longer force extraction for files/URLs. We let the AI decide.
-      // But we should hint the AI about the files in the prompt if possible, or just rely on the user saying "What is this?" vs "Extract this".
+      // --- Hard Constraint: URLs always trigger extraction ---
+      const urlPattern = /(https?:\/\/[^\s]+)/gi;
+      const urlInPrompt = prompt.match(urlPattern)?.[0];
 
+      if (urlInPrompt) {
+        addMessage({ type: 'loading', text: 'Extracting recipe from URL...' });
+        try {
+          const { extractRecipeFromURL } = await import('../utils/api');
+          const extractedResult = await extractRecipeFromURL(urlInPrompt, prompt);
+
+          setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+          if (extractedResult && 'answer' in extractedResult) {
+            addMessage({ type: 'system', text: (extractedResult as any).answer });
+            return;
+          }
+
+          const extractedRecipe = extractedResult as Recipe;
+          if (extractedRecipe.title) {
+            extractedRecipe.title = extractedRecipe.title.replace(/[*#_`~]/g, '').trim();
+          }
+
+          if (!recipe) {
+            setRecipe(extractedRecipe);
+            setCurrentStage('preview');
+          }
+
+          addMessage({ type: 'system', text: 'Here is the extracted recipe' });
+          addMessage({ type: 'recipe-preview', recipe: extractedRecipe });
+          return;
+        } catch (error) {
+          setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+          let errorMessage = 'Failed to extract recipe from URL.';
+          if (error instanceof Error) errorMessage = error.message;
+          addMessage({ type: 'system', text: errorMessage });
+          return;
+        }
+      }
+
+      // --- Smart Intent Routing (For non-URL prompts) ---
       addMessage({ type: 'loading', text: 'Thinking...' });
 
       try {
