@@ -241,13 +241,57 @@
         padding: var(--spacing-5) var(--spacing-3) var(--spacing-13) var(--spacing-3);
     }
 
-    .start-cooking-btn {
-        padding: 14px 36px;
-        font-size: 16px;
-    }
-
     .recipe-preview {
         padding: 0 16px;
+    }
+}
+
+/* Mobile Unsupported View */
+.mobile-unsupported-view {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 52px;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+
+.mobile-unsupported-text {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    max-width: 300px;
+}
+
+.mobile-unsupported-image {
+    width: 213px;
+    height: 213px;
+    object-fit: cover;
+    border-radius: 12px;
+    /* Optional, assuming from context */
+}
+
+.desktop-only {
+    display: flex;
+}
+
+@media (max-width: 1024px) {
+    .mobile-unsupported-view {
+        display: flex;
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+
+    .hero-section {
+        background: var(--background-primary);
+        align-items: center;
+        justify-content: center;
     }
 }
 

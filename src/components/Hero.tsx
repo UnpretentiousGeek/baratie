@@ -184,11 +184,26 @@ const Hero: React.FC = () => {
 
   return (
     <div className="hero-section">
-      <div className="hero-content">
+      {/* Mobile/Tablet Unsupported View */}
+      <div className="mobile-unsupported-view">
+        <p className="mobile-unsupported-text">
+          I'm sorry I have not optimized it for smaller devices. For now, you can only try it on Desktop
+        </p>
+        <img
+          src="/assets/sadhamstergirl.gif"
+          alt="Sad Hamster"
+          className="mobile-unsupported-image"
+        />
+      </div>
+
+      {/* Desktop View */}
+      <div className="hero-content desktop-only">
         <h2 className="hero-title">What you wanna cook?</h2>
         <p className="hero-subtitle">Turn any recipe into an interactive cooking guide</p>
       </div>
-      <ChatInput />
+      <div className="desktop-only w-full">
+        <ChatInput />
+      </div>
     </div>
   );
 };
