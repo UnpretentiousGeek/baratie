@@ -412,56 +412,75 @@ export default async function handler(req, res) {
             finalUserMessage
         ];
 
-        // 4. Call OpenAI
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: messages,
-                response_format: { type: "json_object" } // Force JSON to solve parsing issues
-            })
-        });
-
-        if (!response.ok) {
-            const err = await response.text();
-            throw new Error(`OpenAI Error: ${response.status} ${err}`);
-        }
-
-        const data = await response.json();
-        const rawContent = data.choices[0].message.content;
-
-        console.log('OpenAI Raw Response:', rawContent.substring(0, 200));
-
-        // 5. Parse and Return
+        // 4. Call OpenAI with Fallback
+        let response;
         try {
-            const parsed = JSON.parse(rawContent);
+            console.log(`Calling OpenAI with model: ${model}`);
+            response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: messages,
+                    response_format: { type: "json_object" }
+                })
+            });
 
-            if (req.body.suggest) {
-                return res.status(200).json({ suggestions: parsed.suggestions || parsed.recipes || [] });
+            // If model is invalid (404/400) or fails, try fallback
+            if (!response.ok && model !== 'gpt-4o-mini') {
+                console.warn(`Primary model ${model} failed (${response.status}). Retrying with gpt-4o-mini...`);
+                // Retry with fallback
+                response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o-mini',
+                        messages: messages,
+                        response_format: { type: "json_object" }
+                    })
+                });
             }
-            if (question) {
-                // For questions, we might have forced JSON but we really just want text. 
-                // If we used json_mode, the model returned JSON.
-                // Actually, for questions I shouldn't have forced JSON mode strictly unless I wrapped it.
-                // Let's assume for 'question' type we handle it:
-                return res.status(200).json({ answer: parsed.answer || parsed.text || rawContent }); // Simplified
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`OpenAI Error: ${response.status} ${err}`);
             }
 
-            // Default extraction/modification return
-            return res.status(200).json({ recipe: parsed });
+            const data = await response.json();
+            const rawContent = data.choices[0].message.content;
 
-        } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
-            // Fallback for non-JSON answers (like questions if we messed up mode)
-            if (question) return res.status(200).json({ answer: rawContent });
+            console.log('OpenAI Raw Response:', rawContent.substring(0, 200));
 
-            return res.status(500).json({ error: 'Failed to parse OpenAI response', raw: rawContent });
+            // 5. Parse and Return
+            try {
+                const parsed = JSON.parse(rawContent);
+
+                if (req.body.suggest) {
+                    return res.status(200).json({ suggestions: parsed.suggestions || parsed.recipes || [] });
+                }
+                if (question) {
+                    return res.status(200).json({ answer: parsed.answer || parsed.text || rawContent });
+                }
+
+                // Default extraction/modification return
+                return res.status(200).json({ recipe: parsed });
+
+            } catch (parseError) {
+                console.error('JSON Parse Error:', parseError);
+                if (question) return res.status(200).json({ answer: rawContent });
+                return res.status(500).json({ error: 'Failed to parse OpenAI response', raw: rawContent });
+            }
+
+        } catch (error) {
+            console.error('API Handler Error:', error);
+            return res.status(500).json({ error: error.message });
         }
-
     } catch (error) {
         console.error('API Handler Error:', error);
         return res.status(500).json({ error: error.message });
