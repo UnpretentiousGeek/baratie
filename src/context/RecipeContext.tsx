@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { AttachedFile, Recipe, Stage, RecipeContextType, ChatMessage } from '../types';
 import { processFiles } from '../utils/recipeManager';
-import { extractRecipeFromFiles, suggestRecipes, generateRecipe } from '../utils/api';
+import { generateRecipe } from '../utils/api';
 import { validateCookingMessage } from '../utils/validation';
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
