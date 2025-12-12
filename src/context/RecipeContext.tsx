@@ -358,11 +358,17 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
             break;
         }
 
-      } catch (error) {
+      } catch (err) {
         setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-        console.error('Outer error:', error);
+        addMessage({ type: 'system', text: 'Sorry, I encountered an error.' });
       }
-    }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage, buildConversationContext, validateCookingMessage]);
+
+    } catch (error) {
+      setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+      console.error('Outer error:', error);
+      addMessage({ type: 'system', text: 'An unexpected error occurred.' });
+    }
+  }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage, buildConversationContext, validateCookingMessage]);
 
   const selectSuggestion = useCallback(async (selectedRecipe: Recipe) => {
     try {
