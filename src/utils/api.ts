@@ -3,6 +3,34 @@ import { AttachedFile, Recipe } from '../types';
 const GEMINI_API_ENDPOINT = '/api/openai';
 const YOUTUBE_API_ENDPOINT = import.meta.env.VITE_YOUTUBE_API_ENDPOINT || '/api/youtube';
 
+export async function determineIntent(
+  prompt: string,
+  currentRecipe: Recipe | null
+): Promise<'extract_recipe' | 'suggest_recipes' | 'answer_question' | 'modify_recipe'> {
+  try {
+    const response = await fetch(GEMINI_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'determine_intent',
+        prompt,
+        currentRecipe: currentRecipe ? { title: currentRecipe.title } : null,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn('Intent determination failed, defaulting to answer_question');
+      return 'answer_question';
+    }
+
+    const data = await response.json();
+    return data.intent || 'answer_question';
+  } catch (error) {
+    console.error('Error determining intent:', error);
+    return 'answer_question';
+  }
+}
+
 export async function extractRecipeFromFiles(
   files: AttachedFile[],
   prompt: string

@@ -126,6 +126,77 @@ export default async function handler(req, res) {
         if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
 
         // 1. Validation & Nutrition Logic
+        if (action === 'determine_intent') {
+            const systemPrompt = "You are the brain of a recipe app. Determine the user's intent based on their message and context. Choose the most appropriate function to call.";
+
+            const tools = [
+                {
+                    type: "function",
+                    function: {
+                        name: "answer_question",
+                        description: "Answer general cooking questions, explain ingredients, or answer questions about the current recipe (e.g., 'how long to cook?', 'what is this?'). Use this for 'Tell me about...' queries.",
+                        parameters: { type: "object", properties: {}, required: [] }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "suggest_recipes",
+                        description: "Suggest recipes based on ingredients, leftovers, or specific dish requests (e.g., 'I have chicken', 'Give me a biryani recipe').",
+                        parameters: { type: "object", properties: {}, required: [] }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "modify_recipe",
+                        description: "Modify the CURRENTLY loaded recipe (e.g., 'make it spicy', 'adjust for 2 people'). Only valid if a recipe is currently active.",
+                        parameters: { type: "object", properties: {}, required: [] }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "extract_recipe",
+                        description: "Extract a recipe from provided text, URL, or finding a recipe in the message.",
+                        parameters: { type: "object", properties: {}, required: [] }
+                    }
+                }
+            ];
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: `Context: ${currentRecipe ? 'Recipe Active' : 'No Recipe'}\nMessage: ${prompt}` }
+                        ],
+                        tools: tools,
+                        tool_choice: "required"
+                    })
+                });
+
+                const data = await response.json();
+                const toolCall = data.choices[0]?.message?.tool_calls?.[0];
+
+                if (toolCall) {
+                    return res.status(200).json({ intent: toolCall.function.name });
+                } else {
+                    return res.status(200).json({ intent: 'answer_question' }); // Default fallback
+                }
+
+            } catch (e) {
+                console.error('Intent determination error', e);
+                return res.status(200).json({ intent: 'answer_question' }); // Fail safe
+            }
+        }
+
         if (action === 'validate') {
             const validationSystemPrompt = `You are a content filter. Respond with JSON: { "isValid": boolean }. Valid content is related to cooking, recipes, food, ingredients, or culinary techniques.`;
             let validationPrompt = '';
