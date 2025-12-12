@@ -280,7 +280,11 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       });
 
       // Check if this is a question (ends with ? or starts with question words)
-      const isQuestion = /^(\?|how|what|when|where|why|who|which|is|are|can|could|would|should|do|does|did|will|may|might)\s/i.test(prompt.trim()) ||
+      const isQuestion =
+        /\b(how|what|why|when|where|who|can|could|would|should|do|does|did|will|may|might)\b.*\?/i.test(prompt) ||
+        /\b(how (do|to)|substitute|replace|alternatives?)\b/i.test(prompt) ||
+        /\b(is|are) (it|there)\b/i.test(prompt) ||
+        /\b(tell me (more|about)|describe|explain)\b/i.test(prompt) ||
         prompt.trim().endsWith('?');
 
       // Check if user is asking about alternatives/substitutions (should suggest, not auto-update)
