@@ -33,11 +33,27 @@ function cleanText(text) {
 
 function extractRecipeContent(html) {
     // 1. Try to extract JSON-LD first (Gold Standard)
-    const jsonLdMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
-    if (jsonLdMatch && jsonLdMatch[1]) {
-        // Return JSON-LD directly as it's the best data source. 
-        // We'll wrap it to tell the AI it's structured data.
-        return `Detected JSON-LD Structured Data:\n${jsonLdMatch[1].trim()}`;
+    // We match all scripts and looks for "Recipe" type
+    const jsonLdMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+    let bestJsonLd = '';
+
+    for (const match of jsonLdMatches) {
+        if (match[1]) {
+            const content = match[1];
+            // Prioritize block containing "Recipe"
+            if (content.includes('"Recipe"') || content.includes("'Recipe'")) {
+                bestJsonLd = content;
+                break; // Found the recipe block
+            }
+            // Fallback: keep the longest block if it looks like data
+            if (content.length > bestJsonLd.length) {
+                bestJsonLd = content;
+            }
+        }
+    }
+
+    if (bestJsonLd) {
+        return `Detected JSON-LD Structured Data:\n${bestJsonLd.trim().substring(0, 15000)}`;
     }
 
     // 2. Clean up HTML (remove scripts/styles that aren't JSON-LD)
@@ -293,16 +309,40 @@ export default async function handler(req, res) {
                     } catch (e) { console.error('YouTube fetch failed', e); }
                 }
             } else {
+            } else {
                 // Generic URL Scraping
                 try {
-                    const webResp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout for scraping
+
+                    const webResp = await fetch(url, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        },
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
                     if (webResp.ok) {
                         const html = await webResp.text();
                         const pageContent = extractRecipeContent(html);
                         extractedContext = `Webpage Content: ${pageContent}`;
                         finalPrompt = `Extract recipe from this webpage. ${extractedContext}\n\n${prompt}`;
                     }
-                } catch (e) { console.error('Web scrape failed', e); }
+                } catch (e) {
+                    console.error('Web scrape failed', e);
+                    // Don't fail the whole request, just proceed without context if scrape fails
+                    // But if user specifically asked to extract from URL, maybe we should indicate failure?
+                    // For now, let it fall through to the LLM which might hallucinate or say "I can't read it".
+                    // Better to explicitly say we couldn't access.
+                    if (e.name === 'AbortError') {
+                        extractedContext = "Could not access the website (Timeout).";
+                    } else {
+                        extractedContext = "Could not access the website.";
+                    }
+                    finalPrompt = `I tried to access the URL but failed. ${prompt}`;
+                }
             }
         }
 
