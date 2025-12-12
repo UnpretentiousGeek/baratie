@@ -32,42 +32,58 @@ function cleanText(text) {
 }
 
 function extractRecipeContent(html) {
-    let cleanHtml = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    // 1. Try to extract JSON-LD first (Gold Standard)
+    const jsonLdMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
+    if (jsonLdMatch && jsonLdMatch[1]) {
+        // Return JSON-LD directly as it's the best data source. 
+        // We'll wrap it to tell the AI it's structured data.
+        return `Detected JSON-LD Structured Data:\n${jsonLdMatch[1].trim()}`;
+    }
 
-    // Selectors for finding recipe content
+    // 2. Clean up HTML (remove scripts/styles that aren't JSON-LD)
+    let cleanHtml = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+    // 3. Try Semantic Selectors
     const recipeSelectors = [
-        /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i,
-        /<article[^>]*>([\s\S]*?)<\/article>/i,
-        /<div[^>]*class="[^"]*recipe[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+        /<div[^>]*class="[^"]*recipe[^"]*"[^>]*>([\s\S]*?)<\/div>/i, // generic .recipe class
+        /<div[^>]*class="[^"]*wprm-recipe-container[^"]*"[^>]*>([\s\S]*?)<\/div>/i, // WP Recipe Maker
+        /<div[^>]*class="[^"]*tasty-recipes[^"]*"[^>]*>([\s\S]*?)<\/div>/i, // Tasty Recipes
+        /<article[^>]*>([\s\S]*?)<\/article>/i, // Semantic Article
+        /<main[^>]*>([\s\S]*?)<\/main>/i, // Semantic Main
         /<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-        /<main[^>]*>([\s\S]*?)<\/main>/i,
     ];
 
     let extractedContent = '';
-    // Simple extraction logic - usually body is enough if we clean it well
+
+    // Default to body
     const bodyMatch = cleanHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     extractedContent = bodyMatch ? bodyMatch[1] : cleanHtml;
 
-    // Try simpler specific extraction if possible
+    // Try to find a more specific, cleaner section
     for (const selector of recipeSelectors) {
         const match = cleanHtml.match(selector);
-        if (match && match[1] && match[1].length > extractedContent.length / 4) { // Heuristic
-            // actually let's just stick to the robust one from gemini.js conceptually
-            // For brevity in this new file, I'll use a simplified version that relies on the model to filter noise
-            // given gpt-5-nano's likely strong context handling.
-            // But copying the cleaning logic is good practice.
+        if (match && match[1]) {
+            const candidate = match[1];
+            // If the candidate is substantial enough (arbitrary >500 chars), prefer it over the massive body
+            if (candidate.length > 500) {
+                extractedContent = candidate;
+                break; // Stop at the first good match (ordered by specificity)
+            }
         }
     }
 
-    // Basic cleanup
+    // 4. Final Cleanup
     extractedContent = extractedContent
         .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
         .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
         .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+        .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '')
+        .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
+        .replace(/<[^>]+>/g, ' ') // Remove all remaining tags
+        .replace(/\s+/g, ' ')     // Collapse whitespace
         .trim();
 
     return extractedContent.substring(0, 15000); // Truncate to avoid massive tokens
