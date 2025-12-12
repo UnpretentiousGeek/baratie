@@ -53,7 +53,7 @@ function extractRecipeContent(html) {
     }
 
     if (bestJsonLd) {
-        return `Detected JSON-LD Structured Data:\n${bestJsonLd.trim().substring(0, 15000)}`;
+        return `Detected JSON-LD Structured Data:\n${bestJsonLd.trim().substring(0, 6000)}`;
     }
 
     // 2. Clean up HTML (remove scripts/styles that aren't JSON-LD)
@@ -102,7 +102,7 @@ function extractRecipeContent(html) {
         .replace(/\s+/g, ' ')     // Collapse whitespace
         .trim();
 
-    return extractedContent.substring(0, 15000); // Truncate to avoid massive tokens
+    return extractedContent.substring(0, 6000); // Truncate for speed
 }
 
 // --- OpenAI Agent Helpers ---
@@ -152,7 +152,7 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { prompt, model = 'gpt-5-nano-2025-08-07', fileData, filesData, url, currentRecipe, modify, question, action, content, type, conversationHistory = '' } = req.body;
+        const { prompt, model = 'gpt-4o-mini', fileData, filesData, url, currentRecipe, modify, question, action, content, type, conversationHistory = '' } = req.body;
         const apiKey = process.env.OPENAI_API_KEY;
 
         if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
@@ -312,7 +312,7 @@ export default async function handler(req, res) {
                 // Generic URL Scraping
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout for scraping
+                    const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s timeout for scraping
 
                     const webResp = await fetch(url, {
                         headers: {
