@@ -424,13 +424,18 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         // Remove loading
         setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
-        // Update with full details
-        setRecipe(fullRecipe);
-        setCurrentStage('preview');
+        // Only change recipe/stage if NOT in cooking mode
+        // If in cooking mode, just show the preview in chat
+        if (currentStage !== 'cooking') {
+          setRecipe(fullRecipe);
+          setCurrentStage('preview');
+        }
 
         addMessage({
           type: 'system',
-          text: `Here is the detailed recipe for ${selectedRecipe.title}:`
+          text: currentStage === 'cooking'
+            ? `Here's another recipe for ${selectedRecipe.title}. Click "Start Cooking" to switch to it:`
+            : `Here is the detailed recipe for ${selectedRecipe.title}:`
         });
 
         addMessage({
@@ -440,12 +445,16 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
       } else {
         // Already full recipe
-        setRecipe(selectedRecipe);
-        setCurrentStage('preview');
+        if (currentStage !== 'cooking') {
+          setRecipe(selectedRecipe);
+          setCurrentStage('preview');
+        }
 
         addMessage({
           type: 'system',
-          text: `Here is the recipe for ${selectedRecipe.title}:`
+          text: currentStage === 'cooking'
+            ? `Here's another recipe for ${selectedRecipe.title}. Click "Start Cooking" to switch to it:`
+            : `Here is the recipe for ${selectedRecipe.title}:`
         });
 
         addMessage({
