@@ -5,7 +5,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    margin-left: 0;
+    margin: 0 auto;
     padding-left: 0;
     overflow: visible;
 }
@@ -139,8 +139,8 @@
     color: var(--text-primary);
 }
 
-.btn-add-media > div,
-.btn-send-arrow > div {
+.btn-add-media>div,
+.btn-send-arrow>div {
     width: 20px;
     height: 20px;
     display: flex;
@@ -170,4 +170,3 @@
     background: var(--button-primary-default);
     cursor: not-allowed;
 }
-
