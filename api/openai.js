@@ -309,7 +309,6 @@ export default async function handler(req, res) {
                     } catch (e) { console.error('YouTube fetch failed', e); }
                 }
             } else {
-            } else {
                 // Generic URL Scraping
                 try {
                     const controller = new AbortController();
