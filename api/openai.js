@@ -32,77 +32,137 @@ function cleanText(text) {
 }
 
 function extractRecipeContent(html) {
-    // 1. Try to extract JSON-LD first (Gold Standard)
-    // We match all scripts and looks for "Recipe" type
-    const jsonLdMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
-    let bestJsonLd = '';
+    // Remove script and style tags first (except JSON-LD which we process separately)
+    let cleanHtml = html.replace(/<script(?![^>]*type="application\/ld\+json")[^>]*>[\s\S]*?<\/script>/gi, '');
+    cleanHtml = cleanHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
 
-    for (const match of jsonLdMatches) {
-        if (match[1]) {
-            const content = match[1];
-            // Prioritize block containing "Recipe"
-            if (content.includes('"Recipe"') || content.includes("'Recipe'")) {
-                bestJsonLd = content;
-                break; // Found the recipe block
-            }
-            // Fallback: keep the longest block if it looks like data
-            if (content.length > bestJsonLd.length) {
-                bestJsonLd = content;
-            }
-        }
-    }
-
-    if (bestJsonLd) {
-        return `Detected JSON-LD Structured Data:\n${bestJsonLd.trim().substring(0, 6000)}`;
-    }
-
-    // 2. Clean up HTML (remove scripts/styles that aren't JSON-LD)
-    let cleanHtml = html
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-
-    // 3. Try Semantic Selectors
+    // Try to find recipe-specific content areas
     const recipeSelectors = [
-        /<div[^>]*class="[^"]*recipe[^"]*"[^>]*>([\s\S]*?)<\/div>/i, // generic .recipe class
-        /<div[^>]*class="[^"]*wprm-recipe-container[^"]*"[^>]*>([\s\S]*?)<\/div>/i, // WP Recipe Maker
-        /<div[^>]*class="[^"]*tasty-recipes[^"]*"[^>]*>([\s\S]*?)<\/div>/i, // Tasty Recipes
-        /<article[^>]*>([\s\S]*?)<\/article>/i, // Semantic Article
-        /<main[^>]*>([\s\S]*?)<\/main>/i, // Semantic Main
+        /<article[^>]*>([\s\S]*?)<\/article>/i,
+        /<div[^>]*class="[^"]*recipe[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+        /<div[^>]*class="[^"]*wprm-recipe-container[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
         /<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+        /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+        /<main[^>]*>([\s\S]*?)<\/main>/i,
     ];
 
     let extractedContent = '';
+    let bestMatch = null;
+    let bestLength = 0;
 
-    // Default to body
-    const bodyMatch = cleanHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    extractedContent = bodyMatch ? bodyMatch[1] : cleanHtml;
-
-    // Try to find a more specific, cleaner section
+    // Try all selectors and pick the one with the most content
     for (const selector of recipeSelectors) {
-        const match = cleanHtml.match(selector);
-        if (match && match[1]) {
-            const candidate = match[1];
-            // If the candidate is substantial enough (arbitrary >500 chars), prefer it over the massive body
-            if (candidate.length > 500) {
-                extractedContent = candidate;
-                break; // Stop at the first good match (ordered by specificity)
+        const matches = cleanHtml.matchAll(new RegExp(selector.source, 'gi'));
+        for (const match of matches) {
+            if (match && match[1]) {
+                const content = match[1];
+                if (content.length > bestLength) {
+                    bestLength = content.length;
+                    bestMatch = content;
+                }
             }
         }
     }
 
-    // 4. Final Cleanup
-    extractedContent = extractedContent
-        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-        .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
-        .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '')
-        .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
-        .replace(/<[^>]+>/g, ' ') // Remove all remaining tags
-        .replace(/\s+/g, ' ')     // Collapse whitespace
+    if (bestMatch) {
+        extractedContent = bestMatch;
+    } else {
+        const bodyMatch = cleanHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        extractedContent = bodyMatch ? bodyMatch[1] : cleanHtml;
+    }
+
+    // Remove non-recipe elements
+    extractedContent = extractedContent.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
+    extractedContent = extractedContent.replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '');
+    extractedContent = extractedContent.replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+    extractedContent = extractedContent.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '');
+    extractedContent = extractedContent.replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '');
+
+    // Convert HTML to readable text with structure preserved
+    let text = extractedContent
+        .replace(/<ol[^>]*>/gi, '\n')
+        .replace(/<\/ol>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '\n')
+        .replace(/<\/li>/gi, '\n')
+        .replace(/<h[1-6][^>]*>/gi, '\n### ')
+        .replace(/<\/h[1-6]>/gi, '\n')
+        .replace(/<p[^>]*>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<div[^>]*>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\n\s*\n\s*\n/g, '\n\n')
+        .replace(/[ \t]+/g, ' ')
         .trim();
 
-    return extractedContent.substring(0, 6000); // Truncate for speed
+    // Try to extract JSON-LD structured data
+    const jsonLdMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+    let jsonLdRecipeText = '';
+
+    for (const jsonLdMatch of jsonLdMatches) {
+        try {
+            const jsonLd = JSON.parse(jsonLdMatch[1]);
+            const items = Array.isArray(jsonLd) ? jsonLd : (jsonLd['@graph'] || [jsonLd]);
+
+            for (const item of items) {
+                if (item['@type'] === 'Recipe' || item['@type'] === 'https://schema.org/Recipe') {
+                    let recipeText = `RECIPE: ${item.name || ''}\n\n`;
+                    let hasInstructions = false;
+
+                    if (item.recipeIngredient) {
+                        recipeText += 'INGREDIENTS:\n';
+                        recipeText += item.recipeIngredient.join('\n') + '\n\n';
+                    }
+
+                    if (item.recipeInstructions) {
+                        recipeText += 'INSTRUCTIONS:\n';
+                        if (Array.isArray(item.recipeInstructions)) {
+                            item.recipeInstructions.forEach((step, i) => {
+                                let stepText = '';
+                                if (typeof step === 'string') {
+                                    stepText = step;
+                                } else if (step['@type'] === 'HowToStep' || step.text) {
+                                    stepText = step.text || step.name || '';
+                                } else {
+                                    stepText = step.name || '';
+                                }
+                                if (stepText && stepText.length > 10) {
+                                    recipeText += `${i + 1}. ${stepText}\n`;
+                                    hasInstructions = true;
+                                }
+                            });
+                        }
+                    }
+
+                    if (hasInstructions && recipeText.length > 200) {
+                        jsonLdRecipeText = recipeText;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('JSON-LD parse error:', e.message);
+        }
+    }
+
+    // Combine JSON-LD with scraped text if available
+    if (jsonLdRecipeText) {
+        return `${jsonLdRecipeText}\n\n--- Additional content ---\n${text.substring(0, 10000)}`;
+    }
+
+    // Limit content length
+    if (text.length > 20000) {
+        text = text.substring(0, 20000) + '...';
+    }
+
+    return text;
 }
 
 // --- OpenAI Agent Helpers ---
@@ -311,36 +371,40 @@ export default async function handler(req, res) {
             } else {
                 // Generic URL Scraping
                 try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s timeout for scraping
-
+                    console.log('Scraping URL:', url);
                     const webResp = await fetch(url, {
                         headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                        },
-                        signal: controller.signal
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.5',
+                        }
                     });
-
-                    clearTimeout(timeoutId);
 
                     if (webResp.ok) {
                         const html = await webResp.text();
+                        console.log('Scraped HTML length:', html.length);
                         const pageContent = extractRecipeContent(html);
-                        extractedContext = `Webpage Content: ${pageContent}`;
-                        finalPrompt = `Extract recipe from this webpage. ${extractedContext}\n\n${prompt}`;
+                        console.log('Extracted content length:', pageContent.length);
+
+                        if (pageContent.length > 100) {
+                            extractedContext = `Webpage Content: ${pageContent}`;
+                            finalPrompt = `Extract recipe from this webpage. ${extractedContext}\n\n${prompt}`;
+                        } else {
+                            return res.status(400).json({
+                                error: 'Could not extract recipe content from this website. The site may be blocking automated access. Please try copying and pasting the recipe text directly.'
+                            });
+                        }
+                    } else {
+                        console.error('Scrape failed with status:', webResp.status);
+                        return res.status(400).json({
+                            error: `Could not access website (HTTP ${webResp.status}). Please try copying and pasting the recipe text directly.`
+                        });
                     }
                 } catch (e) {
-                    console.error('Web scrape failed', e);
-                    // Don't fail the whole request, just proceed without context if scrape fails
-                    // But if user specifically asked to extract from URL, maybe we should indicate failure?
-                    // For now, let it fall through to the LLM which might hallucinate or say "I can't read it".
-                    // Better to explicitly say we couldn't access.
-                    if (e.name === 'AbortError') {
-                        extractedContext = "Could not access the website (Timeout).";
-                    } else {
-                        extractedContext = "Could not access the website.";
-                    }
-                    finalPrompt = `I tried to access the URL but failed. ${prompt}`;
+                    console.error('Web scrape failed:', e.message);
+                    return res.status(400).json({
+                        error: 'Could not access website. Please try copying and pasting the recipe text directly.'
+                    });
                 }
             }
         }
