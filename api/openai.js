@@ -104,7 +104,8 @@ function extractRecipeContent(html) {
 
     // Try to extract JSON-LD structured data
     const jsonLdMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
-    let jsonLdRecipeText = '';
+    let bestRecipeText = '';
+    let bestRecipeLength = 0;
 
     for (const jsonLdMatch of jsonLdMatches) {
         try {
@@ -114,7 +115,7 @@ function extractRecipeContent(html) {
             for (const item of items) {
                 if (item['@type'] === 'Recipe' || item['@type'] === 'https://schema.org/Recipe') {
                     let recipeText = `RECIPE: ${item.name || ''}\n\n`;
-                    let hasInstructions = false;
+                    let instructionCount = 0;
 
                     if (item.recipeIngredient) {
                         recipeText += 'INGREDIENTS:\n';
@@ -130,20 +131,32 @@ function extractRecipeContent(html) {
                                     stepText = step;
                                 } else if (step['@type'] === 'HowToStep' || step.text) {
                                     stepText = step.text || step.name || '';
+                                } else if (step['@type'] === 'HowToSection' && step.itemListElement) {
+                                    // Handle nested sections (common in detailed recipes)
+                                    step.itemListElement.forEach((subStep) => {
+                                        const subText = subStep.text || subStep.name || '';
+                                        if (subText && subText.length > 10) {
+                                            recipeText += `${instructionCount + 1}. ${subText}\n`;
+                                            instructionCount++;
+                                        }
+                                    });
+                                    return;
                                 } else {
                                     stepText = step.name || '';
                                 }
                                 if (stepText && stepText.length > 10) {
-                                    recipeText += `${i + 1}. ${stepText}\n`;
-                                    hasInstructions = true;
+                                    recipeText += `${instructionCount + 1}. ${stepText}\n`;
+                                    instructionCount++;
                                 }
                             });
                         }
                     }
 
-                    if (hasInstructions && recipeText.length > 200) {
-                        jsonLdRecipeText = recipeText;
-                        break;
+                    // Keep the recipe with the MOST content (longest/most detailed)
+                    if (instructionCount > 0 && recipeText.length > bestRecipeLength) {
+                        bestRecipeText = recipeText;
+                        bestRecipeLength = recipeText.length;
+                        console.log(`Found recipe "${item.name}" with ${instructionCount} instructions`);
                     }
                 }
             }
@@ -151,6 +164,8 @@ function extractRecipeContent(html) {
             console.log('JSON-LD parse error:', e.message);
         }
     }
+
+    let jsonLdRecipeText = bestRecipeText;
 
     // Combine JSON-LD with scraped text if available
     if (jsonLdRecipeText) {
