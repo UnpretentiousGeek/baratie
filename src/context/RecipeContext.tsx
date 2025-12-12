@@ -299,10 +299,12 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       // 2. "What can I cook" patterns
       // 3. "Recipes for" patterns
       // 4. Inventory statements ("I have", "Got")
+      // 5. Explicit requests ("Give me", "Show me")
       const isSuggestion =
         ((/\b(suggest|recommend|ideas|options)\b/i.test(prompt)) && !/\b(substitute|replace|instead)\b/i.test(prompt)) ||
         /\bwhat (can|should|to) (i|we) (make|cook|eat|prepare)\b/i.test(prompt) ||
         /\b(recipes? for)\b/i.test(prompt) ||
+        /\b(give|show|find|search) (me)? a? (recipe|dish)\b/i.test(prompt) ||
         /\b(i (have|got)|leftover)\b/i.test(prompt);
 
       // Check if we have an existing recipe and this is a question or modification request
