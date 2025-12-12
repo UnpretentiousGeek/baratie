@@ -25,7 +25,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
       // Calculate max height for 10 lines (16px font * 1.5 line-height * 10 lines = 240px)
       const maxHeight = 240;
       const scrollHeight = textarea.scrollHeight;
-      
+
       // Set height to scrollHeight, but cap at maxHeight
       if (scrollHeight <= maxHeight) {
         textarea.style.height = `${Math.max(24, scrollHeight)}px`;
@@ -61,7 +61,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
       textareaRef.current.style.height = 'auto';
     }
     setIsLoading(true);
-    
+
     try {
       await extractRecipe(currentInput);
     } catch (error) {
@@ -127,7 +127,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
                 <textarea
                   ref={textareaRef}
                   className="hero-chat-input chat-input-chat-mode-text"
-                  placeholder="Ask Anything"
+                  placeholder="Paste a link, ask for suggestions, or chat about cooking..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -152,7 +152,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
               <textarea
                 ref={textareaRef}
                 className="hero-chat-input"
-                placeholder="Ask Baratie to extract or make changes to a recipe..."
+                placeholder="Paste a recipe link, suggest recipes with ingredients, or ask anything..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
