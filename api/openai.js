@@ -127,14 +127,14 @@ export default async function handler(req, res) {
 
         // 1. Validation & Nutrition Logic
         if (action === 'determine_intent') {
-            const systemPrompt = "You are the brain of a recipe app. Determine the user's intent based on their message and context. Choose the most appropriate function to call.";
+            const systemPrompt = "You are the brain of a recipe app. Determine the user's intent based on their message and context. Choose the most appropriate function to call.\nIf the user asks about an image (what is this?, describe this), use 'answer_question'.\nIf the intent is just general chat or ambiguous, use 'answer_question'.";
 
             const tools = [
                 {
                     type: "function",
                     function: {
                         name: "answer_question",
-                        description: "Answer general cooking questions, explain ingredients, or answer questions about the current recipe (e.g., 'how long to cook?', 'what is this?'). Use this for 'Tell me about...' queries.",
+                        description: "Answer general cooking questions, describe attached food images, explain ingredients, or answer questions about the current recipe. Default to this for chat.",
                         parameters: { type: "object", properties: {}, required: [] }
                     }
                 },
@@ -158,13 +158,19 @@ export default async function handler(req, res) {
                     type: "function",
                     function: {
                         name: "extract_recipe",
-                        description: "Extract a recipe from provided text, URL, or finding a recipe in the message.",
+                        description: "Extract a recipe from provided text, URL, or finding a recipe in the message. ONLY use this if the user explicitly asks to 'extract', 'save', 'get the recipe', or if the input is a URL/long text that is clearly a recipe.",
                         parameters: { type: "object", properties: {}, required: [] }
                     }
                 }
             ];
 
             try {
+                // Check if files are present in the request (we don't send file data to determine_intent to save tokens, just metadata)
+                // Actually the frontend sends 'prompt' and 'currentRecipe'. We need to know if files are attached.
+                // We'll trust the user prompt context or just add it if possible.
+                // For now, let's assume the prompt implies it or we allow Q&A to handle it.
+                const hasFile = (fileData || (filesData && filesData.length > 0)) ? 'yes' : 'no';
+
                 const response = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: {
@@ -175,7 +181,7 @@ export default async function handler(req, res) {
                         model: model,
                         messages: [
                             { role: 'system', content: systemPrompt },
-                            { role: 'user', content: `Context: ${currentRecipe ? 'Recipe Active' : 'No Recipe'}\nMessage: ${prompt}` }
+                            { role: 'user', content: `Context: ${currentRecipe ? 'Recipe Active' : 'No Recipe'}\nHas File: ${hasFile}\nMessage: ${prompt}` }
                         ],
                         tools: tools,
                         tool_choice: "required"
@@ -301,7 +307,7 @@ export default async function handler(req, res) {
 
         // Define specific task prompts
         if (question) {
-            systemPrompt = "You are Baratie, an AI Recipe Manager and cooking expert. Answer the user's question CONCISELY (1-2 paragraphs max). If a recipe is provided in context, use it to answer but DO NOT output the full recipe unless explicitly asked for ingredients or instructions.\nReturn JSON format: { \"answer\": \"string\" }.";
+            systemPrompt = "You are Baratie, an AI Recipe Manager and cooking expert. Answer the user's question CONCISELY (1-2 paragraphs max). You CAN and SHOULD describe attached food images if asked (e.g. 'What is this?'). If a recipe is provided in context, refer to it. DO NOT output the full recipe unless explicitly asked for ingredients or instructions.\nReturn JSON format: { \"answer\": \"string\" }.";
             // Add context
             if (currentRecipe) userMessageContent += `\nCurrent Recipe: ${JSON.stringify(currentRecipe)}`;
             if (conversationHistory) userMessageContent += `\nHistory: ${conversationHistory}`;

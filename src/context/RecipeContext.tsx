@@ -254,64 +254,21 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         attachedFiles: filesToSend,
       });
 
-      // --- URL/File Extraction (Hard Constraint) ---
-      const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
-      const url = urlMatches ? urlMatches[0] : null;
-
-      if (url || (filesToSend && filesToSend.length > 0)) {
-        addMessage({ type: 'loading', text: 'Extracting recipe...' });
-        try {
-          let extractedResult;
-          if (url) {
-            const { extractRecipeFromURL } = await import('../utils/api');
-            extractedResult = await extractRecipeFromURL(url, prompt);
-          } else {
-            const { extractRecipeFromFiles } = await import('../utils/api');
-            if (filesToSend && filesToSend.length > 0) {
-              extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
-            } else {
-              throw new Error("No files to extract from");
-            }
-          }
-
-          setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-
-          if (extractedResult && 'answer' in extractedResult) {
-            addMessage({ type: 'system', text: (extractedResult as any).answer });
-            return;
-          }
-
-          const extractedRecipe = extractedResult as Recipe;
-          if (extractedRecipe.title) extractedRecipe.title = extractedRecipe.title.replace(/[*#_`~]/g, '').trim();
-
-          if (!recipe) {
-            setRecipe(extractedRecipe);
-            setCurrentStage('preview');
-          }
-
-          addMessage({ type: 'system', text: 'Here is the extracted recipe' });
-          addMessage({ type: 'recipe-preview', recipe: extractedRecipe });
-
-        } catch (error) {
-          setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-          let errorMessage = 'Failed to extract recipe.';
-          if (error instanceof Error) errorMessage = error.message;
-          addMessage({ type: 'system', text: errorMessage });
-        }
-        return;
-      }
-
       // --- Smart Intent Routing ---
+      // We no longer force extraction for files/URLs. We let the AI decide.
+      // But we should hint the AI about the files in the prompt if possible, or just rely on the user saying "What is this?" vs "Extract this".
+
       addMessage({ type: 'loading', text: 'Thinking...' });
 
       try {
         const { determineIntent } = await import('../utils/api');
-        const intent = await determineIntent(prompt, recipe);
+        // Hint the intent determiner about presence of files/url context
+        const contextPrompt = (filesToSend && filesToSend.length > 0) ? `[User attached ${filesToSend.length} images] ${prompt}` : prompt;
+        const intent = await determineIntent(contextPrompt, recipe);
         console.log('Detected Intent:', intent);
 
         switch (intent) {
           case 'suggest_recipes':
-            // Update loading text
             setMessages(prev => prev.map(msg => msg.type === 'loading' ? { ...msg, text: 'Generating suggestions...' } : msg));
             const { suggestRecipes } = await import('../utils/api');
             const suggestions = await suggestRecipes(prompt, buildConversationContext());
@@ -333,7 +290,6 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
           case 'modify_recipe':
             if (!recipe) {
-              // Fallback to Q&A
               const { answerQuestion: answerQ } = await import('../utils/api');
               const ans = await answerQ(prompt, null, buildConversationContext(), filesToSend || []);
               setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
@@ -350,25 +306,63 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
           case 'extract_recipe':
             setMessages(prev => prev.map(msg => msg.type === 'loading' ? { ...msg, text: 'Extracting...' } : msg));
-            const { extractRecipeFromText } = await import('../utils/api');
-            const extracted = await extractRecipeFromText(prompt);
-            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-            setRecipe(extracted);
-            setCurrentStage('preview');
-            addMessage({ type: 'system', text: `Extracted ${extracted.title}.` });
+
+            // Extraction Logic (moved from hard constraint)
+            try {
+              let extractedResult;
+              // Check for URL again here as it might be needed for specific extraction
+              const urlPattern = /(https?:\/\/[^\s]+)/gi;
+              const urlFound = prompt.match(urlPattern)?.[0];
+
+              if (urlFound) {
+                const { extractRecipeFromURL } = await import('../utils/api');
+                extractedResult = await extractRecipeFromURL(urlFound, prompt);
+              } else if (filesToSend && filesToSend.length > 0) {
+                const { extractRecipeFromFiles } = await import('../utils/api');
+                extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
+              } else {
+                const { extractRecipeFromText } = await import('../utils/api');
+                extractedResult = await extractRecipeFromText(prompt);
+              }
+
+              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+              if (extractedResult && 'answer' in extractedResult) {
+                addMessage({ type: 'system', text: (extractedResult as any).answer });
+              } else {
+                const extractedRecipe = extractedResult as Recipe;
+                if (extractedRecipe.title) {
+                  extractedRecipe.title = extractedRecipe.title.replace(/[*#_`~]/g, '').trim();
+                }
+
+                // Check for error titles
+                const isErrorTitle = /^(I'm sorry|I apologize|I cannot|I could not|Error|No recipe|Unable to)/i.test(extractedRecipe.title || '');
+                // Check for empty ingredients
+                const hasNoIngredients = !extractedRecipe.ingredients || extractedRecipe.ingredients.length === 0;
+
+                if (isErrorTitle || hasNoIngredients) {
+                  addMessage({ type: 'system', text: extractedRecipe.title || 'Could not extract a valid recipe.' });
+                } else {
+                  if (!recipe) {
+                    setRecipe(extractedRecipe);
+                    setCurrentStage('preview');
+                  }
+                  addMessage({ type: 'system', text: 'Here is the extracted recipe' });
+                  addMessage({ type: 'recipe-preview', recipe: extractedRecipe });
+                }
+              }
+            } catch (err) {
+              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+              addMessage({ type: 'system', text: 'Failed to extract recipe.' });
+            }
             break;
         }
 
-      } catch (err) {
+      } catch (error) {
         setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-        addMessage({ type: 'system', text: 'Sorry, I encountered an error.' });
+        console.error('Outer error:', error);
       }
-
-    } catch (error) {
-      setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-      console.error('Outer error:', error);
-    }
-  }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage, buildConversationContext, validateCookingMessage]);
+    }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage, buildConversationContext, validateCookingMessage]);
 
   const selectSuggestion = useCallback(async (selectedRecipe: Recipe) => {
     try {
