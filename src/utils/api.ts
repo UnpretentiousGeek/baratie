@@ -163,9 +163,22 @@ export async function extractRecipeFromYouTube(videoId: string): Promise<Recipe>
 export async function answerQuestion(
   question: string,
   currentRecipe: Recipe | null = null,
-  conversationHistory: string = ''
+  conversationHistory: string = '',
+  files: AttachedFile[] = []
 ): Promise<string> {
   try {
+    // Convert files if present
+    const filesData = files.map(f => {
+      let base64Data = f.data;
+      if (base64Data.includes(',')) {
+        base64Data = base64Data.split(',')[1];
+      }
+      return {
+        mimeType: f.type,
+        data: base64Data,
+      };
+    });
+
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -178,6 +191,7 @@ export async function answerQuestion(
           instructions: currentRecipe.instructions,
         } : undefined,
         conversationHistory,
+        filesData: filesData.length > 0 ? filesData : undefined,
       }),
     });
 

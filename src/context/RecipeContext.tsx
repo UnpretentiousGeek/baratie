@@ -304,7 +304,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         ((/\b(suggest|recommend|ideas|options)\b/i.test(prompt)) && !/\b(substitute|replace|instead)\b/i.test(prompt)) ||
         /\bwhat (can|should|to) (i|we) (make|cook|eat|prepare)\b/i.test(prompt) ||
         /\b(recipes? for)\b/i.test(prompt) ||
-        /\b(give|show|find|search) (me)? a? (recipe|dish)\b/i.test(prompt) ||
+        /\b(give|show|find|search) (me)?.*\b(recipe|dish)\b/i.test(prompt) ||
         /\b(i (have|got)|leftover)\b/i.test(prompt);
 
       // Check if we have an existing recipe and this is a question or modification request
@@ -387,14 +387,29 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       if (recipe && !urlMatches && (!filesToSend || filesToSend.length === 0) && !looksLikeNewRecipe) {
         if ((isQuestion || isAlternativeRequest) && !isModification) {
           // This is a question or alternative request - answer it without modifying the recipe
-          const { answerQuestion } = await import('../utils/api');
-          const conversationContext = buildConversationContext();
-          const answer = await answerQuestion(prompt, recipe, conversationContext);
-
           addMessage({
-            type: 'system',
-            text: answer,
+            type: 'loading',
+            text: 'Thinking...',
           });
+
+          try {
+            const { answerQuestion } = await import('../utils/api');
+            const conversationContext = buildConversationContext();
+            const answer = await answerQuestion(prompt, recipe, conversationContext);
+
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+            addMessage({
+              type: 'system',
+              text: answer,
+            });
+          } catch (error) {
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+            addMessage({
+              type: 'system',
+              text: 'Sorry, I encountered an error while answering your question.',
+            });
+          }
           return;
         } else if (isModification || (!isQuestion && !isAlternativeRequest && !isModification)) {
 
@@ -470,11 +485,18 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         }
       }
 
-      // If it's a question but no recipe, still answer it
-      if (isQuestion && !urlMatches && (!filesToSend || filesToSend.length === 0) && !recipe) {
+      // If it's a question (even with files) and no recipe, answer it
+      if (isQuestion && !urlMatches && !recipe) {
+        addMessage({
+          type: 'loading',
+          text: 'Thinking...',
+        });
+
         const { answerQuestion } = await import('../utils/api');
         const conversationContext = buildConversationContext();
-        const answer = await answerQuestion(prompt, null, conversationContext);
+        const answer = await answerQuestion(prompt, null, conversationContext, filesToSend || []);
+
+        setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
         addMessage({
           type: 'system',
