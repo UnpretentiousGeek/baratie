@@ -470,7 +470,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         text: 'Failed to load recipe details. Please try again.',
       });
     }
-  }, [addMessage, buildConversationContext]);
+  }, [addMessage, buildConversationContext, currentStage]);
 
 
   const value: RecipeContextType = {
