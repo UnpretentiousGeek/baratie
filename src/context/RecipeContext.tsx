@@ -232,63 +232,33 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       const hasFiles = attachedFiles.length > 0;
 
       // Validate cooking relevance for messages without URL/files and no existing recipe
-      // Skip validation if:
-      // - URL is provided (validated server-side)
-      // - Files are attached (assumed to be recipe-related)
-      // - Recipe already exists (context is already cooking-related)
       if (!hasUrl && !hasFiles && !recipe) {
         const isValid = await validateCookingMessage(prompt);
 
         if (!isValid) {
-          // Switch to chat mode to show the error message
-          if (currentStage === 'capture') {
-            setCurrentStage('preview');
-          }
-
-          // Add user message first
-          addMessage({
-            type: 'user',
-            text: prompt,
-          });
-
-          // Add validation error message
-          addMessage({
-            type: 'system',
-            text: 'Please ask a cooking or recipe-related question. Baratie specializes in helping you cook!',
-          });
-
-          return; // Don't proceed with API call
+          if (currentStage === 'capture') setCurrentStage('preview');
+          addMessage({ type: 'user', text: prompt });
+          addMessage({ type: 'system', text: 'Please ask a cooking or recipe-related question. Baratie specializes in helping you cook!' });
+          return;
         }
       }
 
-      // Switch to chat mode immediately when user sends first message
-      if (currentStage === 'capture') {
-        setCurrentStage('preview');
-      }
+      if (currentStage === 'capture') setCurrentStage('preview');
 
-      // Store attached files before clearing
       const filesToSend = attachedFiles.length > 0 ? [...attachedFiles] : undefined;
-
-      // Clear attached files immediately after sending
       clearFiles();
 
-      // Add user message
       addMessage({
         type: 'user',
         text: prompt || 'Extract this recipe',
         attachedFiles: filesToSend,
       });
 
-      // Check for URL in prompt (Hard constraint: URLs always imply extraction)
+      // --- URL/File Extraction (Hard Constraint) ---
       const urlMatches = prompt.match(/(https?:\/\/[^\s]+)/gi);
       const url = urlMatches ? urlMatches[0] : null;
 
-      // Logic Flow:
-      // 1. If explicit URL or files -> Extract (Hard rule)
-      // 2. Else -> Ask AI for Intent (Smart rule)
-
       if (url || (filesToSend && filesToSend.length > 0)) {
-        // --- EXTRACTION FLOW (Explicit) ---
         addMessage({ type: 'loading', text: 'Extracting recipe...' });
         try {
           let extractedResult;
@@ -297,196 +267,187 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
             extractedResult = await extractRecipeFromURL(url, prompt);
           } else {
             const { extractRecipeFromFiles } = await import('../utils/api');
-            extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
+            if (filesToSend && filesToSend.length > 0) {
+              extractedResult = await extractRecipeFromFiles(filesToSend, prompt);
+            } else {
+              throw new Error("No files to extract from");
+            }
           }
 
-          // Remove loading message
           setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
-          // Check if result is a recipe or an answer
-          if ('answer' in extractedResult) {
-            // It's an answer/description (e.g. "This is a Mojito")
-            addMessage({
-              type: 'system',
-              text: extractedResult.answer,
-            });
+          if (extractedResult && 'answer' in extractedResult) {
+            addMessage({ type: 'system', text: (extractedResult as any).answer });
             return;
           }
 
-          // It's a recipe
           const extractedRecipe = extractedResult as Recipe;
+          if (extractedRecipe.title) extractedRecipe.title = extractedRecipe.title.replace(/[*#_`~]/g, '').trim();
 
-          // Clean title - remove markdown characters (*, #, _, etc.)
-          if (extractedRecipe.title) {
-            extractedRecipe.title = extractedRecipe.title.replace(/[*#_`~]/g, '').trim();
-          }
-
-          // Validate extracted recipe
-          const isErrorTitle = /^(I'm sorry|I apologize|I cannot|I could not|Error|No recipe|Unable to)/i.test(extractedRecipe.title || '');
-          const hasNoIngredients = !extractedRecipe.ingredients || extractedRecipe.ingredients.length === 0;
-
-          if (isErrorTitle || hasNoIngredients) {
-            // Treat as an error/system message
-            addMessage({
-              type: 'system',
-              text: extractedRecipe.title || 'Could not extract a valid recipe from the provided content.',
-            });
-            return;
-          }
-
-          // Only switch context if we don't have an active recipe
           if (!recipe) {
             setRecipe(extractedRecipe);
             setCurrentStage('preview');
           }
 
-          // Add system message
-          addMessage({
-            type: 'system',
-            text: 'Here is the extracted recipe',
-          });
-
-          // Add recipe preview message
-          addMessage({
-            type: 'recipe-preview',
-            recipe: extractedRecipe,
-          });
+          addMessage({ type: 'system', text: 'Here is the extracted recipe' });
+          addMessage({ type: 'recipe-preview', recipe: extractedRecipe });
 
         } catch (error) {
           setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-          let errorMessage = 'Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.';
-          if (error instanceof Error) {
-            errorMessage = error.message || errorMessage;
-          }
+          let errorMessage = 'Failed to extract recipe.';
+          if (error instanceof Error) errorMessage = error.message;
           addMessage({ type: 'system', text: errorMessage });
         }
         return;
       }
 
-      // --- SMART ROUTING (No URL/Files) ---
-      addMessage({ type: 'loading', text: 'Thinking...' }); // ambiguous loading state
+      // --- Smart Intent Routing ---
+      addMessage({ type: 'loading', text: 'Thinking...' });
 
       try {
-      });
-  return;
-}
+        const { determineIntent } = await import('../utils/api');
+        const intent = await determineIntent(prompt, recipe);
+        console.log('Detected Intent:', intent);
 
-// Only switch context if we don't have an active recipe
-if (!recipe) {
-  setRecipe(extractedRecipe);
-  setCurrentStage('preview');
-}
+        switch (intent) {
+          case 'suggest_recipes':
+            // Update loading text
+            setMessages(prev => prev.map(msg => msg.type === 'loading' ? { ...msg, text: 'Generating suggestions...' } : msg));
+            const { suggestRecipes } = await import('../utils/api');
+            const suggestions = await suggestRecipes(prompt, buildConversationContext());
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
-// Add system message
-addMessage({
-  type: 'system',
-  text: 'Here is the extracted recipe',
-});
+            if (suggestions.length > 0) {
+              addMessage({ type: 'recipe-suggestion', text: 'Here are some recommendations:', suggestions });
+            } else {
+              addMessage({ type: 'system', text: "I couldn't find specific recipes. Could you be more specific?" });
+            }
+            break;
 
-// Add recipe preview message
-addMessage({
-  type: 'recipe-preview',
-  recipe: extractedRecipe,
-});
+          case 'answer_question':
+            const { answerQuestion } = await import('../utils/api');
+            const answer = await answerQuestion(prompt, recipe, buildConversationContext(), filesToSend || []);
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+            addMessage({ type: 'system', text: answer });
+            break;
+
+          case 'modify_recipe':
+            if (!recipe) {
+              // Fallback to Q&A
+              const { answerQuestion: answerQ } = await import('../utils/api');
+              const ans = await answerQ(prompt, null, buildConversationContext(), filesToSend || []);
+              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+              addMessage({ type: 'system', text: ans });
+            } else {
+              setMessages(prev => prev.map(msg => msg.type === 'loading' ? { ...msg, text: 'Updating recipe...' } : msg));
+              const { modifyRecipe } = await import('../utils/api');
+              const modified = await modifyRecipe(recipe, prompt, buildConversationContext());
+              setRecipe(modified);
+              setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+              addMessage({ type: 'system', text: 'Recipe updated!' });
+            }
+            break;
+
+          case 'extract_recipe':
+            setMessages(prev => prev.map(msg => msg.type === 'loading' ? { ...msg, text: 'Extracting...' } : msg));
+            const { extractRecipeFromText } = await import('../utils/api');
+            const extracted = await extractRecipeFromText(prompt);
+            setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+            setRecipe(extracted);
+            setCurrentStage('preview');
+            addMessage({ type: 'system', text: `Extracted ${extracted.title}.` });
+            break;
+        }
+
+      } catch (err) {
+        setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+        addMessage({ type: 'system', text: 'Sorry, I encountered an error.' });
+      }
+
     } catch (error) {
-  // Ensure loading message is removed in case of error in the outer block
-  setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-
-  console.error('Error extracting recipe:', error);
-
-  // Get a more helpful error message
-  let errorMessage = 'Failed to extract recipe. Please check the console for details or ensure the API endpoints are configured.';
-  if (error instanceof Error) {
-    errorMessage = error.message || errorMessage;
-  }
-
-  // Add error message
-  addMessage({
-    type: 'system',
-    text: errorMessage,
-  });
-  throw error;
-}
-  }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage]);
-
-const selectSuggestion = useCallback(async (selectedRecipe: Recipe) => {
-  try {
-    // Check if recipe is "lite" (missing details)
-    const isLite = !selectedRecipe.ingredients || selectedRecipe.ingredients.length === 0;
-
-    if (isLite) {
-      addMessage({
-        type: 'loading',
-        text: `Creating full recipe for ${selectedRecipe.title}...`
-      });
-
-      // Generate full details
-      const conversationContext = buildConversationContext();
-      const fullRecipe = await generateRecipe(selectedRecipe.title, conversationContext);
-
-      // Remove loading
       setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+      console.error('Outer error:', error);
+    }
+  }, [attachedFiles, addMessage, recipe, clearFiles, currentStage, setCurrentStage, buildConversationContext, validateCookingMessage]);
 
-      // Update with full details
-      setRecipe(fullRecipe);
-      setCurrentStage('preview');
+  const selectSuggestion = useCallback(async (selectedRecipe: Recipe) => {
+    try {
+      // Check if recipe is "lite" (missing details)
+      const isLite = !selectedRecipe.ingredients || selectedRecipe.ingredients.length === 0;
 
+      if (isLite) {
+        addMessage({
+          type: 'loading',
+          text: `Creating full recipe for ${selectedRecipe.title}...`
+        });
+
+        // Generate full details
+        const conversationContext = buildConversationContext();
+        const fullRecipe = await generateRecipe(selectedRecipe.title, conversationContext);
+
+        // Remove loading
+        setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
+
+        // Update with full details
+        setRecipe(fullRecipe);
+        setCurrentStage('preview');
+
+        addMessage({
+          type: 'system',
+          text: `Here is the detailed recipe for ${selectedRecipe.title}:`
+        });
+
+        addMessage({
+          type: 'recipe-preview',
+          recipe: fullRecipe,
+        });
+
+      } else {
+        // Already full recipe
+        setRecipe(selectedRecipe);
+        setCurrentStage('preview');
+
+        addMessage({
+          type: 'system',
+          text: `Here is the recipe for ${selectedRecipe.title}:`
+        });
+
+        addMessage({
+          type: 'recipe-preview',
+          recipe: selectedRecipe,
+        });
+      }
+    } catch (error) {
+      console.error('Error selecting suggestion:', error);
+      setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
       addMessage({
         type: 'system',
-        text: `Here is the detailed recipe for ${selectedRecipe.title}:`
-      });
-
-      addMessage({
-        type: 'recipe-preview',
-        recipe: fullRecipe,
-      });
-
-    } else {
-      // Already full recipe
-      setRecipe(selectedRecipe);
-      setCurrentStage('preview');
-
-      addMessage({
-        type: 'system',
-        text: `Here is the recipe for ${selectedRecipe.title}:`
-      });
-
-      addMessage({
-        type: 'recipe-preview',
-        recipe: selectedRecipe,
+        text: 'Failed to load recipe details. Please try again.',
       });
     }
-  } catch (error) {
-    console.error('Error selecting suggestion:', error);
-    setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
-    addMessage({
-      type: 'system',
-      text: 'Failed to load recipe details. Please try again.',
-    });
-  }
-}, [addMessage, buildConversationContext]);
+  }, [addMessage, buildConversationContext]);
 
 
-const value: RecipeContextType = {
-  attachedFiles,
-  recipe,
-  currentStage,
-  messages,
-  addFiles,
-  removeFile,
-  clearFiles,
-  extractRecipe,
-  setStage: setCurrentStage,
-  setRecipe,
-  addMessage,
-  clearMessages,
-  selectSuggestion,
-  isCalculatingNutrition,
-};
+  const value: RecipeContextType = {
+    attachedFiles,
+    recipe,
+    currentStage,
+    messages,
+    addFiles,
+    removeFile,
+    clearFiles,
+    extractRecipe,
+    setStage: setCurrentStage,
+    setRecipe,
+    addMessage,
+    clearMessages,
+    selectSuggestion,
+    isCalculatingNutrition,
+  };
 
-return (
-  <RecipeContext.Provider value={value}>
-    {children}
-  </RecipeContext.Provider>
-);
+  return (
+    <RecipeContext.Provider value={value}>
+      {children}
+    </RecipeContext.Provider>
+  );
 };
