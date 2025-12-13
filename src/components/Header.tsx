@@ -21,7 +21,7 @@ const Header: React.FC = () => {
       <nav className="nav-links desktop-nav">
         <a href="https://github.com/UnpretentiousGeek/baratie/tree/master/extensions" target="_blank" rel="noopener noreferrer" className="nav-link">Get Extension</a>
         <Link to="/about" className="nav-link">About</Link>
-        <a href="mailto:tomar.sanchit15@gmail.com" className="nav-link">Contact</a>
+        <a href="https://x.com/hakku015" target="_blank" rel="noopener noreferrer" className="nav-link">Contact</a>
       </nav>
 
       {/* Mobile Menu Toggle */}
@@ -45,7 +45,7 @@ const Header: React.FC = () => {
         <div className="mobile-menu-overlay">
           <a href="https://github.com/UnpretentiousGeek/baratie/tree/master/extensions" target="_blank" rel="noopener noreferrer" className="mobile-nav-link" onClick={closeMenu}>Get Extension</a>
           <Link to="/about" className="mobile-nav-link" onClick={closeMenu}>About</Link>
-          <a href="mailto:tomar.sanchit15@gmail.com" className="mobile-nav-link" onClick={closeMenu}>Contact</a>
+          <a href="https://x.com/hakku015" target="_blank" rel="noopener noreferrer" className="mobile-nav-link" onClick={closeMenu}>Contact</a>
         </div>
       )}
     </header>
