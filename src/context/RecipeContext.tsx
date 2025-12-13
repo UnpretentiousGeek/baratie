@@ -186,7 +186,15 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
 
   const addFiles = useCallback(async (files: File[]) => {
     try {
-      const processed = await processFiles(files);
+      const imageFiles = files.filter(file => file.type.startsWith('image/'));
+      if (imageFiles.length !== files.length) {
+        console.warn('Non-image files were filtered out');
+        // Ideally we would notify the user here, but for now we just filter
+      }
+
+      if (imageFiles.length === 0) return;
+
+      const processed = await processFiles(imageFiles);
       setAttachedFiles(prev => [...prev, ...processed]);
     } catch (error) {
       console.error('Error adding files:', error);

@@ -84,7 +84,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
     const files = items
       .filter(item => item.kind === 'file')
       .map(item => item.getAsFile())
-      .filter((file): file is File => file !== null);
+      .filter((file): file is File => file !== null && file.type.startsWith('image/'));
 
     if (files.length > 0) {
       e.preventDefault();
@@ -97,7 +97,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,.pdf"
+        accept="image/*"
         multiple
         onChange={handleFileSelect}
         style={{ display: 'none' }}
