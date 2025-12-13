@@ -44,3 +44,62 @@
     color: var(--brand-primary);
 }
 
+/* Mobile Menu Styles */
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    z-index: 1001;
+}
+
+.mobile-menu-overlay {
+    display: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .desktop-nav {
+        display: none;
+    }
+
+    .mobile-menu-toggle {
+        display: block;
+    }
+
+    .mobile-menu-overlay {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 32px;
+        position: fixed;
+        top: 73px;
+        /* Header height approx */
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--background-primary);
+        padding: 40px 32px;
+        z-index: 999;
+        /* Matches Figma design */
+    }
+
+    .mobile-nav-link {
+        font-family: 'Sora', sans-serif;
+        font-weight: 400;
+        font-size: 16px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+        text-decoration: none;
+        width: 100%;
+        text-align: center;
+        padding: 8px;
+    }
+
+    /* Ensure header stays white/solid when menu is open */
+    .app-header-new {
+        background: var(--background-primary);
+    }
+}
