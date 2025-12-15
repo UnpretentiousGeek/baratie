@@ -127,7 +127,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ isChatMode = false }) => {
                 <textarea
                   ref={textareaRef}
                   className="hero-chat-input chat-input-chat-mode-text"
-                  placeholder="Paste a link, ask for suggestions, or chat about cooking..."
+                  placeholder={isChatMode ? "Ask a question, modify the recipe, or request something else..." : "Paste a recipe link, suggest recipes with ingredients, or ask anything..."}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
