@@ -57,11 +57,14 @@ const AppContent: React.FC = () => {
   );
 };
 
+import { Analytics } from "@vercel/analytics/react";
+
 const App: React.FC = () => {
   return (
     <RecipeProvider>
       <Router>
         <AppContent />
+        <Analytics />
       </Router>
     </RecipeProvider>
   );
