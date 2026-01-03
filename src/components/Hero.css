@@ -105,8 +105,8 @@
 .cooking-chat-panel .chat-container {
     max-width: 100%;
     width: 100%;
-    padding: 0 16px 16px 16px;
-    /* Reduced padding to ensure content fits */
+    padding: 0 28px 24px 28px;
+    /* User requested 28px padding */
     overflow-x: visible;
     overflow-y: hidden;
     display: flex;
