@@ -6,7 +6,8 @@
     justify-content: space-between;
     align-items: center;
     box-sizing: border-box;
-    position: sticky;
+    position: relative;
+    /* Changed from sticky to relative for solid flex layout */
     top: 0;
     background: var(--background-primary);
     z-index: 1000;

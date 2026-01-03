@@ -18,6 +18,6 @@
     height: 100vh;
     height: 100dvh;
     /* Dynamic viewport height - fixes Chrome UI issues */
-    overflow: visible;
-    /* Allow sticky header to work - overflow:hidden breaks sticky positioning */
+    overflow: hidden;
+    /* Prevent window scroll - content scrolls internally */
 }
