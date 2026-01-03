@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 /* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 html,
 body,
 #root {
@@ -15,6 +21,10 @@ body,
     /* Prevent ANY root level scrolling */
     position: fixed;
     /* fix for iOS bounce */
+}
+
+position: fixed;
+/* fix for iOS bounce */
 }
 
 *:not(.instruction-item.completed .instruction-text) {
