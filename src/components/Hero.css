@@ -31,10 +31,10 @@
     flex: 1;
     overflow: hidden;
     padding: 0;
-    /* Remove internal padding to maximize space */
-    gap: 1%;
-    /* Use percentage gap */
-    margin: 0 4px;
+    gap: 4px;
+    /* User requested 4px gap */
+    margin: 0 4px 4px 4px;
+    /* User requested 4px bottom margin */
 }
 
 .cooking-chat-panel {
@@ -49,12 +49,13 @@
     position: relative;
     margin: 0;
     flex-shrink: 0;
+    align-items: center;
+    /* Center align children horizontally */
 }
 
 .cooking-recipe-panel {
     flex: 1;
-    width: 64%;
-    /* Adjusted to sum to 99% with chat panel */
+    /* Removed fixed width so flex: 1 handles remaining space perfectly */
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -114,7 +115,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    margin: 0;
+    margin: 0 auto;
+    /* Ensure horizontal centering */
     position: relative;
     z-index: 1;
 }
