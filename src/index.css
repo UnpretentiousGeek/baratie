@@ -23,9 +23,7 @@ body,
     /* fix for iOS bounce */
 }
 
-position: fixed;
-/* fix for iOS bounce */
-}
+
 
 *:not(.instruction-item.completed .instruction-text) {
     text-decoration: none;
