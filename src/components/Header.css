@@ -11,6 +11,9 @@
     background: var(--background-primary);
     z-index: 1000;
     flex-shrink: 0;
+    flex-grow: 0;
+    min-height: 73px;
+    /* Ensure header never gets compressed by flex containers */
     isolation: isolate;
 }
 

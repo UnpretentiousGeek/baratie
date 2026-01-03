@@ -88,7 +88,8 @@
 .hero-section.chat-mode .chat-container {
     max-width: 748px;
     width: 748px;
-    padding: 0 40px 24px 40px;
+    padding: 16px 40px 24px 40px;
+    /* Added top padding to prevent content from being behind sticky header */
     overflow-x: visible;
     overflow-y: hidden;
     display: flex;

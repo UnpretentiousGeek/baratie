@@ -5,14 +5,19 @@
     position: relative;
     z-index: 1;
     height: 100vh;
+    height: 100dvh;
+    /* Dynamic viewport height - fixes Chrome UI issues */
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.app-container:has(.chat-mode) {
+.app-container:has(.chat-mode),
+.app-container:has(.cooking-mode) {
     max-width: 100%;
-    overflow: hidden;
     height: 100vh;
+    height: 100dvh;
+    /* Dynamic viewport height - fixes Chrome UI issues */
+    overflow: visible;
+    /* Allow sticky header to work - overflow:hidden breaks sticky positioning */
 }
-
