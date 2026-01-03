@@ -26,14 +26,15 @@
 
 .cooking-split-container {
     display: flex;
-    width: auto;
-    /* Changed from 100% to auto to accommodate margins */
+    width: calc(100% - 8px);
+    /* Ensure it fills available width minus margins */
     flex: 1;
     overflow: hidden;
-    padding: 4px 4px 4px 4px;
-    gap: 4px;
+    padding: 0;
+    /* Remove internal padding to maximize space */
+    gap: 1%;
+    /* Use percentage gap */
     margin: 0 4px;
-    /* Added requested margin */
 }
 
 .cooking-chat-panel {
@@ -52,7 +53,8 @@
 
 .cooking-recipe-panel {
     flex: 1;
-    width: 66.667%;
+    width: 64%;
+    /* Adjusted to sum to 99% with chat panel */
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
