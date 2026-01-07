@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Baratie is a React/TypeScript web application that transforms recipe URLs, images, and PDFs into interactive cooking guides using Google's Gemini API. The app features a chat-based interface with multi-stage workflow and intelligent recipe extraction from various sources including YouTube videos with linked recipes.
+Baratie is a React/TypeScript web application that transforms recipe URLs, images, and PDFs into interactive cooking guides using Google's Gemini API (via OpenAI-compatible endpoint). The app features a chat-based interface with multi-stage workflow, intelligent recipe extraction from various sources including YouTube videos, recipe suggestions by ingredients, and nutrition calculation.
 
 ## Running the Application
 
@@ -46,13 +46,13 @@ The app uses a state machine with four stages managed by `RecipeContext`:
 
 1. **capture** - Initial landing page where users input URLs, attach files, or paste links
 2. **preview** - Chat-based interface showing extracted recipe with ability to ask questions or modify
-3. **cooking** - Step-by-step interactive cooking guide
+3. **cooking** - Split-screen layout with chat interface on left and step-by-step cooking guide on right
 4. **complete** - Completion screen after cooking is done
 
 The `Hero.tsx` component conditionally renders different UIs based on `currentStage`:
-- `capture`: Shows hero section with `ChatInput`
+- `capture`: Shows hero section with `ChatInput` (mobile shows unsupported message)
 - `preview`: Shows chat messages with `Message` components and chat-mode `ChatInput`
-- `cooking`: Shows `CookingGuide` component
+- `cooking`: Shows split layout - `ChatInput` + messages on left, `CookingGuide` on right
 - `complete`: Shows completion screen with options to view recipe or start new one
 
 ### State Management (RecipeContext)
@@ -61,63 +61,75 @@ The `Hero.tsx` component conditionally renders different UIs based on `currentSt
 - `attachedFiles`: Array of files to be processed (cleared after extraction)
 - `recipe`: The extracted recipe object (ingredients, instructions, metadata)
 - `currentStage`: Current app stage
-- `messages`: Chat message history (user messages, system responses, recipe previews)
+- `messages`: Chat message history (user messages, system responses, recipe previews, suggestions)
+- `isCalculatingNutrition`: Boolean flag for nutrition loading state
 
 **Key Methods:**
 - `extractRecipe(prompt)`: Main orchestration method that:
-  - Detects if input is a URL, question, or modification request
-  - Routes to appropriate API call (`extractRecipeFromURL`, `modifyRecipe`, `answerQuestion`)
+  - Uses `determineIntent()` to classify input (extract, suggest, question, modify)
+  - Routes to appropriate API call
   - Manages message history and stage transitions
   - Clears attached files after successful extraction
+- `selectSuggestion(recipe)`: Generates full recipe from a suggestion
+- `addFiles(files)` / `removeFile(index)` / `clearFiles()`: File management
+- `setStage(stage)` / `setRecipe(recipe)`: State setters
+- `addMessage(message)` / `clearMessages()`: Message management
 
 ### Recipe Extraction Pipeline
 
 **1. Client-Side (`src/utils/api.ts`):**
-- `extractRecipeFromURL()`: Sends URL to Gemini API
-- `extractRecipeFromFiles()`: Converts files to base64, sends to Gemini API
-- `modifyRecipe()`: Sends current recipe + modification request to Gemini
+- `determineIntent()`: Classifies user input as extract_recipe, suggest_recipes, answer_question, or modify_recipe
+- `extractRecipeFromURL()`: Sends URL to API for processing
+- `extractRecipeFromFiles()`: Converts files to base64, sends to API
+- `extractRecipeFromText()`: Extracts recipe from pasted text
+- `modifyRecipe()`: Sends current recipe + modification request
 - `answerQuestion()`: Asks questions about cooking/recipes
+- `suggestRecipes()`: Gets recipe suggestions based on ingredients/preferences
+- `calculateNutrition()`: Calculates nutritional info for a recipe
+- `generateRecipe()`: Generates full recipe from a title/context
 
-**2. Server-Side (`api/gemini.js`):**
+**2. Server-Side API Endpoints:**
 
-The Gemini serverless function handles multiple input types:
+**`api/openai.js`** - Main API (OpenAI-compatible interface to Gemini):
+- Handles all recipe extraction, modification, suggestions, and Q&A
+- Uses modular agent system for specialized tasks
 
-**URL Processing:**
-- Detects YouTube URLs using regex and extracts video ID
-- For YouTube: Fetches video metadata, scans description for recipe links, attempts to fetch linked recipe sites
-- For regular URLs: Fetches HTML, runs `extractRecipeContent()` to scrape recipe
-- Extracts JSON-LD structured data (Schema.org Recipe) when available
-- Falls back to HTML scraping with intelligent selectors
+**`api/gemini.js`** - Direct Gemini API handler:
+- URL Processing: Detects YouTube URLs, fetches video metadata, scans for recipe links
+- Recipe Parsing: Returns JSON with `{ title, ingredients[], instructions[] }`
+- Filters section headings and instruction-like content from ingredients
 
-**Recipe Parsing:**
-- Gemini returns JSON with `{ title, ingredients[], instructions[] }`
-- **Critical filtering:** Instructions are filtered to remove section headings (e.g., "To Make the Chicken Rice", "Process")
-- Ingredients are aggressively filtered to remove instruction-like content using regex patterns
-- Supports both numbered instructions and bullet points
-- Combines content from multiple recipe sections
+**`api/youtube.js`** - YouTube Data API proxy:
+- Fetches video metadata for recipe extraction
 
-**Important Filters (lines 358-409, 636-687):**
-- Removes lines starting with cooking verbs (add, mix, heat, cook, etc.)
-- Removes lines with multiple action verbs (indicates instruction, not ingredient)
-- Removes very long lines (>120 chars for ingredients)
-- Removes lines with instruction patterns ("till", "until", "mix well", "turn brown", etc.)
-- Filters out section headers ("For Marination:", "Process:", etc.)
+**3. Agent Modules (`api/agents/`):**
+- `imageOCR.js`: Extracts and validates images, identifies ingredients
+- `nutritionCalculation.js`: Calculates nutritional information
+- `sectionDetection.js`: Detects recipe sections from text
+- `youtubeComments.js`: Extracts pinned comments that may contain recipes
 
 ### Recipe Data Structure
 
 ```typescript
 interface Recipe {
   title: string;
-  ingredients: string[] | RecipeSection[];  // Flat array or sections with titles
-  instructions: string[] | RecipeSection[]; // Flat array or sections with titles
+  description?: string;     // Short description for suggestions
+  ingredients: string[] | RecipeSection[];
+  instructions: string[] | RecipeSection[];
   prepTime?: string;
   cookTime?: string;
   nutrition?: NutritionInfo;
   changesDescription?: string;  // Added during modifications
 }
-```
 
-The app supports both flat arrays and sectioned recipes, but serverless functions normalize to flat arrays.
+interface NutritionInfo {
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+}
+```
 
 ### File Processing
 
@@ -131,22 +143,51 @@ The app supports both flat arrays and sectioned recipes, but serverless function
 3. Creates preview URLs for images using `URL.createObjectURL()`
 4. Cleanup: Preview URLs are revoked when files are removed or recipe is extracted
 
+**PDF Export (`src/utils/pdfUtils.ts`):**
+- Uses jsPDF and jspdf-autotable for recipe PDF export
+
 ### Chat System
 
 **Message Types:**
 - `user`: User input with optional attached files
 - `system`: System responses (errors, confirmations, answers)
 - `recipe-preview`: Special message type that renders recipe card with "Start Cooking" button
+- `recipe-suggestion`: Displays multiple recipe suggestions user can choose from
+- `loading`: Shows loading state during API calls
 
-The chat system intelligently detects:
-- **Questions** (starts with question words or ends with ?) → calls `answerQuestion()`
-- **Modifications** (contains keywords like "make", "change", "adjust") → calls `modifyRecipe()`
-- **New recipes** (contains URL or has attached files) → calls `extractRecipeFromURL()` or `extractRecipeFromFiles()`
+The chat system uses `determineIntent()` to intelligently detect:
+- **Recipe extraction** (contains URL or has attached files)
+- **Recipe suggestions** (asking for ideas, what to cook with ingredients)
+- **Questions** (starts with question words or ends with ?)
+- **Modifications** (contains keywords like "make", "change", "adjust")
+
+### Components
+
+**Core Components:**
+- `Hero.tsx`: Main content area, renders different UI per stage
+- `Header.tsx`: Navigation header
+- `ChatInput.tsx`: Multi-purpose input with file attachment support
+- `CookingGuide.tsx`: Interactive step-by-step cooking interface
+- `Message.tsx`: Renders individual chat messages
+
+**Supporting Components:**
+- `AttachedFiles.tsx` / `SentAttachedFiles.tsx`: File attachment display
+- `RecipeSuggestionMessage.tsx`: Displays recipe suggestion cards
+- `LoadingMessage.tsx`: Loading state display
+- `ImageOverlay.tsx`: Full-screen image viewer
+- `TimerPopup.tsx` / `TimerCompleteModal.tsx`: Cooking timer UI
+- `BackgroundBlobs.tsx`: Animated background effects
+- `About.tsx`: About page
+
+**Hooks:**
+- `useTimer.ts`: Timer functionality for cooking steps
 
 ### Vercel Deployment
 
 **Serverless Functions (max 30s execution):**
-- `api/gemini.js`: Handles all recipe extraction, modification, and Q&A
+- `api/openai.js`: Main API endpoint for all operations
+- `api/gemini.js`: Direct Gemini API handler
+- `api/youtube.js`: YouTube data fetching
 - Configured in `vercel.json` with CORS headers and rewrites
 
 **Environment:**
@@ -156,21 +197,24 @@ The chat system intelligently detects:
 
 ## Key Technologies
 
-- **React 18**: UI library
+- **React 18**: UI library with React Router for navigation
 - **TypeScript**: Type safety
 - **Vite**: Build tool and dev server (port 5173)
 - **Framer Motion**: Animations throughout (hero, chat, cooking guide)
 - **Vercel**: Serverless functions for API proxy
 - **Tailwind CSS**: Utility-first styling
 - **Embla Carousel**: Carousel for image previews
+- **jsPDF**: PDF generation for recipe export
+- **Lucide React**: Icon library
+- **Vercel Analytics**: Usage analytics
 
 ## Development Patterns
 
 **When modifying recipe extraction:**
-1. Check both JSON parsing path (lines 350-467) and text fallback path (lines 473-520) in `api/gemini.js`
-2. Update ingredient/instruction filters in both locations
-3. Test with various recipe sources (YouTube, recipe blogs, images)
-4. Check server logs for filtering behavior (console.log statements added)
+1. Check the intent determination in `src/utils/api.ts` `determineIntent()`
+2. Update the appropriate API function (`extractRecipeFromURL`, `extractRecipeFromFiles`, etc.)
+3. Check corresponding handler in `api/openai.js` or `api/gemini.js`
+4. Test with various recipe sources (YouTube, recipe blogs, images, pasted text)
 
 **When adding new features:**
 - Update `RecipeContext` for new state
@@ -180,8 +224,8 @@ The chat system intelligently detects:
 
 **When debugging API issues:**
 - Check Vercel function logs for detailed console output
-- Gemini API responses are logged with first 1000 chars
-- Ingredient/instruction filtering is logged with before/after counts
+- API responses are logged with first 1000 chars
+- Filter behavior is logged with before/after counts
 - Final recipe structure is logged before returning
 
 ## Common Issues
@@ -191,11 +235,16 @@ The chat system intelligently detects:
 - Solution: Use `yarn dev:all` or run `vercel dev` in separate terminal
 
 **Instructions appearing in ingredients:**
-- Check the regex filters in `api/gemini.js` (lines 376-406)
+- Check the regex filters in `api/gemini.js`
 - Gemini may return malformed JSON - filters catch most cases
 - Add new action verbs or patterns to filter lists
 
 **Empty instructions after extraction:**
 - Check if filters are too aggressive (console logs show what's filtered)
 - Section headings may be incorrectly identified as instructions
-- Adjust heading detection patterns (lines 431-440)
+- Adjust heading detection patterns
+
+**Nutrition not loading:**
+- Check `isCalculatingNutrition` state in RecipeContext
+- Verify `calculateNutrition()` API call in `api.ts`
+- Check `nutritionCalculation.js` agent for errors

@@ -234,14 +234,24 @@ export default async function handler(req, res) {
 
         // 1. Validation & Nutrition Logic
         if (action === 'determine_intent') {
-            const systemPrompt = "You are the brain of a recipe app. Determine the user's intent based on their message and context. Choose the most appropriate function to call.\nIf the user asks about an image (what is this?, describe this), use 'answer_question'.\nIf the intent is just general chat or ambiguous, use 'answer_question'.";
+            const systemPrompt = `You are the brain of a recipe app. Determine the user's intent based on their message and context. Choose the most appropriate function to call.
+
+IMPORTANT RULES FOR IMAGES:
+- If user has an image AND asks "what can I cook/make with these?", "recipe ideas?", "suggest something", or similar → use 'suggest_recipes'
+- If user has an image AND asks "what is this?", "identify this", "describe this" → use 'answer_question'
+- If user has an image of ingredients/food AND wants recipe suggestions → use 'suggest_recipes'
+
+For text-only requests:
+- Recipe suggestions, dish ideas, "I have X, what can I make?" → use 'suggest_recipes'
+- General cooking questions, explanations → use 'answer_question'
+- If ambiguous, default to 'answer_question'`;
 
             const tools = [
                 {
                     type: "function",
                     function: {
                         name: "answer_question",
-                        description: "Answer general cooking questions, describe attached food images, explain ingredients, or answer questions about the current recipe. Default to this for chat.",
+                        description: "Answer general cooking questions, identify/describe a food item in an image ('what is this?'), explain ingredients, or answer questions about the current recipe. Use this for identification and Q&A, NOT for recipe suggestions.",
                         parameters: { type: "object", properties: {}, required: [] }
                     }
                 },
@@ -249,7 +259,7 @@ export default async function handler(req, res) {
                     type: "function",
                     function: {
                         name: "suggest_recipes",
-                        description: "Suggest recipes based on ingredients, leftovers, or specific dish requests (e.g., 'I have chicken', 'Give me a biryani recipe').",
+                        description: "Suggest recipes based on ingredients (text OR image), leftovers, or specific dish requests. Use this when user asks 'what can I cook/make with these?', 'recipe ideas', 'suggest something', or shows ingredient photos wanting recipe suggestions.",
                         parameters: { type: "object", properties: {}, required: [] }
                     }
                 },
@@ -456,8 +466,11 @@ export default async function handler(req, res) {
 
         } else if (req.body.suggest) {
             systemPrompt = `You are Baratie, an AI Recipe Manager and Chef. Suggest 4 recipes based on the user's request.
-       Return JSON format: { "suggestions": [{ "title": string, "description": string }] }.
-       Do NOT include ingredients or instructions yet. Just the title and a short 1-sentence description.`;
+
+If the user attached images of ingredients/food, ANALYZE THE IMAGES to identify what ingredients are shown, then suggest recipes that use those ingredients.
+
+Return JSON format: { "suggestions": [{ "title": string, "description": string }] }.
+Do NOT include full ingredients or instructions yet. Just the title and a short 1-sentence description.`;
 
             userMessageContent = `User Request: ${prompt}\nHistory: ${conversationHistory}`;
 
