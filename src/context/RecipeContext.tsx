@@ -315,7 +315,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
           case 'suggest_recipes':
             setMessages(prev => prev.map(msg => msg.type === 'loading' ? { ...msg, text: 'Generating suggestions...' } : msg));
             const { suggestRecipes } = await import('../utils/api');
-            const suggestions = await suggestRecipes(prompt, buildConversationContext());
+            const suggestions = await suggestRecipes(prompt, buildConversationContext(), filesToSend || []);
             setMessages(prev => prev.filter(msg => msg.type !== 'loading'));
 
             if (suggestions.length > 0) {

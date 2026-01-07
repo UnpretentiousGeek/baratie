@@ -272,9 +272,15 @@ export async function modifyRecipe(
 
 export async function suggestRecipes(
   prompt: string,
-  conversationHistory: string = ''
+  conversationHistory: string = '',
+  files: AttachedFile[] = []
 ): Promise<Recipe[]> {
   try {
+    // Prepare file data for the API
+    const filesData = files.length > 0
+      ? files.map(f => ({ data: f.data, mimeType: f.type }))
+      : undefined;
+
     const response = await fetch(GEMINI_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -282,6 +288,7 @@ export async function suggestRecipes(
         prompt,
         suggest: true,
         conversationHistory,
+        filesData,
       }),
     });
 
