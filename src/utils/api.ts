@@ -276,9 +276,15 @@ export async function suggestRecipes(
   files: AttachedFile[] = []
 ): Promise<Recipe[]> {
   try {
-    // Prepare file data for the API
+    // Prepare file data for the API (strip data URI prefix if present)
     const filesData = files.length > 0
-      ? files.map(f => ({ data: f.data, mimeType: f.type }))
+      ? files.map(f => {
+        let base64Data = f.data;
+        if (base64Data.includes(',')) {
+          base64Data = base64Data.split(',')[1];
+        }
+        return { data: base64Data, mimeType: f.type };
+      })
       : undefined;
 
     const response = await fetch(GEMINI_API_ENDPOINT, {

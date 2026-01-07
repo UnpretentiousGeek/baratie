@@ -382,16 +382,177 @@ For text-only requests:
             if (youtubeMatch) {
                 const videoId = youtubeMatch[1];
                 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
-                if (youtubeApiKey) {
+
+                if (!youtubeApiKey) {
+                    return res.status(400).json({
+                        error: 'YouTube API key not configured. Cannot extract recipe from YouTube videos.'
+                    });
+                }
+
+                try {
+                    console.log('Detected YouTube video ID:', videoId);
+
+                    // Fetch video metadata
+                    const ytResp = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${youtubeApiKey}&part=snippet`);
+
+                    if (!ytResp.ok) {
+                        const errText = await ytResp.text();
+                        return res.status(400).json({
+                            error: `YouTube API error: ${ytResp.status}`,
+                            details: errText.substring(0, 200)
+                        });
+                    }
+
+                    const ytData = await ytResp.json();
+
+                    if (!ytData.items || ytData.items.length === 0) {
+                        return res.status(404).json({
+                            error: 'Video not found',
+                            details: 'The YouTube video ID could not be found. It may be private, deleted, or invalid.'
+                        });
+                    }
+
+                    const snippet = ytData.items[0].snippet;
+                    const videoTitle = snippet.title || 'Unknown Title';
+                    const videoDescription = snippet.description || '';
+
+                    console.log('YouTube video title:', videoTitle);
+
+                    // Step 1: Validate if video is cooking-related
                     try {
-                        const ytResp = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${youtubeApiKey}&part=snippet`);
-                        const ytData = await ytResp.json();
-                        if (ytData.items && ytData.items.length > 0) {
-                            const snippet = ytData.items[0].snippet;
-                            extractedContext = `YouTube Video Title: ${snippet.title}\nDescription: ${snippet.description}`;
-                            finalPrompt = `Extract recipe from this YouTube info. ${extractedContext}\n\n${prompt}`;
+                        const validationResp = await callOpenAI(
+                            `Is this video title about cooking, recipes, or food? Title: "${videoTitle}"`,
+                            'Respond with JSON: { "isCooking": boolean }',
+                            apiKey, model, true
+                        );
+                        const validation = JSON.parse(validationResp);
+                        if (!validation.isCooking) {
+                            return res.status(400).json({
+                                error: 'This YouTube video does not appear to be cooking or recipe-related.',
+                                details: 'Please provide a link to a cooking video.'
+                            });
                         }
-                    } catch (e) { console.error('YouTube fetch failed', e); }
+                    } catch (e) {
+                        console.warn('Validation failed, allowing through:', e.message);
+                    }
+
+                    let recipeFound = false;
+
+                    // Step 2: Check if description contains recipe structure
+                    if (videoDescription && videoDescription.length > 50) {
+                        const hasIngredients = /ingredients?:|what you need|shopping list/i.test(videoDescription);
+                        const hasInstructions = /instructions?:|directions?:|steps?:|process:|how to make|method/i.test(videoDescription);
+                        const hasLists = /[•\-\*]/.test(videoDescription);
+
+                        if (hasIngredients || hasInstructions || hasLists) {
+                            console.log('Recipe likely in description');
+                            extractedContext = `YouTube Video: ${videoTitle}\n\nDescription with recipe:\n${videoDescription}`;
+                            finalPrompt = `Extract the recipe from this YouTube video description:\n\n${extractedContext}\n\n${prompt}`;
+                            recipeFound = true;
+                        }
+                    }
+
+                    // Step 3: Check pinned comment if no recipe in description
+                    if (!recipeFound || videoDescription.length < 500) {
+                        console.log('Checking pinned comment for recipe...');
+                        try {
+                            const commentsResp = await fetch(
+                                `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&order=relevance&maxResults=5&key=${youtubeApiKey}`
+                            );
+
+                            if (commentsResp.ok) {
+                                const commentsData = await commentsResp.json();
+
+                                if (commentsData.items && commentsData.items.length > 0) {
+                                    // Look for channel owner's comment (likely pinned)
+                                    for (const item of commentsData.items) {
+                                        const comment = item.snippet?.topLevelComment?.snippet;
+                                        if (!comment || !comment.textDisplay) continue;
+
+                                        const isChannelOwner = comment.authorChannelId?.value === item.snippet.channelId;
+
+                                        if (isChannelOwner && comment.textDisplay.length > 50) {
+                                            const commentText = comment.textDisplay
+                                                .replace(/<[^>]*>/g, '')
+                                                .replace(/&quot;/g, '"')
+                                                .replace(/&amp;/g, '&')
+                                                .replace(/<br\s*\/?>/gi, '\n');
+
+                                            // Check if comment contains recipe
+                                            const hasRecipeStructure = /ingredients?|instructions?|steps?|directions?/i.test(commentText);
+                                            if (hasRecipeStructure) {
+                                                console.log('Found recipe in pinned comment');
+                                                extractedContext = `YouTube Video: ${videoTitle}\n\nPinned Comment with recipe:\n${commentText}`;
+                                                finalPrompt = `Extract the recipe from this pinned comment:\n\n${extractedContext}\n\n${prompt}`;
+                                                recipeFound = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Could not fetch comments:', e.message);
+                        }
+                    }
+
+                    // Step 4: Check for recipe links in description
+                    if (!recipeFound) {
+                        const urlPattern = /(https?:\/\/[^\s\)]+)/g;
+                        const urls = videoDescription.match(urlPattern) || [];
+
+                        const recipeSites = /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|pinchofyum|halfbakedharvest|bbcgoodfood|jamieoliver|marthastewart/i;
+
+                        for (const recipeUrl of urls.slice(0, 3)) {
+                            const cleanUrl = recipeUrl.replace(/[.,;!?]+$/, '');
+                            if (recipeSites.test(cleanUrl)) {
+                                console.log('Found recipe link:', cleanUrl);
+                                try {
+                                    const linkResp = await fetch(cleanUrl, {
+                                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                                    });
+
+                                    if (linkResp.ok) {
+                                        const html = await linkResp.text();
+                                        const content = extractRecipeContent(html);
+
+                                        if (content && content.length > 100) {
+                                            console.log('Extracted recipe from linked site');
+                                            extractedContext = `Recipe from ${cleanUrl}:\n\n${content}`;
+                                            finalPrompt = `Extract the recipe from this linked website:\n\n${extractedContext}\n\n${prompt}`;
+                                            recipeFound = true;
+                                            break;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.warn('Could not fetch recipe link:', e.message);
+                                }
+                            }
+                        }
+                    }
+
+                    // Step 5: Fallback - use description even if no clear recipe structure
+                    if (!recipeFound && videoDescription && videoDescription.length > 100) {
+                        console.log('Using description as fallback');
+                        extractedContext = `YouTube Video: ${videoTitle}\n\nDescription:\n${videoDescription}`;
+                        finalPrompt = `This YouTube video description may contain a recipe. Try to extract it. If no recipe is found, respond with: { "title": "Recipe not found", "ingredients": [], "instructions": [] }\n\n${extractedContext}\n\n${prompt}`;
+                        recipeFound = true;
+                    }
+
+                    // Step 6: No recipe found anywhere
+                    if (!recipeFound) {
+                        return res.status(400).json({
+                            error: 'Recipe not found in this YouTube video.',
+                            details: 'Could not find recipe in video description, pinned comment, or linked websites. The recipe might only be shown in the video itself.'
+                        });
+                    }
+
+                } catch (e) {
+                    console.error('YouTube processing error:', e);
+                    return res.status(500).json({
+                        error: 'Failed to process YouTube video',
+                        details: e.message
+                    });
                 }
             } else {
                 // Generic URL Scraping
@@ -434,7 +595,96 @@ For text-only requests:
             }
         }
 
-        // 3. Construct System Prompt & User Prompt based on Request Type
+        // 3. Image Pre-classification (before constructing prompts)
+        // Classify images to determine: isCooking, isRecipe, or ingredient photo
+        let imageClassification = null;
+        const hasImages = (filesData && filesData.length > 0) || fileData;
+
+        if (hasImages && !url) { // Only classify if we have images and no URL (URL takes priority)
+            const firstFile = filesData && filesData.length > 0 ? filesData[0] : fileData;
+
+            if (firstFile && firstFile.data && firstFile.mimeType) {
+                console.log('Classifying image before processing...');
+
+                try {
+                    // Call OpenAI to classify the image
+                    const classificationResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: `Analyze this image and classify it. Return JSON only:
+{
+  "isCooking": boolean (is this related to cooking, food, or ingredients?),
+  "isRecipe": boolean (does this contain a written recipe with ingredients AND instructions?),
+  "description": string (brief description of what you see)
+}
+
+Examples:
+- Recipe card/book with text → isCooking: true, isRecipe: true
+- Photo of ingredients/food items → isCooking: true, isRecipe: false
+- Random non-food image → isCooking: false, isRecipe: false`
+                                },
+                                {
+                                    role: 'user',
+                                    content: [
+                                        { type: 'text', text: 'Classify this image:' },
+                                        { type: 'image_url', image_url: { url: `data:${firstFile.mimeType};base64,${firstFile.data}` } }
+                                    ]
+                                }
+                            ],
+                            response_format: { type: 'json_object' },
+                            max_tokens: 200
+                        })
+                    });
+
+                    if (classificationResponse.ok) {
+                        const classData = await classificationResponse.json();
+                        const classText = classData.choices[0]?.message?.content;
+                        if (classText) {
+                            imageClassification = JSON.parse(classText);
+                            console.log('Image classification:', imageClassification);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Image classification failed, proceeding anyway:', e.message);
+                }
+
+                // Handle classification results
+                if (imageClassification) {
+                    // Reject non-cooking images
+                    if (!imageClassification.isCooking) {
+                        return res.status(400).json({
+                            error: 'This image does not appear to be related to cooking or food.',
+                            details: imageClassification.description || 'Please provide an image of a recipe, food, or ingredients.'
+                        });
+                    }
+
+                    // If it's an ingredient photo (not a recipe), and user is asking about it
+                    // Route to ingredient identification
+                    if (imageClassification.isCooking && !imageClassification.isRecipe) {
+                        const isAskingAboutImage = /what is this|what are these|identify|describe/i.test(prompt || '');
+
+                        if (isAskingAboutImage && !req.body.suggest) {
+                            console.log('Ingredient identification request detected');
+                            // Return ingredient description directly
+                            return res.status(200).json({
+                                answer: imageClassification.description || 'This appears to be a food item or ingredient.',
+                                isIngredientIdentification: true
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Construct System Prompt & User Prompt based on Request Type
         let systemPrompt = "You are Baratie, an AI Recipe Manager. You are helpful, friendly, and expert at parsing and organizing recipes.";
         let userMessageContent = finalPrompt;
         let messages = [];
