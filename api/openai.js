@@ -496,38 +496,76 @@ For text-only requests:
                         }
                     }
 
-                    // Step 4: Check for recipe links in description
-                    if (!recipeFound) {
-                        const urlPattern = /(https?:\/\/[^\s\)]+)/g;
-                        const urls = videoDescription.match(urlPattern) || [];
+                    // Step 4: Check for recipe links in description (ALWAYS check, even if description has some structure)
+                    // Many creators link to their website with the full recipe
+                    const urlPattern = /(https?:\/\/[^\s\)\]]+)/g;
+                    const allUrls = videoDescription.match(urlPattern) || [];
 
-                        const recipeSites = /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|pinchofyum|halfbakedharvest|bbcgoodfood|jamieoliver|marthastewart/i;
+                    console.log('Found URLs in description:', allUrls.length);
 
-                        for (const recipeUrl of urls.slice(0, 3)) {
-                            const cleanUrl = recipeUrl.replace(/[.,;!?]+$/, '');
-                            if (recipeSites.test(cleanUrl)) {
-                                console.log('Found recipe link:', cleanUrl);
-                                try {
-                                    const linkResp = await fetch(cleanUrl, {
-                                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-                                    });
+                    // Known recipe sites get priority
+                    const knownRecipeSites = /justonecookbook|allrecipes|foodnetwork|tasty|seriouseats|bonappetit|epicurious|delish|thekitchn|food52|minimalistbaker|pinchofyum|halfbakedharvest|bbcgoodfood|jamieoliver|marthastewart|budgetbytes|simplyrecipes|skinnytaste|cookieandkate|loveandlemons|hostthetoast|recipetineats|therecipecritic/i;
 
-                                    if (linkResp.ok) {
-                                        const html = await linkResp.text();
-                                        const content = extractRecipeContent(html);
+                    // Exclude non-recipe URLs
+                    const excludePatterns = /youtube\.com|youtu\.be|instagram\.com|twitter\.com|facebook\.com|tiktok\.com|patreon\.com|amazon\.com|amzn\.to|bit\.ly|linktr\.ee|discord\.com|twitch\.tv|spotify\.com|apple\.com|google\.com|goo\.gl/i;
 
-                                        if (content && content.length > 100) {
-                                            console.log('Extracted recipe from linked site');
-                                            extractedContext = `Recipe from ${cleanUrl}:\n\n${content}`;
-                                            finalPrompt = `Extract the recipe from this linked website:\n\n${extractedContext}\n\n${prompt}`;
-                                            recipeFound = true;
-                                            break;
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.warn('Could not fetch recipe link:', e.message);
+                    // Separate into priority (known recipe sites) and other URLs
+                    const priorityUrls = [];
+                    const otherUrls = [];
+
+                    for (const rawUrl of allUrls) {
+                        const cleanUrl = rawUrl.replace(/[.,;!?\]\)]+$/, '');
+
+                        if (excludePatterns.test(cleanUrl)) {
+                            continue; // Skip social media and non-recipe links
+                        }
+
+                        if (knownRecipeSites.test(cleanUrl)) {
+                            priorityUrls.push(cleanUrl);
+                        } else {
+                            otherUrls.push(cleanUrl);
+                        }
+                    }
+
+                    // Try priority URLs first, then other URLs
+                    const urlsToTry = [...priorityUrls, ...otherUrls].slice(0, 5);
+
+                    console.log('URLs to try for recipe:', urlsToTry);
+
+                    for (const recipeUrl of urlsToTry) {
+                        console.log('Trying to fetch recipe from:', recipeUrl);
+                        try {
+                            const linkResp = await fetch(recipeUrl, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                    'Accept-Language': 'en-US,en;q=0.5'
+                                },
+                                redirect: 'follow'
+                            });
+
+                            if (linkResp.ok) {
+                                const html = await linkResp.text();
+                                const content = extractRecipeContent(html);
+
+                                // Check if content looks like a recipe (has ingredients or instructions keywords)
+                                const looksLikeRecipe = content && content.length > 200 &&
+                                    (/ingredients?/i.test(content) || /instructions?|directions?|steps?/i.test(content));
+
+                                if (looksLikeRecipe) {
+                                    console.log('Successfully extracted recipe from:', recipeUrl);
+                                    extractedContext = `Recipe from ${recipeUrl}:\n\n${content}`;
+                                    finalPrompt = `Extract the recipe from this linked website. Include exact quantities for ingredients:\n\n${extractedContext}\n\n${prompt}`;
+                                    recipeFound = true;
+                                    break;
+                                } else {
+                                    console.log('Content from URL does not look like a recipe, trying next...');
                                 }
+                            } else {
+                                console.log('Failed to fetch URL:', recipeUrl, 'Status:', linkResp.status);
                             }
+                        } catch (e) {
+                            console.warn('Could not fetch recipe link:', recipeUrl, e.message);
                         }
                     }
 
