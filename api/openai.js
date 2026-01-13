@@ -242,9 +242,10 @@ IMPORTANT RULES FOR IMAGES:
 - If user has an image of ingredients/food AND wants recipe suggestions → use 'suggest_recipes'
 
 For text-only requests:
+- Recipe requests like "give me a X recipe", "make me X", "I want to cook X", "recipe for X" → use 'suggest_recipes'  
 - Recipe suggestions, dish ideas, "I have X, what can I make?" → use 'suggest_recipes'
-- General cooking questions, explanations → use 'answer_question'
-- If ambiguous, default to 'answer_question'`;
+- General cooking questions, explanations, "how do I...", "what is..." → use 'answer_question'
+- If ambiguous, prefer 'suggest_recipes' for anything that sounds like wanting a recipe`;
 
             const tools = [
                 {
@@ -259,7 +260,7 @@ For text-only requests:
                     type: "function",
                     function: {
                         name: "suggest_recipes",
-                        description: "Suggest recipes based on ingredients (text OR image), leftovers, or specific dish requests. Use this when user asks 'what can I cook/make with these?', 'recipe ideas', 'suggest something', or shows ingredient photos wanting recipe suggestions.",
+                        description: "Suggest recipes based on ingredients (text OR image), leftovers, specific dish requests, or when user asks for a recipe by name. Use this when user asks 'what can I cook/make with these?', 'recipe ideas', 'suggest something', 'give me a X recipe', 'make me X', 'I want to cook X', or shows ingredient photos wanting recipe suggestions. This is the PRIMARY action for any request that wants recipe suggestions or a recipe for a specific dish.",
                         parameters: { type: "object", properties: {}, required: [] }
                     }
                 },
